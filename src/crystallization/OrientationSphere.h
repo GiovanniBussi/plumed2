@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -22,33 +22,30 @@
 #ifndef __PLUMED_crystallization_OrientationSphere_h
 #define __PLUMED_crystallization_OrientationSphere_h
 
-#include "multicolvar/MultiColvarFunction.h"
+#include "multicolvar/MultiColvarBase.h"
+#include "multicolvar/AtomValuePack.h"
 #include "tools/SwitchingFunction.h"
-
-#include <string>
-#include <cmath> 
 
 namespace PLMD {
 namespace crystallization {
 
-class OrientationSphere : public multicolvar::MultiColvarFunction {
+class OrientationSphere : public multicolvar::MultiColvarBase {
 private:
-  std::vector<double> catom_orient, catom_der, this_orient;
-  std::vector<double> catom_iorient, catom_ider, this_iorient;
+  double rcut2;
   SwitchingFunction switchingFunction;
 public:
   static void registerKeywords( Keywords& keys );
-  OrientationSphere(const ActionOptions&);
-  double compute();
-  void calculateWeight();
-  virtual double transformDotProduct( const double& dot, double& df );
-  Vector getCentralAtom();  
-  bool isPeriodic(){ return false; }
+  explicit OrientationSphere(const ActionOptions&);
+  double compute( const unsigned& tindex, multicolvar::AtomValuePack& myatoms ) const ;
+  virtual double computeVectorFunction( const Vector& conn, const std::vector<double>& vec1, const std::vector<double>& vec2,
+                                        Vector& dconn, std::vector<double>& dvec1, std::vector<double>& dvec2 ) const = 0;
+  virtual double calculateCoordinationPrefactor( const double& coord, double& df ) const ;
+  bool isPeriodic() { return false; }
 };
 
 inline
-double OrientationSphere::transformDotProduct( const double& dot, double& df ){
-  df=1.0; return dot;
+double OrientationSphere::calculateCoordinationPrefactor( const double& coord, double& df ) const {
+  df=0.0; return 1.0;
 }
 
 }

@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2014 The plumed team
+   Copyright (c) 2011-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -23,8 +23,15 @@
 #define __PLUMED_tools_Vector_h
 
 #include <cmath>
+#include <iosfwd>
+#include "LoopUnroller.h"
 
-namespace PLMD{
+#ifdef _GLIBCXX_DEBUG
+#include "Exception.h"
+#endif
+
+
+namespace PLMD {
 
 /**
 \ingroup TOOLBOX
@@ -37,7 +44,8 @@ compile time. It is useful for small fixed size objects (e.g.
 3d vectors) as it does not waste space to store the vector size.
 Moreover, as the compiler knows the size, it can be completely
 opimized inline.
-All the methods are inlined for better optimization.
+All the methods are inlined for better optimization and
+all the loops are explicitly unrolled using PLMD::LoopUnroller class.
 Vector elements are initialized to zero by default. Notice that
 this means that constructor is a bit slow. This point might change
 in future if we find performance issues.
@@ -70,8 +78,9 @@ int main(){
 
 */
 
+
 template <unsigned n>
-class VectorGeneric{
+class VectorGeneric {
   double d[n];
 public:
 /// Create it with preassigned components.
@@ -138,18 +147,22 @@ public:
 /// friend version of modulo (to simplify some syntax)
   template<unsigned m>
   friend double modulo(const VectorGeneric<m>&);
+/// << operator.
+/// Allows printing vector `v` with `std::cout<<v;`
+  template<unsigned m>
+  friend std::ostream & operator<<(std::ostream &os, const VectorGeneric<m>&);
 };
 
 template<>
 inline
-VectorGeneric<2>:: VectorGeneric(double x0,double x1){
+VectorGeneric<2>:: VectorGeneric(double x0,double x1) {
   d[0]=x0;
   d[1]=x1;
 }
 
 template<>
 inline
-VectorGeneric<3>:: VectorGeneric(double x0,double x1,double x2){
+VectorGeneric<3>:: VectorGeneric(double x0,double x1,double x2) {
   d[0]=x0;
   d[1]=x1;
   d[2]=x2;
@@ -157,7 +170,7 @@ VectorGeneric<3>:: VectorGeneric(double x0,double x1,double x2){
 
 template<>
 inline
-VectorGeneric<4>:: VectorGeneric(double x0,double x1,double x2,double x3){
+VectorGeneric<4>:: VectorGeneric(double x0,double x1,double x2,double x3) {
   d[0]=x0;
   d[1]=x1;
   d[2]=x2;
@@ -165,175 +178,154 @@ VectorGeneric<4>:: VectorGeneric(double x0,double x1,double x2,double x3){
 }
 
 template <unsigned n>
-VectorGeneric<n>::VectorGeneric(){
-  for(unsigned i=0;i<n;i++) d[i]=0.0;
+void VectorGeneric<n>::zero() {
+  LoopUnroller<n>::_zero(d);
 }
 
 template <unsigned n>
-void VectorGeneric<n>::zero(){
-  for(unsigned i=0;i<n;i++) d[i]=0.0;
+VectorGeneric<n>::VectorGeneric() {
+  LoopUnroller<n>::_zero(d);
 }
 
 template <unsigned n>
-double & VectorGeneric<n>::operator[](unsigned i){
+double & VectorGeneric<n>::operator[](unsigned i) {
+#ifdef _GLIBCXX_DEBUG
+  plumed_assert(i<n);
+#endif
   return d[i];
 }
 
 template <unsigned n>
-const double & VectorGeneric<n>::operator[](unsigned i)const{
+const double & VectorGeneric<n>::operator[](unsigned i)const {
+#ifdef _GLIBCXX_DEBUG
+  plumed_assert(i<n);
+#endif
   return d[i];
 }
 
 template <unsigned n>
-double & VectorGeneric<n>::operator()(unsigned i){
+double & VectorGeneric<n>::operator()(unsigned i) {
+#ifdef _GLIBCXX_DEBUG
+  plumed_assert(i<n);
+#endif
   return d[i];
 }
 
 template <unsigned n>
-const double & VectorGeneric<n>::operator()(unsigned i)const{
+const double & VectorGeneric<n>::operator()(unsigned i)const {
+#ifdef _GLIBCXX_DEBUG
+  plumed_assert(i<n);
+#endif
   return d[i];
 }
 
 template <unsigned n>
-VectorGeneric<n>& VectorGeneric<n>::operator +=(const VectorGeneric<n>& b){
-  for(unsigned i=0;i<n;i++) d[i]+=b.d[i];
+VectorGeneric<n>& VectorGeneric<n>::operator +=(const VectorGeneric<n>& b) {
+  LoopUnroller<n>::_add(d,b.d);
   return *this;
 }
 
 template <unsigned n>
-VectorGeneric<n>& VectorGeneric<n>::operator -=(const VectorGeneric<n>& b){
-  for(unsigned i=0;i<n;i++) d[i]-=b.d[i];
+VectorGeneric<n>& VectorGeneric<n>::operator -=(const VectorGeneric<n>& b) {
+  LoopUnroller<n>::_sub(d,b.d);
   return *this;
 }
 
 template <unsigned n>
-VectorGeneric<n>& VectorGeneric<n>::operator *=(double s){
-  for(unsigned i=0;i<n;i++) d[i]*=s;
+VectorGeneric<n>& VectorGeneric<n>::operator *=(double s) {
+  LoopUnroller<n>::_mul(d,s);
   return *this;
 }
 
 template <unsigned n>
-VectorGeneric<n>& VectorGeneric<n>::operator /=(double s){
-  double x=1.0/s;
-  return (*this)*=x;
-}
-
-template <unsigned n>
-VectorGeneric<n>  VectorGeneric<n>::operator +()const{
+VectorGeneric<n>& VectorGeneric<n>::operator /=(double s) {
+  LoopUnroller<n>::_mul(d,1.0/s);
   return *this;
 }
 
 template <unsigned n>
-VectorGeneric<n> VectorGeneric<n>::operator -()const{
+VectorGeneric<n>  VectorGeneric<n>::operator +()const {
+  return *this;
+}
+
+template <unsigned n>
+VectorGeneric<n> VectorGeneric<n>::operator -()const {
   VectorGeneric<n> r;
-  for(unsigned i=0;i<n;i++) r[i]=-d[i];
+  LoopUnroller<n>::_neg(r.d,d);
   return r;
 }
 
 template <unsigned n>
-VectorGeneric<n> operator+(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2){
+VectorGeneric<n> operator+(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2) {
   VectorGeneric<n> v(v1);
   return v+=v2;
 }
 
 template <unsigned n>
-VectorGeneric<n> operator-(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2){
+VectorGeneric<n> operator-(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2) {
   VectorGeneric<n> v(v1);
   return v-=v2;
 }
 
 template <unsigned n>
-VectorGeneric<n> operator*(double s,const VectorGeneric<n>&v){
+VectorGeneric<n> operator*(double s,const VectorGeneric<n>&v) {
   VectorGeneric<n> vv(v);
   return vv*=s;
 }
 
 template <unsigned n>
-VectorGeneric<n> operator*(const VectorGeneric<n>&v,double s){
+VectorGeneric<n> operator*(const VectorGeneric<n>&v,double s) {
   return s*v;
 }
 
 template <unsigned n>
-VectorGeneric<n> operator/(const VectorGeneric<n>&v,double s){
+VectorGeneric<n> operator/(const VectorGeneric<n>&v,double s) {
   return v*(1.0/s);
 }
 
 template <unsigned n>
-VectorGeneric<n> delta(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2){
+VectorGeneric<n> delta(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2) {
   return v2-v1;
 }
 
 template <unsigned n>
-double VectorGeneric<n>::modulo2()const{
-  double r=0.0;
-  for(unsigned i=0;i<n;i++) r+=d[i]*d[i];
-  return r;
+double VectorGeneric<n>::modulo2()const {
+  return LoopUnroller<n>::_sum2(d);
 }
 
 template <unsigned n>
-double dotProduct(const VectorGeneric<n>& v1,const VectorGeneric<n>& v2){
-  double r=0.0;
-  for(unsigned i=0;i<n;i++) r+=v1[i]*v2[i];
-  return r;
-}
-
-// faster, specialized version for 2d
-inline
-double dotProduct(const VectorGeneric<2>& v1,const VectorGeneric<2>& v2){
-  return v1[0]*v2[0]+v1[1]*v2[1];
-}
-
-template<>
-inline
-double VectorGeneric<2>::modulo2()const{
-  return d[0]*d[0]+d[1]*d[1];
-}
-
-// faster, specialized version for 3d
-inline
-double dotProduct(const VectorGeneric<3>& v1,const VectorGeneric<3>& v2){
-  return v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2];
-}
-
-template<>
-inline
-double VectorGeneric<3>::modulo2()const{
-  return d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
-}
-
-// faster, specialized version for 4d
-inline
-double dotProduct(const VectorGeneric<4>& v1,const VectorGeneric<4>& v2){
-  return v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2]+v1[3]*v2[3];
-}
-
-template<>
-inline
-double VectorGeneric<4>::modulo2()const{
-  return d[0]*d[0]+d[1]*d[1]+d[2]*d[2]+d[3]*d[3];
+double dotProduct(const VectorGeneric<n>& v1,const VectorGeneric<n>& v2) {
+  return LoopUnroller<n>::_dot(v1.d,v2.d);
 }
 
 inline
-VectorGeneric<3> crossProduct(const VectorGeneric<3>& v1,const VectorGeneric<3>& v2){
- return VectorGeneric<3>(
-   v1[1]*v2[2]-v1[2]*v2[1],
-   v1[2]*v2[0]-v1[0]*v2[2],
-   v1[0]*v2[1]-v1[1]*v2[0]);
+VectorGeneric<3> crossProduct(const VectorGeneric<3>& v1,const VectorGeneric<3>& v2) {
+  return VectorGeneric<3>(
+           v1[1]*v2[2]-v1[2]*v2[1],
+           v1[2]*v2[0]-v1[0]*v2[2],
+           v1[0]*v2[1]-v1[1]*v2[0]);
 }
 
 template<unsigned n>
-double VectorGeneric<n>::modulo()const{
+double VectorGeneric<n>::modulo()const {
   return sqrt(modulo2());
 }
 
 template<unsigned n>
-double modulo2(const VectorGeneric<n>&v){
+double modulo2(const VectorGeneric<n>&v) {
   return v.modulo2();
 }
 
 template<unsigned n>
-double modulo(const VectorGeneric<n>&v){
+double modulo(const VectorGeneric<n>&v) {
   return v.modulo();
+}
+
+template<unsigned n>
+std::ostream & operator<<(std::ostream &os, const VectorGeneric<n>& v) {
+  for(unsigned i=0; i<n-1; i++) os<<v(i)<<" ";
+  os<<v(n-1);
+  return os;
 }
 
 

@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013,2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -35,35 +35,29 @@ namespace secondarystructure {
 
 /// Base action for calculating things like AlphRMSD, AntibetaRMSD, etc
 
-class SecondaryStructureRMSD : 
+class SecondaryStructureRMSD :
   public ActionAtomistic,
   public ActionWithValue,
   public vesselbase::ActionWithVessel
 {
 private:
-/// Tempory integer to say which refernce configuration is the closest
-  unsigned closest;
 /// The type of rmsd we are calculating
   std::string alignType;
 /// List of all the atoms we require
-  DynamicList<AtomNumber> all_atoms;
+  std::vector<AtomNumber> all_atoms;
 /// The atoms involved in each of the secondary structure segments
   std::vector< std::vector<unsigned> > colvar_atoms;
 /// The list of reference configurations
   std::vector<SingleDomainRMSD*> references;
-/// Everything for controlling the updating of neighbor lists
-  int updateFreq;
-  bool firsttime;
 /// Variables for strands cutoff
   bool align_strands;
-  double s_cutoff;
+  double s_cutoff2;
   unsigned align_atom_1, align_atom_2;
   bool verbose_output;
 /// Tempory variables for getting positions of atoms and applying forces
-  std::vector<Vector> pos;
   std::vector<double> forcesToApply;
 /// Get the index of an atom
-  unsigned getAtomIndex( const unsigned& iatom );
+  unsigned getAtomIndex( const unsigned& current, const unsigned& iatom ) const ;
 protected:
 /// Get the atoms in the backbone
   void readBackboneAtoms( const std::string& backnames, std::vector<unsigned>& chain_lengths );
@@ -75,34 +69,37 @@ protected:
   void setAtomsFromStrands( const unsigned& atom1, const unsigned& atom2 );
 public:
   static void registerKeywords( Keywords& keys );
-  SecondaryStructureRMSD(const ActionOptions&);
+  explicit SecondaryStructureRMSD(const ActionOptions&);
   virtual ~SecondaryStructureRMSD();
   unsigned getNumberOfFunctionsInAction();
   unsigned getNumberOfDerivatives();
+  unsigned getNumberOfQuantities() const ;
   void turnOnDerivatives();
-  void prepare();
-  void finishTaskListUpdate();
   void calculate();
-  void performTask();
-  void clearDerivativesAfterTask( const unsigned& );
+  void performTask( const unsigned&, const unsigned&, MultiValue& ) const ;
   void apply();
-  void mergeDerivatives( const unsigned& , const double& );
-  bool isPeriodic(){ return false; }
+  bool isPeriodic() { return false; }
 };
 
 inline
-unsigned SecondaryStructureRMSD::getNumberOfFunctionsInAction(){
+unsigned SecondaryStructureRMSD::getNumberOfQuantities() const {
+  return 1 + references.size();
+}
+
+
+inline
+unsigned SecondaryStructureRMSD::getNumberOfFunctionsInAction() {
   return colvar_atoms.size();
 }
 
 inline
-unsigned SecondaryStructureRMSD::getNumberOfDerivatives(){
+unsigned SecondaryStructureRMSD::getNumberOfDerivatives() {
   return 3*getNumberOfAtoms()+9;
 }
 
 inline
-unsigned SecondaryStructureRMSD::getAtomIndex( const unsigned& iatom ){
-  return all_atoms.linkIndex( colvar_atoms[getCurrentTask()][iatom] );
+unsigned SecondaryStructureRMSD::getAtomIndex( const unsigned& current, const unsigned& iatom ) const {
+  return colvar_atoms[current][iatom];
 }
 
 }

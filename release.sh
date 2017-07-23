@@ -17,6 +17,22 @@ confirm () {
     esac
 }
 
+update_changelog() {
+  echo $1 $2 $3
+  awk -v version="$2" -v shortversion="$3" -v date="$4" '{
+    if(version == shortversion ".0" && $1=="Version" && $2==shortversion){
+      print "Version " shortversion " (" date ")"
+      done=1
+    } else if($1=="Version" && $2==version){
+      print "Version " version " (" date ")"
+      done=1
+    } else if(!done && $1=="Unreleased" && $2=="changes"){
+      print "Version " version " (" date ")"
+    } else print
+  }' $1 > $1.tmp
+  mv $1.tmp $1
+}
+
 VALIDATED=
 if [ "$1" = --validated ] ; then
   VALIDATED=yes
@@ -27,15 +43,38 @@ elif test -n "$1" ; then
 fi
 
 
-echo "*** Only use this script if you want to release a new PLUMED version ***"
-echo "*** follow instructions below ***"
+echo "*** Only use this script if you want to release a new PLUMED version. ***"
+echo "*** Follow instructions below, and use Control-C to exit. ***"
 
-ls src README 1>/dev/null 2>/dev/null ||  {
+ls src README.md 1>/dev/null 2>/dev/null ||  {
   echo "Launch from root directory"
   exit 1
 }
 
-read -r -p "Type the version number (e.g. 2.1.3 or 2.2b): " version
+# Guess version number:
+branch="$(git status | grep "On branch" | awk '{print $3}')"
+for((i=0;;i++))
+do
+  guess="${branch#v}.$i"
+  if ! git tag | grep -q "^v${guess//./\\.}$" ; then
+    echo "Guessed next version: ${guess}"
+    break;
+  fi
+done
+
+case "$branch" in
+(v2.?*)
+  read -r -p "Type the version number (default: ${guess}): " version
+  case "$version" in
+  ("")
+    version="$guess"
+  esac
+  ;;
+(*)
+  read -r -p "Type the version number (e.g. 2.1.3 or 2.2b): " version
+  ;;
+esac
+
 
 case "$version" in
 (2.?*)
@@ -67,10 +106,12 @@ if test "$(git tag -l | awk '{if($1=="'v$version'")print "yes"}')" == yes ; then
   exit 1
 fi
 
+echo "checking out branch v$shortversion"
+git checkout v$shortversion
+
 set -e
 if ! test "$VALIDATED" ; then
-  echo "checking out branch v$shortversion"
-  git checkout v$shortversion
+  update_changelog CHANGES/v$shortversion.md $version $shortversion "coming soon"
   echo 
   msg="Travis tests for v$version
 
@@ -78,10 +119,12 @@ if ! test "$VALIDATED" ; then
   echo "Now I will add an empty commit and push the result to origin"
   echo "I will use the following commands:"
   echo "***"
+  echo "git add CHANGES/v$shortversion.md"
   echo "git commit --allow-empty -m \"$msg\""
   echo "git push origin v$shortversion"
   echo "***"
   confirm || exit
+  git add CHANGES/v$shortversion.md
   git commit --allow-empty -m "$msg"
   git push origin v$shortversion
   echo
@@ -93,6 +136,7 @@ if ! test "$VALIDATED" ; then
   echo "  http://plumed.github.io/doc-v$shortversion"
   echo "In case of success, relaunch this script as \"./release.sh --validated\""
 else
+  update_changelog CHANGES/v$shortversion.md $version $shortversion "$(date '+%b %e, %Y' | sed 's/  / /g')"
   {
     grep  \# VERSION 
     echo $version
@@ -109,6 +153,7 @@ else
   echo "push it to origin and create a tgz file"
   echo "I will use the following commands:"
   echo "***"
+  echo "git add CHANGES/v$shortversion.md"
   echo "git add VERSION"
   echo "git commit --allow-empty -m \"$msg\""
   echo "git tag v$version"
@@ -116,6 +161,7 @@ else
   echo "git archive -o plumed-$version.tgz --prefix plumed-$version/ v$version"
   echo "***"
   confirm || exit
+  git add CHANGES/v$shortversion.md
   git add VERSION
   git commit --allow-empty -m "$msg"
   git tag v$version
@@ -123,14 +169,43 @@ else
   git archive -o plumed-$version.tgz --prefix plumed-$version/ v$version
   echo
   echo "Done!"
+  echo "Now creating partial tar files"
+  rm -fr plumed-$version
+  tar xzf plumed-$version.tgz
+  tar czf plumed-doc-$version.tgz plumed-$version/*-doc
+  tar czf plumed-test-$version.tgz plumed-$version/regtest
+  rm -fr plumed-$version/*-doc
+  rm -fr plumed-$version/regtest
+  tar czf plumed-src-$version.tgz plumed-$version
+  rm -fr plumed-$version
+  cd macports
+  plumed_repository=https://github.com/plumed/plumed2.git make
+  cd ../
+  echo "**** NOW DO THE FOLLOWING THINGS  ****"
   echo
-  echo "Please upload the file plumed-$version.tgz on the download directory"
-  echo "Remember to notify the mailing list"
+  echo "1. Upload the file plumed-$version.tgz on the download directory"
+  echo
+  echo "2. Make a new github release and upload these files:"
+  echo "plumed-$version.tgz"
+  echo "plumed-doc-$version.tgz"
+  echo "plumed-test-$version.tgz"
+  echo "plumed-src-$version.tgz"
+  echo
+  echo "3. Update Portfile"
+  echo "In directory macports/science/plumed you can find a Portfile for this release"
+  echo "Please inspect it manually and add it to the ports repository"
+  echo "Here are the corresponding checksums"
+  echo -n "checksums "
+# this list can be extended in case we want to compute checksums for multiple
+# files. so far it only does plumed-src
+  for file in plumed-src
+  do
+    echo " \\"
+    echo "  $file-\${version}.tgz \\"
+    echo "          sha256 $(openssl dgst -sha256 $file-$version.tgz |awk '{print $NF}') \\"
+    echo "          rmd160 $(openssl dgst -rmd160 $file-$version.tgz |awk '{print $NF}')"
+  done
+  echo
+  echo "4. Notify the mailing list"
 fi
-
-
-
-
-
-
 

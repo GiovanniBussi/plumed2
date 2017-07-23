@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2012-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -22,14 +22,8 @@
 #ifndef __PLUMED_multicolvar_ActionVolume_h
 #define __PLUMED_multicolvar_ActionVolume_h
 
-#include "core/ActionAtomistic.h"
 #include "tools/HistogramBead.h"
-#include "tools/Pbc.h"
-#include "core/ActionWithValue.h"
-#include "vesselbase/ActionWithVessel.h"
-#include "vesselbase/ActionWithInputVessel.h"
-#include "vesselbase/BridgeVessel.h"
-#include "MultiColvarBase.h"
+#include "VolumeGradientBase.h"
 
 namespace PLMD {
 namespace multicolvar {
@@ -37,125 +31,41 @@ namespace multicolvar {
 /**
 \ingroup INHERIT
 This is the abstract base class to use for implementing a new way of definining a particular region of the simulation
-box. You can use this to calculate the number of atoms inside that part or the average value of a quantity like the 
-coordination number inside that part of the cell. 
+box. You can use this to calculate the number of atoms inside that part or the average value of a quantity like the
+coordination number inside that part of the cell.
 */
 
-class ActionVolume :
-  public ActionAtomistic,
-  public ActionWithValue,
-  public vesselbase::ActionWithVessel,
-  public vesselbase::ActionWithInputVessel
-  {
-friend class MultiColvarBase;   
+class ActionVolume : public VolumeGradientBase {
 private:
+/// Number of quantities in use in this colvar
+  unsigned nquantities;
 /// The value of sigma
   double sigma;
 /// Are we interested in the area outside the colvar
   bool not_in;
-/// This is used for storing positions properly
-  Vector tmp_p;
-/// The bead for the histogram
-  HistogramBead bead;
-/// The action that is calculating the colvars of interest
-  MultiColvarBase* mycolv;
-/// The vessel that bridges
-  vesselbase::BridgeVessel* myBridgeVessel;
-/// Everything for controlling the updating of neighbor lists
-  bool firsttime;
-  int updateFreq;
-/// Fast merging of derivatives (automatic skips of zero contributions)
-  DynamicList<unsigned> activeAtoms;
-/// This is used to store forces temporarily in apply
-  std::vector<double> tmpforces;
+/// The kernel type for this histogram
+  std::string kerneltype;
 protected:
   double getSigma() const ;
-/// Get the cell box
-  const Tensor & getBox() const;
-/// Get reference to Pbc
-  const Pbc & getPbc() const;
-/// Calculate distance between two points
-  Vector pbcDistance( const Vector& v1, const Vector& v2) const;
-/// Get position of atom
-  const Vector & getPosition( int iatom );
-/// Request the atoms 
-  void requestAtoms( const std::vector<AtomNumber>& atoms );
-  MultiColvarBase* getPntrToMultiColvar();
-/// Add derivatinve to one of the reference atoms here
-  void addReferenceAtomDerivatives( const unsigned& iatom, const Vector& der );
-/// Add derivatives wrt to the virial
-  void addBoxDerivatives( const Tensor& vir );
+  std::string getKernelType() const ;
 public:
   static void registerKeywords( Keywords& keys );
-  ActionVolume(const ActionOptions&);
-/// Don't actually clear the derivatives when this is called from plumed main.  
-/// They are calculated inside another action and clearing them would be bad  
-  void clearDerivatives(){}
-// This is used during neighbor list update step
-  void finishTaskListUpdate();
+  explicit ActionVolume(const ActionOptions&);
 /// Get the number of quantities that are calculated each time
-  virtual unsigned getNumberOfQuantities();
-/// Get the number of derivatives for this action
-  unsigned getNumberOfDerivatives();  // N.B. This is replacing the virtual function in ActionWithValue
-/// Turn on the derivatives
-  void turnOnDerivatives();
-/// Is the output quantity periodic
-  bool isPeriodic();
-/// Jobs to be done when the action is activated
-  void prepare();
-/// Do jobs required before tasks are undertaken
-  void doJobsRequiredBeforeTaskList();
-/// This calculates all the vessels and is called from within a bridge vessel
-  void performTask();
-/// Routines that have to be defined so as not to have problems with virtual methods 
-  void deactivate_task();
-  void calculate(){}
-/// We need our own calculate numerical derivatives here
-  void calculateNumericalDerivatives( ActionWithValue* a=NULL );
-  virtual void setupRegion()=0;
-  virtual double calculateNumberInside( const Vector& cpos, HistogramBead& bead, Vector& derivatives )=0;
-/// Forces here are applied through the bridge
-  void applyBridgeForces( const std::vector<double>& bb );
-  void apply(){};
-/// These routines replace the virtual routines in ActionWithVessel for 
-/// code optimization
-  void mergeDerivatives( const unsigned& ider, const double& df );
-  void clearDerivativesAfterTask( const unsigned& ider );
+  virtual unsigned getNumberOfQuantities() const ;
+/// Calculate whats in the volume
+  void calculateAllVolumes( const unsigned& curr, MultiValue& outvals ) const ;
+/// This calculates whether or not a particular is inside the box of interest
+/// this is used for neighbour list with volumes
+  bool inVolumeOfInterest( const unsigned& curr ) const ;
+  virtual double calculateNumberInside( const Vector& cpos, Vector& derivatives, Tensor& vir, std::vector<Vector>& refders ) const=0;
+  unsigned getCentralAtomElementIndex();
 };
 
 inline
-unsigned ActionVolume::getNumberOfQuantities(){
-  return mycolv->getNumberOfQuantities();
-} 
-
-inline
-const Tensor & ActionVolume::getBox()const{
-  return mycolv->getBox();
-} 
-
-inline
-const Pbc & ActionVolume::getPbc() const {
- return mycolv->getPbc();
+unsigned ActionVolume::getNumberOfQuantities() const {
+  return nquantities;
 }
-
-inline
-Vector ActionVolume::pbcDistance( const Vector& v1, const Vector& v2) const {
- return mycolv->pbcDistance(v1,v2);
-}
-
-inline
-const Vector & ActionVolume::getPosition( int iatom ){
- if( !checkNumericalDerivatives() ) return ActionAtomistic::getPosition(iatom);
- // This is for numerical derivatives of quantity wrt to the local atoms
- tmp_p = ActionAtomistic::getPosition(iatom);
- if( bridgeVariable<3*getNumberOfAtoms() ){
-    if( bridgeVariable>=3*iatom && bridgeVariable<(iatom+1)*3 ) tmp_p[bridgeVariable%3]+=sqrt(epsilon);
- }
- // This makes sure that numerical derivatives of virial are calculated correctly
- tmp_p = ActionAtomistic::getPbc().realToScaled( tmp_p ); 
- tmp_p = getPbc().scaledToReal( tmp_p );
- return tmp_p;
-} 
 
 inline
 double ActionVolume::getSigma() const {
@@ -163,41 +73,13 @@ double ActionVolume::getSigma() const {
 }
 
 inline
-MultiColvarBase* ActionVolume::getPntrToMultiColvar(){
-  return mycolv;
+std::string ActionVolume::getKernelType() const {
+  return kerneltype;
 }
 
 inline
-unsigned ActionVolume::getNumberOfDerivatives(){
-  return mycolv->getNumberOfDerivatives() + 3*getNumberOfAtoms();
-}
-
-inline
-void ActionVolume::addReferenceAtomDerivatives( const unsigned& iatom, const Vector& der ){
-  // This is used for storing the derivatives wrt to the 
-  // positions of any additional reference atoms
-  double pref=mycolv->getElementValue(1); 
-  if( not_in ) pref*=-1;
-  unsigned nstart = getNumberOfDerivatives() + mycolv->getNumberOfDerivatives() + 3*iatom;
-  addElementDerivative( nstart + 0, pref*der[0] );
-  addElementDerivative( nstart + 1, pref*der[1] );
-  addElementDerivative( nstart + 2, pref*der[2] );
-}
-
-inline
-void ActionVolume::addBoxDerivatives( const Tensor& vir ){
-  double pref=mycolv->getElementValue(1);
-  if( not_in ) pref*=-1;
-  unsigned nstart = getNumberOfDerivatives() + mycolv->getNumberOfDerivatives() - 9;
-  addElementDerivative( nstart + 0, pref*vir(0,0) );  
-  addElementDerivative( nstart + 1, pref*vir(0,1) ); 
-  addElementDerivative( nstart + 2, pref*vir(0,2) ); 
-  addElementDerivative( nstart + 3, pref*vir(1,0) ); 
-  addElementDerivative( nstart + 4, pref*vir(1,1) ); 
-  addElementDerivative( nstart + 5, pref*vir(1,2) ); 
-  addElementDerivative( nstart + 6, pref*vir(2,0) ); 
-  addElementDerivative( nstart + 7, pref*vir(2,1) ); 
-  addElementDerivative( nstart + 8, pref*vir(2,2) ); 
+unsigned ActionVolume::getCentralAtomElementIndex() {
+  return 1;
 }
 
 }

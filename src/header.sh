@@ -9,6 +9,9 @@ test -d ../.git  || {
 
 DIRS=$1
 
+# remove trailing "/"
+DIRS=${DIRS%%/*}
+
 test -z "$DIRS" && DIRS=*
 
 for dir in $DIRS
@@ -19,7 +22,7 @@ cd $dir
 FIX_COPYRIGHT=""
 test -f COPYRIGHT && FIX_COPYRIGHT="$(<COPYRIGHT)"
 
-for file in *.c *.cpp *.h *.cpp.in
+for file in *.c *.cpp *.h *.inc.in
 do
 
 test -f "$file" || continue
@@ -29,7 +32,7 @@ then
   COPYRIGHT="$FIX_COPYRIGHT"
   echo -n "Custom header for file: $file"
 else
-  years=$(git log --follow --format=%aD $file |
+    years=$(git log --follow -M75% --format=%aD $file |
     awk '{if(NR==1)last=$4;}END{
     first=$4
     if(first=="") print ""
@@ -45,7 +48,7 @@ else
    Copyright (c) $years The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 

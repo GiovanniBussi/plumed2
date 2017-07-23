@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2014 The plumed team
+   Copyright (c) 2011-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -23,6 +23,8 @@
 #define __PLUMED_tools_SwitchingFunction_h
 
 #include <string>
+#include <vector>
+#include "lepton/Lepton.h"
 
 namespace PLMD {
 
@@ -37,11 +39,11 @@ class Keywords;
 /// the second all (calculateSqr()) allows to skip the calculation
 /// of a square root in some case, thus potentially increasing
 /// performances.
-class SwitchingFunction{
+class SwitchingFunction {
 /// This is to check that switching function has been initialized
   bool init;
 /// Type of function
-  enum {rational,exponential,gaussian,smap} type;
+  enum {rational,exponential,gaussian,smap,cubic,tanh,matheval,leptontype,nativeq} type;
 /// Inverse of scaling length.
 /// We store the inverse to avoid a division
   double invr0;
@@ -54,6 +56,8 @@ class SwitchingFunction{
 /// Parameters for smap function
   int a,b;
   double c,d;
+// nativeq
+  double lambda, beta, ref;
 /// Square of invr0, useful in calculateSqr()
   double invr0_2;
 /// Square of dmax, useful in calculateSqr()
@@ -63,13 +67,35 @@ class SwitchingFunction{
 /// Low-level tool to compute rational functions.
 /// It is separated since it is called both by calculate() and calculateSqr()
   double do_rational(double rdist,double&dfunc,int nn,int mm)const;
+/// Function for lepton;
+  std::string lepton_func;
+/// Lepton expression.
+/// \warning Since lepton::CompiledExpression is mutable, a vector is necessary for multithreading!
+  std::vector<lepton::CompiledExpression> expression;
+/// Lepton expression for derivative
+/// \warning Since lepton::CompiledExpression is mutable, a vector is necessary for multithreading!
+  std::vector<lepton::CompiledExpression> expression_deriv;
+/// Evaluator for matheval:
+/// \warning Since evaluator is not thread safe, we should create one
+/// evaluator per thread.
+  std::vector<void*> evaluator;
+/// Evaluator for matheval:
+/// \warning Since evaluator is not thread safe, we should create one
+/// evaluator per thread.
+  std::vector<void*> evaluator_deriv;
 public:
   static void registerKeywords( Keywords& keys );
 /// Constructor
   SwitchingFunction();
+/// Destructor
+  ~SwitchingFunction();
+/// Copy constructor
+  SwitchingFunction(const SwitchingFunction&);
+/// Assignment operator
+  SwitchingFunction & operator=(const SwitchingFunction&);
 /// Set a "rational" switching function.
 /// Notice that a d_max is set automatically to a value such that
-/// f(d_max)=0.00001. 
+/// f(d_max)=0.00001.
   void set(int nn,int mm,double r_0,double d_0);
 /// Set an arbitrary switching function.
 /// Parse the string in definition and possibly returns errors
@@ -88,12 +114,14 @@ public:
 /// The advantage is that in some case the expensive square root can be avoided
 /// (namely for rational functions, if nn and mm are even and d0 is zero)
   double calculateSqr(double distance2,double&dfunc)const;
-/// Calculate the x value for a given y value
-  double inverse( const double& val ) const ;
 /// Returns d0
   double get_d0() const;
 /// Returns r0
   double get_r0() const;
+/// Return dmax
+  double get_dmax() const;
+/// Return dmax squared
+  double get_dmax2() const;
 };
 
 }

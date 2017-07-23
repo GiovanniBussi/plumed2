@@ -92,7 +92,10 @@ Erik Lindahl, 2008-10-07.
 
 
 #include "simple.h"
-#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)
+#ifndef __PLUMED_LAPACK_RETURNS_FLOAT
+#define __PLUMED_LAPACK_RETURNS_FLOAT float
+#endif
+#if ! defined(__PLUMED_HAS_EXTERNAL_LAPACK)
 #include "def_internal.h"
 namespace PLMD{
 namespace lapack{
@@ -567,7 +570,7 @@ void
 void
     PLUMED_BLAS_F77_FUNC(strti2, STRTI2) (const char *uplo, const char *diag, int *n, float *a, int *lda, int *info);
 
-float
+__PLUMED_LAPACK_RETURNS_FLOAT
     PLUMED_BLAS_F77_FUNC(slange, SLANGE) (const char *norm, int *m, int *n, float *a, int *lda, float *work);
 
 void
@@ -607,10 +610,10 @@ void
                               float *e, float *tauq, float *taup, float *x,
                               int *ldx, float *y, int *ldy);
 
-float
+__PLUMED_LAPACK_RETURNS_FLOAT
     PLUMED_BLAS_F77_FUNC(slanst, SLANST) (const char *norm, int *n, float *d, float *e);
 
-float
+__PLUMED_LAPACK_RETURNS_FLOAT
     PLUMED_BLAS_F77_FUNC(slansy, SLANSY) (const char *norm, const char *uplo, int *n, float *a, int *lda, float *work);
 
 void
@@ -653,7 +656,7 @@ void
 void
     PLUMED_BLAS_F77_FUNC(slacpy, SLACPY) (const char *uplo, int *m, int *n, float *a, int *lda, float *b, int *ldb);
 
-float
+__PLUMED_LAPACK_RETURNS_FLOAT
     PLUMED_BLAS_F77_FUNC(slapy2, SLAPY2) (float * x, float * y);
 
 void
@@ -894,7 +897,7 @@ void
 
 
 }
-#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)
+#if ! defined(__PLUMED_HAS_EXTERNAL_LAPACK)
 }
 #endif
 

@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2014-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -19,8 +19,7 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "multicolvar/MultiColvar.h"
-#include "tools/NeighborList.h"
+#include "CubicHarmonicBase.h"
 #include "core/ActionRegister.h"
 #include "tools/SwitchingFunction.h"
 
@@ -29,132 +28,104 @@
 
 using namespace std;
 
-namespace PLMD{
-namespace crystallization{
+namespace PLMD {
+namespace crystallization {
 
-//+PLUMEDOC MCOLVAR FCCUBIC    
+//+PLUMEDOC MCOLVAR FCCUBIC
 /*
+Measure how similar the environment around atoms is to that found in a FCC structure.
+
+This CV was introduced in this article \cite fcc-michele-1 and again in this article \cite fcc-michele-2
+This CV essentially determines whether the environment around any given atom is similar to that found in
+the FCC structure or not.  The function that is used to make this determination is as follows:
+
+\f[
+s_i = \frac{ \sum_{i \ne j} \sigma(r_{ij}) \left\{ a\left[ \frac{(x_{ij}y_{ij})^4 + (x_{ij}z_{ij})^4 + (y_{ij}z_{ij})^4}{r_{ij}^8} - \frac{\alpha (x_{ij}y_{ij}z_{ij})^4}{r_{ij}^{12}} \right] + b \right\} }{ \sum_{i \ne j} \sigma(r_{ij}) }
+\f]
+
+In this expression \f$x_{ij}\f$, \f$y_{ij}\f$ and \f$z_{ij}\f$ are the \f$x\f$, \f$y\f$ and \f$z\f$ components of the vector connecting atom \f$i\f$ to
+atom \f$j\f$ and \f$r_{ij}\f$ is the magnitude of this vector.  \f$\sigma(r_{ij})\f$ is a \ref switchingfunction that acts on the distance between
+atom \f$i\f$ and atom \f$j\f$ and its inclusion in the numerator and the denominator of the above expression as well as the fact that we are summing
+over all of the other atoms in the system ensures that we are calculating an average
+of the function of \f$x_{ij}\f$, \f$y_{ij}\f$ and \f$z_{ij}\f$ for the atoms in the first coordination sphere around atom \f$i\f$.  Lastly, \f$\alpha\f$
+is a parameter that can be set by the user, which by default is equal to three.  The values of \f$a\f$ and \f$b\f$ are calculated from \f$\alpha\f$ using:
+
+\f[
+a = \frac{ 80080}{ 2717 + 16 \alpha} \qquad \textrm{and} \qquad b = \frac{ 16(\alpha - 143) }{2717 + 16\alpha}
+\f]
+
+This quantity is once again a multicolvar so you can compute it for multiple atoms using a single PLUMED action and then compute
+the average value for the atoms in your system, the number of atoms that have an \f$s_i\f$ value that is more that some target and
+so on.  Notice also that you can rotate the reference frame if you are using a non-standard unit cell.
+
+\par Examples
+
+The following input calculates the FCCUBIC parameter for the 64 atoms in the system
+and then calculates and prints the average value for this quantity.
+
+\plumedfile
+FCCUBIC SPECIES=1-64 SWITCH={RATIONAL D_0=3.0 R_0=1.5} MEAN LABEL=d
+PRINT ARG=d.* FILE=colv
+\endplumedfile
+
 */
 //+ENDPLUMEDOC
 
 
-class Fccubic : public multicolvar::MultiColvar {
+class Fccubic : public CubicHarmonicBase {
 private:
-//  double nl_cut;
-  SwitchingFunction switchingFunction;
+  double alpha, a1, b1;
 public:
   static void registerKeywords( Keywords& keys );
-  Fccubic(const ActionOptions&);
-// active methods:
-  virtual double compute(); 
-  Vector getCentralAtom();
-/// Returns the number of coordinates of the field
-  bool isPeriodic(){ return false; }
+  explicit Fccubic(const ActionOptions&);
+  double calculateCubicHarmonic( const Vector& distance, const double& d2, Vector& myder ) const ;
 };
 
 PLUMED_REGISTER_ACTION(Fccubic,"FCCUBIC")
 
-void Fccubic::registerKeywords( Keywords& keys ){
-  multicolvar::MultiColvar::registerKeywords( keys );
-  keys.use("SPECIES"); keys.use("SPECIESA"); keys.use("SPECIESB");
-  keys.add("compulsory","NN","6","The n parameter of the switching function ");
-  keys.add("compulsory","MM","12","The m parameter of the switching function ");
-  keys.add("compulsory","D_0","0.0","The d_0 parameter of the switching function");
-  keys.add("compulsory","R_0","The r_0 parameter of the switching function");
-  keys.add("optional","SWITCH","This keyword is used if you want to employ an alternative to the continuous swiching function defined above. "
-                               "The following provides information on the \\ref switchingfunction that are available. "
-                               "When this keyword is present you no longer need the NN, MM, D_0 and R_0 keywords.");
-  // Use actionWithDistributionKeywords
-  keys.use("MEAN"); keys.use("MORE_THAN"); keys.use("LESS_THAN"); keys.use("MAX");
-  keys.use("MIN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS");
+void Fccubic::registerKeywords( Keywords& keys ) {
+  CubicHarmonicBase::registerKeywords( keys );
+  keys.add("compulsory","ALPHA","3.0","The alpha parameter of the angular function");
 }
 
 Fccubic::Fccubic(const ActionOptions&ao):
-PLUMED_MULTICOLVAR_INIT(ao)
+  Action(ao),
+  CubicHarmonicBase(ao)
 {
-  // Read in the switching function
-  std::string sw, errors; parse("SWITCH",sw);
-  if(sw.length()>0){
-     switchingFunction.set(sw,errors);
-     if( errors.length()!=0 ) error("problem reading SWITCH keyword : " + errors );
-  } else { 
-     double r_0=-1.0, d_0; int nn, mm;
-     parse("NN",nn); parse("MM",mm);
-     parse("R_0",r_0); parse("D_0",d_0);
-     if( r_0<0.0 ) error("you must set a value for R_0");
-     switchingFunction.set(nn,mm,r_0,d_0);
-  }
-  log.printf("  measure of simple cubicity around central atom.  Includes those atoms within %s\n",( switchingFunction.description() ).c_str() );
-  // Set the link cell cutoff
-  setLinkCellCutoff( 2.*switchingFunction.inverse( getTolerance() ) );
-
-  // Read in the atoms
-  int natoms=2; readAtoms( natoms );
+  // Scaling factors such that '1' corresponds to fcc lattice
+  // and '0' corresponds to isotropic (liquid)
+  parse("ALPHA",alpha);
+  a1 = 80080. / (2717. + 16*alpha); b1 = 16.*(alpha-143)/(2717+16*alpha);
+  log.printf("  setting alpha paramter equal to %f \n",alpha);
   // And setup the ActionWithVessel
   checkRead();
 }
 
-double Fccubic::compute(){
-   weightHasDerivatives=true;
-   double value=0, norm=0, dfunc; Vector distance;
+double Fccubic::calculateCubicHarmonic( const Vector& distance, const double& d2, Vector& myder ) const {
+  double x2 = distance[0]*distance[0];
+  double x4 = x2*x2;
 
-   // Calculate the coordination number
-   Vector myder, fder;
-   double sw, t0, t1, t2, t3, x2, x4, y2, y4, z2, z4, r8, tmp;
-   for(unsigned i=1;i<getNAtoms();++i){
-      distance=getSeparation( getPosition(0), getPosition(i) );
-      sw = switchingFunction.calculateSqr( distance.modulo2(), dfunc );
-      if( sw>=getTolerance() ){ 
-   
-         norm += sw;
+  double y2 = distance[1]*distance[1];
+  double y4 = y2*y2;
 
-         x2 = distance[0]*distance[0];
-         x4 = x2*x2;
+  double z2 = distance[2]*distance[2];
+  double z4 = z2*z2;
 
-         y2 = distance[1]*distance[1];
-         y4 = y2*y2;
+  double r8 = pow( d2, 4 );
+  double r12 = pow( d2, 6 );
 
-         z2 = distance[2]*distance[2];
-         z4 = z2*z2;
-                 
-         r8 = pow( distance.modulo2(), 4 );
+  double tmp = ((x4*y4)+(x4*z4)+(y4*z4))/r8-alpha*x4*y4*z4/r12;
 
-         tmp = ((x4*y4)+(x4*z4)+(y4*z4))/r8;
+  double t0 = (x2*y4+x2*z4)/r8-alpha*x2*y4*z4/r12;
+  double t1 = (y2*x4+y2*z4)/r8-alpha*y2*x4*z4/r12;
+  double t2 = (z2*x4+z2*y4)/r8-alpha*z2*x4*y4/r12;
+  double t3 = (2*tmp-alpha*x4*y4*z4/r12)/d2;
 
-         value += sw*tmp;
+  myder[0]=4*a1*distance[0]*(t0-t3);
+  myder[1]=4*a1*distance[1]*(t1-t3);
+  myder[2]=4*a1*distance[2]*(t2-t3);
 
-         t0 = (x2*y4+x2*z4)/r8;
-         t1 = (y2*x4+y2*z4)/r8;
-         t2 = (z2*x4+z2*y4)/r8;
-         t3 = 2*tmp/distance.modulo2();         
- 
-         myder[0]=4*distance[0]*(t0-t3);
-         myder[1]=4*distance[1]*(t1-t3);
-         myder[2]=4*distance[2]*(t2-t3);
-  
-         fder = (+dfunc)*tmp*distance + sw*myder;
-
-         addAtomsDerivatives( 0, -fder );
-         addAtomsDerivatives( i, +fder );
-         addBoxDerivatives( Tensor(distance,-fder) );
-         addAtomsDerivativeOfWeight( 0, (-dfunc)*distance );
-         addAtomsDerivativeOfWeight( i, (+dfunc)*distance );
-         addBoxDerivativesOfWeight( (-dfunc)*Tensor(distance,distance) );
-      }
-   }
-   
-   setElementValue(0, value); setElementValue(1, norm ); 
-   // values -> der of... value [0], weight[1], x coord [2], y, z... [more magic]
-   updateActiveAtoms(); quotientRule( 0, 1, 0 ); clearDerivativesAfterTask(1);
-   // Weight doesn't really have derivatives (just use the holder for convenience)
-   weightHasDerivatives=false; setElementValue( 1, 1.0 );
-
-   return value / norm; // this is equivalent to getting an "atomic" CV
-}
-
-Vector Fccubic::getCentralAtom(){
-   addCentralAtomDerivatives( 0, Tensor::identity() );
-   return getPosition(0);
+  return a1*tmp+b1;
 }
 
 }

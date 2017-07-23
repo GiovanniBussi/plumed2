@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2014 The plumed team
+   Copyright (c) 2011-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -24,7 +24,9 @@
 
 #include "tools/Tensor.h"
 #include "tools/Vector.h"
+#include "tools/AtomNumber.h"
 #include <vector>
+#include <set>
 #include "tools/Units.h"
 
 namespace PLMD {
@@ -51,7 +53,7 @@ public:
 /// Creates an MDAtomsTyped<T> object such that sizeof(T)==n
   static MDAtomsBase* create(unsigned n);
 /// Virtual destructor, just to allow inheritance.
-  virtual ~MDAtomsBase(){}
+  virtual ~MDAtomsBase() {}
 /// Get the size of MD-real
   virtual unsigned getRealPrecision()const=0;
 /// Set a pointer to the mass array in the MD code
@@ -76,25 +78,35 @@ public:
   virtual void MD2double(const void*,double&)const=0;
 /// Convert a double to a pointer to an MD-real
   virtual void double2MD(const double&,void*)const=0;
+
+  virtual Vector getMDforces(const unsigned index)const=0;
 /// Retrieve box as a plumed Tensor
   virtual void getBox(Tensor &)const=0;
 /// Retrieve selected positions.
 /// The operation is done in such a way that p[index[i]] is equal to the coordinates of atom i
   virtual void getPositions(const std::vector<int>&index,std::vector<Vector>&p)const=0;
+/// Retrieve all atom positions from index i to index j.
+  virtual void getPositions(unsigned i,unsigned j,std::vector<Vector>&p)const=0;
+/// Retrieve all atom positions from atom indices and local indices.
+  virtual void getPositions(const std::set<AtomNumber>&index,const std::vector<unsigned>&i,std::vector<Vector>&p)const=0;
 /// Retrieve selected masses.
 /// The operation is done in such a way that m[index[i]] is equal to the mass of atom i
   virtual void getMasses(const std::vector<int>&index,std::vector<double>&m)const=0;
 /// Retrieve selected charges.
 /// The operation is done in such a way that c[index[i]] is equal to the charge of atom i
   virtual void getCharges(const std::vector<int>&index,std::vector<double>&c)const=0;
+/// Retrieve local positions.
+  virtual void getLocalPositions(std::vector<Vector>&p)const=0;
 /// Increment the virial by an amount v
   virtual void updateVirial(const Tensor&v)const=0;
 /// Increment the force on selected atoms.
 /// The operation is done in such a way that f[index[i]] is added to the force on atom i
   virtual void updateForces(const std::vector<int>&index,const std::vector<Vector>&f)=0;
+/// Increment the force on selected atoms.
+/// The operation is done only for local atoms used in an action
+  virtual void updateForces(const std::set<AtomNumber>&index,const std::vector<unsigned>&i,const std::vector<Vector>&forces)=0;
 /// Rescale all the forces, including the virial.
 /// It is applied to all atoms with local index going from 0 to index.size()-1
-/// \attention the virial is not scaled indeed... is it a bug??
   virtual void rescaleForces(const std::vector<int>&index,double factor)=0;
 };
 

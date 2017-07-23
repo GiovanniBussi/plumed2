@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2014 The plumed team
+   Copyright (c) 2011-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -40,7 +40,7 @@ class ActionSet:
 {
   PlumedMain& plumed;
 public:
-  ActionSet(PlumedMain&p);
+  explicit ActionSet(PlumedMain&p);
   ~ActionSet();
 /// Clear and deletes all the included pointers.
   void clearDelete();
@@ -62,7 +62,7 @@ public:
   T selectWithLabel(const std::string&s)const;
 /// get the labels in the list of actions in form of a string (useful to debug)
   std::string getLabelList() const;
-/// get the labels in the form of a vector of strings  
+/// get the labels in the form of a vector of strings
   std::vector<std::string> getLabelVector() const;
 };
 
@@ -70,30 +70,30 @@ public:
 // INLINE IMPLEMENTATIONS:
 
 template <class T>
-std::vector<T> ActionSet::select()const{
+std::vector<T> ActionSet::select()const {
   std::vector<T> ret;
-  for(const_iterator p=begin();p!=end();++p){
-    T t=dynamic_cast<T>(*p);
+  for(const auto & p : (*this)) {
+    T t=dynamic_cast<T>(p);
     if(t) ret.push_back(t);
   };
   return ret;
 }
 
 template <class T>
-T ActionSet::selectWithLabel(const std::string&s)const{
-  for(const_iterator p=begin();p!=end();++p){
-    T t=dynamic_cast<T>(*p);
+T ActionSet::selectWithLabel(const std::string&s)const {
+  for(const auto & p : (*this)) {
+    T t=dynamic_cast<T>(p);
     if(t && dynamic_cast<Action*>(t)->getLabel()==s) return t;
   };
   return NULL;
 }
 
 template <class T>
-std::vector<Action*> ActionSet::selectNot()const{
+std::vector<Action*> ActionSet::selectNot()const {
   std::vector<Action*> ret;
-  for(const_iterator p=begin();p!=end();++p){
-    T t=dynamic_cast<T>(*p);
-    if(!t) ret.push_back(*p);
+  for(const auto & p : (*this)) {
+    T t=dynamic_cast<T>(p);
+    if(!t) ret.push_back(p);
   };
   return ret;
 }

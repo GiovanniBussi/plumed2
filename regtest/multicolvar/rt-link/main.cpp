@@ -1,7 +1,9 @@
+#include "mpi.h"
+#include "plumed/tools/Communicator.h"
+#include "plumed/tools/Tools.h"
 #include "plumed/tools/Vector.h"
 #include "plumed/tools/LinkCells.h"
 #include "plumed/tools/Pbc.h"
-#include "plumed/tools/Communicator.h"
 #include <fstream>
 #include <iostream>
 
@@ -18,7 +20,7 @@ void checkList( const unsigned& num_x, const unsigned& num_y, const unsigned& nu
 int main(){
 
   std::vector<Vector> fposA, fposB;
-  std::vector<unsigned> myatoms, Bindices;
+  std::vector<unsigned> tmparray, myatoms, Bindices;
   unsigned natomsper;
 
   std::ofstream ofs; ofs.open("logfile");
@@ -35,7 +37,7 @@ int main(){
               linkcells.buildCellLists( fposB, Bindices, mypbc );
               for(unsigned i=0;i<fposA.size();++i){
                   myatoms[0]=i; natomsper=1;
-                  linkcells.retrieveNeighboringAtoms( fposA[i], natomsper, myatoms );
+                  linkcells.retrieveNeighboringAtoms( fposA[i], tmparray, natomsper, myatoms );
                   checkList( nx, ny, nz, i, natomsper, myatoms, ofs );
               }
           }

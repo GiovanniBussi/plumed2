@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2012-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -26,12 +26,14 @@
 #include "core/ActionAtomistic.h"
 #include "tools/Exception.h"
 #include "tools/DynamicList.h"
+#include "tools/MultiValue.h"
 #include <vector>
 
-namespace PLMD{
+namespace PLMD {
 class Value;
+class Stopwatch;
 
-namespace vesselbase{
+namespace vesselbase {
 
 class Vessel;
 class BridgeVessel;
@@ -44,12 +46,13 @@ times.  This is used in PLMD::MultiColvar.
 */
 
 class ActionWithVessel : public virtual Action {
-friend class Vessel;
-friend class ShortcutVessel;
-friend class FunctionVessel;
-friend class StoreDataVessel;
-friend class BridgeVessel;
-friend class ActionWithInputVessel;
+  friend class Vessel;
+  friend class ShortcutVessel;
+  friend class FunctionVessel;
+  friend class StoreDataVessel;
+  friend class BridgeVessel;
+  friend class ActionWithInputVessel;
+  friend class OrderingVessel;
 private:
 /// Do all calculations in serial
   bool serial;
@@ -57,20 +60,14 @@ private:
   bool lowmem;
 /// Are we skipping the calculation of the derivatives
   bool noderiv;
+/// This tells plumed that this is used in a bridge
+  bool actionIsBridged;
 /// The maximum number of derivatives we can use before we need to invoke lowmem
   unsigned maxderivatives;
-/// The tolerance on the accumulators 
+/// The tolerance on the accumulators
   double tolerance;
 /// Tolerance for quantities being put in neighbor lists
   double nl_tolerance;
-/// The value of the current element in the sum
-  std::vector<double> thisval;
-/// Vector of derivatives for the object
-  std::vector<double> derivatives;
-/// The buffers we use for mpi summing DistributionFunction objects
-  unsigned current_buffer_start;
-  unsigned current_buffer_stride;
-  std::vector<double> buffer;
 /// Pointers to the functions we are using on each value
   std::vector<Vessel*> functions;
 /// Tempory storage for forces
@@ -78,24 +75,34 @@ private:
 /// Ths full list of tasks we have to perform
   std::vector<unsigned> fullTaskList;
 /// The current number of active tasks
-  unsigned nactive_tasks, task_index, current;
+  unsigned nactive_tasks;
 /// The indices of the tasks in the full list of tasks
   std::vector<unsigned> indexOfTaskInFullList;
 /// The list of currently active tasks
   std::vector<unsigned> partialTaskList;
-/// This list is used to update the neighbor list
-  std::vector<unsigned> taskFlags;
+/// The list of atoms involved in derivatives (we keep a copy here to avoid resizing)
+  std::vector<unsigned> der_list;
+/// The buffer that we use (we keep a copy here to avoid resizing)
+  std::vector<double> buffer;
+/// Do we want to output information on the timings of different parts of the calculation
+  bool timers;
+/// The stopwatch that times the different parts of the calculation
+  Stopwatch& stopwatch;
+/// These are used to minmise computational expense in complex functions
+  bool dertime_can_be_off;
 protected:
-/// A boolean that makes sure we don't accumulate very wrong derivatives
-  std::vector<bool> thisval_wasset; 
+/// This is also used to minimise computational expense in complex functions
+  bool dertime;
 /// The terms in the series are locked
   bool contributorsAreUnlocked;
 /// Does the weight have derivatives
   bool weightHasDerivatives;
 /// This is used for numerical derivatives of bridge variables
   unsigned bridgeVariable;
-/// Set the maximum number of derivatives
-  void setMaximumNumberOfDerivatives( const unsigned& );
+/// A pointer to the object that stores data
+  StoreDataVessel* mydata;
+/// This list is used to update the neighbor list
+  std::vector<unsigned> taskFlags;
 /// Add a vessel to the list of vessels
   void addVessel( const std::string& name, const std::string& input, const int numlab=0 );
   void addVessel( Vessel* vv );
@@ -109,104 +116,83 @@ protected:
   double getTolerance() const ;
 /// Return the value for the neighbor list tolerance
   double getNLTolerance() const ;
-/// Get the number of vessels
-  unsigned getNumberOfVessels() const;
-/// Get a pointer to the ith vessel
-   Vessel* getPntrToVessel( const unsigned& i );
 /// Calculate the values of all the vessels
   void runAllTasks();
 /// Resize all the functions when the number of derivatives change
   void resizeFunctions();
-/// This loops over all the vessels calculating them and also 
+/// This loops over all the vessels calculating them and also
 /// sets all the element derivatives equal to zero
-  bool calculateAllVessels();
+  void calculateAllVessels( const unsigned& taskCode, MultiValue& myvals, MultiValue& bvals, std::vector<double>& buffer, std::vector<unsigned>& der_list );
 /// Retrieve the forces from all the vessels (used in apply)
   bool getForcesFromVessels( std::vector<double>& forcesToApply );
-/// This is used to accumulate the derivatives when we merge using chainRuleForElementDerivatives
-  void accumulateDerivative( const unsigned& ider, const double& df );
-/// Clear tempory data that is calculated for each task
-  void clearAfterTask();
 /// Is the calculation being done in serial
   bool serialCalculation() const;
 /// Are we using low memory
   bool usingLowMem() const ;
 /// Set that we are using low memory
   void setLowMemOption(const bool& );
-/// Get the number of tasks that are currently active
-  unsigned getCurrentNumberOfActiveTasks() const ;
-/// Get the ith of the currently active tasks
-  unsigned getActiveTask( const unsigned& ii ) const ;
-/// Get the position of the ith active task in the full list
-  unsigned getPositionInFullTaskList( const unsigned& ii ) const ;
-/// Get the current task's position in the task list
-  unsigned getCurrentPositionInTaskList() const ;
-/// Return the number that provides instructions for the current task
-  unsigned getCurrentTask() const ;
 /// Deactivate all the tasks in the task list
   void deactivateAllTasks();
-/// Deactivate all tasks with i in lower \f$\le\f$  i < upper
-  void deactivateTasksInRange( const unsigned& lower, const unsigned& upper );
+/// Get the size of the buffer
+  unsigned getSizeOfBuffer( unsigned& bufsize );
 /// Add a task to the full list
   void addTaskToList( const unsigned& taskCode );
 public:
   static void registerKeywords(Keywords& keys);
-  ActionWithVessel(const ActionOptions&ao);
+  explicit ActionWithVessel(const ActionOptions&ao);
   ~ActionWithVessel();
-  void unlockContributors();
   void lockContributors();
-  virtual void finishTaskListUpdate(){};
-/// Activate the jth colvar
-/// Deactivate the current task in future loops
-  virtual void deactivate_task();
-/// Merge the derivatives
-  void chainRuleForElementDerivatives( const unsigned&, const unsigned&, const double& , Vessel* );
-  void chainRuleForElementDerivatives( const unsigned&, const unsigned& , const unsigned& , const unsigned& , const double& , Vessel* );
-  virtual void mergeDerivatives( const unsigned& ider, const double& df );
-  virtual void clearDerivativesAfterTask( const unsigned& );
+/// Get the number of tasks that are currently active
+  unsigned getCurrentNumberOfActiveTasks() const ;
+/// Check whether or not a particular task is currently active
+  bool taskIsCurrentlyActive( const unsigned& index ) const ;
 /// Are derivatives required for this quantity
   bool derivativesAreRequired() const ;
+/// Is this action thread safe
+  virtual bool threadSafe() const { return true; }
 /// Finish running all the calculations
-  virtual void finishComputations();
+  virtual void finishComputations( const std::vector<double>& buffer );
 /// Are the base quantities periodic
   virtual bool isPeriodic()=0;
 /// What are the domains of the base quantities
   virtual void retrieveDomain( std::string& min, std::string& max);
-/// Get the number of derivatives for final calculated quantity 
+/// Get the number of derivatives for final calculated quantity
   virtual unsigned getNumberOfDerivatives()=0;
 /// Get the number of quantities that are calculated during each task
-  virtual unsigned getNumberOfQuantities();
-/// Get the list of indices that have derivatives
-  virtual void getIndexList( const unsigned& ntotal, const unsigned& jstore, const unsigned& maxder, std::vector<unsigned>& indices );
-/// Switch on additional tasks
-  void activateTheseTasks( std::vector<bool>& addtionalTasks );
+  virtual unsigned getNumberOfQuantities() const ;
+/// Get the number of vessels
+  unsigned getNumberOfVessels() const;
+/// Get a pointer to the ith vessel
+  Vessel* getPntrToVessel( const unsigned& i );
 /// Do any jobs that are required before the task list is undertaken
   virtual void doJobsRequiredBeforeTaskList();
 /// Get the full size of the taskList dynamic list
   unsigned getFullNumberOfTasks() const ;
-/// Get the index for a particular numbered task
-//  unsigned getIndexForTask( const unsigned& itask ) const ;
+/// Get the position of the ith active task in the full list
+  unsigned getPositionInFullTaskList( const unsigned& ii ) const ;
+/// Get the code for the ii th task in the list
+  unsigned getTaskCode( const unsigned& ii ) const ;
+/// Get the ith of the currently active tasks
+  unsigned getActiveTask( const unsigned& ii ) const ;
 /// Calculate one of the functions in the distribution
-  virtual void performTask()=0;
-/// Set the derivative of the jth element wrt to a numbered element
-  void setElementDerivative( const unsigned&, const double& );
-///  Add some derivative of the quantity in the sum wrt to a numbered element
-  void addElementDerivative( const unsigned&, const double& );
-/// Set the value of the element
-  void setElementValue( const unsigned& , const double& );
-/// Add to an element value
-  void addElementValue( const unsigned&, const double& );
-/// Get the value of this element
-  double getElementValue( const unsigned& ival ) const ;
-/// Retrieve the derivative of the quantity in the sum wrt to a numbered element
-  double getElementDerivative( const unsigned& ) const ;
+  virtual void performTask( const unsigned&, const unsigned&, MultiValue& ) const=0;
+/// Do the task if we have a bridge
+  virtual void transformBridgedDerivatives( const unsigned& current, MultiValue& invals, MultiValue& outvals ) const;
 /// Ensure that data required in other vessels is stored
-  virtual StoreDataVessel* buildDataStashes();
+  StoreDataVessel* buildDataStashes( ActionWithVessel* actionThatUses );
 /// Apply forces from bridge vessel - this is rarely used - currently only in ActionVolume
-  virtual void applyBridgeForces( const std::vector<double>& bb ){ plumed_error(); }
+  virtual void applyBridgeForces( const std::vector<double>& bb ) { plumed_error(); }
 /// These are overwritten in MultiColvarFunction
-  virtual void activateIndexes( const unsigned&, const unsigned&, const std::vector<unsigned>& ){}
+//  virtual void activateIndexes( const unsigned&, const unsigned&, const std::vector<unsigned>& ){}
 /// Return a particular named vessel
   Vessel* getVesselWithName( const std::string& mynam );
+/// Does the weight have derivatives
+  bool weightWithDerivatives() const ;
+/// Return the position in the current task list
+  unsigned getPositionInCurrentTaskList( const unsigned& myind ) const ;
+/// These normalizes vectors and is used in StoreDataVessel
+  virtual void normalizeVector( std::vector<double>& vals ) const { plumed_error(); }
+  virtual void normalizeVectorDerivatives( MultiValue& myvals ) const { plumed_error(); }
 };
 
 inline
@@ -225,67 +211,25 @@ unsigned ActionWithVessel::getNumberOfVessels() const {
 }
 
 inline
-unsigned ActionWithVessel::getNumberOfQuantities(){
+unsigned ActionWithVessel::getNumberOfQuantities() const {
   return 2;
 }
 
 inline
-Vessel* ActionWithVessel::getPntrToVessel( const unsigned& i ){
+Vessel* ActionWithVessel::getPntrToVessel( const unsigned& i ) {
   plumed_dbg_assert( i<functions.size() );
   return functions[i];
 }
 
 inline
-double ActionWithVessel::getElementValue(const unsigned& ival) const {
-  return thisval[ival];
-}
-
-inline
-void ActionWithVessel::setElementValue( const unsigned& ival, const double& val ){
-  // Element 0 is reserved for the value we are accumulating
-  // Element 1 is reserved for the normalization constant for calculating AVERAGES, normalized HISTOGRAMS
-  // plumed_dbg_massert( !thisval_wasset[ival], "In action named " + getName() + " with label " + getLabel() );
-  thisval[ival]=val;
-  thisval_wasset[ival]=true;
-}
-
-inline
-void ActionWithVessel::addElementValue( const unsigned& ival, const double& val ){
-  thisval[ival]+=val;
-  thisval_wasset[ival]=true;
-}
-
-inline
-double ActionWithVessel::getElementDerivative( const unsigned& ider ) const {
-  plumed_dbg_assert( ider<derivatives.size() );
-  return derivatives[ider];
-}
-
-inline
-void ActionWithVessel::addElementDerivative( const unsigned& ider, const double& der ){
-#ifndef NDEBUG
-  unsigned ndertmp=getNumberOfDerivatives();
-  if( ider>=ndertmp && ider<2*ndertmp ) plumed_dbg_massert( weightHasDerivatives, "In " + getLabel() );
-#endif
-  plumed_dbg_assert( ider<derivatives.size() );
-  derivatives[ider] += der;
-}
-
-inline
-void ActionWithVessel::setElementDerivative( const unsigned& ider, const double& der ){
-  plumed_dbg_assert( ider<derivatives.size() );
-  derivatives[ider] = der;
-}
-
-inline
-void ActionWithVessel::accumulateDerivative( const unsigned& ider, const double& der ){
-  plumed_dbg_assert( ider<getNumberOfDerivatives() );
-  buffer[current_buffer_start + current_buffer_stride*ider] += der;
-}
-
-inline
 unsigned ActionWithVessel::getFullNumberOfTasks() const {
   return fullTaskList.size();
+}
+
+inline
+unsigned ActionWithVessel::getTaskCode( const unsigned& ii ) const {
+  plumed_dbg_assert( ii<fullTaskList.size() );
+  return fullTaskList[ii];
 }
 
 inline
@@ -305,11 +249,6 @@ unsigned ActionWithVessel::getPositionInFullTaskList( const unsigned& ii ) const
   return indexOfTaskInFullList[ii];
 }
 
-// inline
-// unsigned ActionWithVessel::getIndexForTask( const unsigned& itask ) const {
-//   return taskList.linkIndex( itask );
-// }
-
 inline
 bool ActionWithVessel::serialCalculation() const {
   return serial;
@@ -321,18 +260,8 @@ bool ActionWithVessel::usingLowMem() const {
 }
 
 inline
-void ActionWithVessel::setLowMemOption(const bool& l){
+void ActionWithVessel::setLowMemOption(const bool& l) {
   lowmem=l;
-}
-
-inline
-unsigned ActionWithVessel::getCurrentTask() const {
-  return current;
-}
-
-inline
-unsigned ActionWithVessel::getCurrentPositionInTaskList() const {
-  return task_index; 
 }
 
 inline
@@ -340,6 +269,21 @@ bool ActionWithVessel::derivativesAreRequired() const {
   return !noderiv;
 }
 
-} 
+inline
+bool ActionWithVessel::weightWithDerivatives() const {
+  return weightHasDerivatives;
+}
+
+inline
+unsigned ActionWithVessel::getPositionInCurrentTaskList( const unsigned& myind ) const {
+  if( nactive_tasks==fullTaskList.size() ) return myind;
+
+  for(unsigned i=0; i<nactive_tasks; ++i) {
+    if( myind==indexOfTaskInFullList[i] ) return i;
+  }
+  plumed_merror("requested task is not active");
+}
+
+}
 }
 #endif

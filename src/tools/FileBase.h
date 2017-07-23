@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2012-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -24,7 +24,7 @@
 
 #include <string>
 
-namespace PLMD{
+namespace PLMD {
 
 class Communicator;
 class PlumedMain;
@@ -36,21 +36,21 @@ Base class for dealing with files.
 This class just provides things which are common among OFile and IFile
 */
 
-class FileBase{
+class FileBase {
 /// Copy constructor is disabled (private and unimplemented)
-  FileBase(const FileBase&);
+  explicit FileBase(const FileBase&);
 /// Assignment operator is disabled (private and unimplemented)
   FileBase& operator=(const FileBase&);
 protected:
 /// Internal tool.
 /// Base for IFile::Field and OFile::Field
-  class FieldBase{
+  class FieldBase {
 // everything is public to simplify usage
   public:
     std::string name;
     std::string value;
     bool constant;
-    FieldBase(): constant(false){}
+    FieldBase(): constant(false) {}
   };
 
 /// file pointer
@@ -75,12 +75,20 @@ protected:
   bool err;
 /// path of the opened file
   std::string path;
+/// mode of the opened file
+  std::string mode;
 /// Set to true if you want flush to be heavy (close/reopen)
   bool heavyFlush;
+public:
 /// Append suffix.
 /// It appends the desired suffix to the string. Notice that
-/// it conserves a possible ".gz" suffix.
+/// it conserves some suffix (e.g. gz/xtc/trr).
   static std::string appendSuffix(const std::string&path,const std::string&suffix);
+private:
+/// Enforced suffix:
+  std::string enforcedSuffix;
+/// If true, use enforcedSuffix, else get it from PlumedMain
+  bool enforcedSuffix_;
 public:
 /// Link to an already open filed
   FileBase& link(FILE*);
@@ -92,6 +100,9 @@ public:
 /// Link to an Action object.
 /// Automatically links also the corresponding PlumedMain and Communicator.
   FileBase& link(Action&);
+/// Enforce suffix.
+/// Overrides the one set in PlumedMain&
+  FileBase& enforceSuffix(const std::string&suffix);
 /// Flushes the file to disk
   virtual FileBase& flush();
 /// Closes the file
@@ -99,19 +110,34 @@ public:
   void        close();
 /// Virtual destructor (allows inheritance)
   virtual ~FileBase();
-/// Runs a small testcase
-  static void test();
 /// Check for error/eof.
   operator bool () const;
 /// Set heavyFlush flag
-  void setHeavyFlush(){ heavyFlush=true;}
+  void setHeavyFlush() { heavyFlush=true;}
 /// Opens the file
   virtual FileBase& open(const std::string&name)=0;
 /// Check if the file exists
   bool FileExist(const std::string& path);
 /// Check if a file is open
   bool isOpen();
+/// Retrieve the path
+  std::string getPath()const;
+/// Retrieve the mode
+  std::string getMode()const;
+/// Get the file suffix
+  std::string getSuffix()const;
 };
+
+inline
+std::string FileBase::getPath()const {
+  return path;
+}
+
+inline
+std::string FileBase::getMode()const {
+  return mode;
+}
+
 
 
 }

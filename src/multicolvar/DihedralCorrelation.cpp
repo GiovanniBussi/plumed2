@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013,2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -19,7 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "MultiColvar.h"
+#include "MultiColvarBase.h"
+#include "AtomValuePack.h"
 #include "tools/Torsion.h"
 #include "core/ActionRegister.h"
 
@@ -28,8 +29,8 @@
 
 using namespace std;
 
-namespace PLMD{
-namespace multicolvar{
+namespace PLMD {
+namespace multicolvar {
 
 //+PLUMEDOC COLVAR DIHCOR
 /*
@@ -47,14 +48,14 @@ where the \f$\phi_i\f$ and \f$\psi\f$ values and the instantaneous values for th
 
 The following provides an example input for the dihcor action
 
-\verbatim
+\plumedfile
 DIHCOR ...
   ATOMS1=1,2,3,4,5,6,7,8
   ATOMS2=5,6,7,8,9,10,11,12
   LABEL=dih
 ... DIHCOR
 PRINT ARG=dih FILE=colvar STRIDE=10
-\endverbatim
+\endplumedfile
 
 In the above input we are calculating the correation between the torsion angle involving atoms 1, 2, 3 and 4 and the torsion angle
 involving atoms 5, 6, 7 and 8.	This is then added to the correlation betwene the torsion angle involving atoms 5, 6, 7 and 8 and the
@@ -64,7 +65,7 @@ Writing out the atoms involved in all the torsions in this way can be rather ted
 can avoid this by using the \ref MOLINFO command.  PLUMED uses the pdb file that you provide to this command to learn
 about the topology of the protein molecule.  This means that you can specify torsion angles using the following syntax:
 
-\verbatim
+\plumedfile
 MOLINFO MOLTYPE=protein STRUCTURE=myprotein.pdb
 DIHCOR ...
 ATOMS1=@phi-3,@psi-3
@@ -72,7 +73,7 @@ ATOMS2=@psi-3,@phi-4
 ATOMS4=@phi-4,@psi-4
 ... DIHCOR
 PRINT ARG=dih FILE=colvar STRIDE=10
-\endverbatim
+\endplumedfile
 
 Here, \@phi-3 tells plumed that you would like to calculate the \f$\phi\f$ angle in the third residue of the protein.
 Similarly \@psi-4 tells plumed that you want to calculate the \f$\psi\f$ angle of the 4th residue of the protein.
@@ -80,89 +81,94 @@ Similarly \@psi-4 tells plumed that you want to calculate the \f$\psi\f$ angle o
 */
 //+ENDPLUMEDOC
 
-class DihedralCorrelation : public MultiColvar {
+class DihedralCorrelation : public MultiColvarBase {
 private:
 public:
   static void registerKeywords( Keywords& keys );
-  DihedralCorrelation(const ActionOptions&);
-  virtual double compute();
-  bool isPeriodic(){ return false; }
-  Vector getCentralAtom();
+  explicit DihedralCorrelation(const ActionOptions&);
+  virtual double compute( const unsigned& tindex, AtomValuePack& myatoms ) const ;
+  bool isPeriodic() { return false; }
 };
 
 PLUMED_REGISTER_ACTION(DihedralCorrelation,"DIHCOR")
 
-void DihedralCorrelation::registerKeywords( Keywords& keys ){
-  MultiColvar::registerKeywords( keys );
-  keys.use("ATOMS");
+void DihedralCorrelation::registerKeywords( Keywords& keys ) {
+  MultiColvarBase::registerKeywords( keys );
+  keys.add("numbered","ATOMS","the atoms involved in each of the dihedral correlation values you wish to calculate. "
+           "Keywords like ATOMS1, ATOMS2, ATOMS3,... should be listed and one dihedral correlation will be "
+           "calculated for each ATOM keyword you specify (all ATOM keywords should "
+           "specify the indices of 8 atoms).  The eventual number of quantities calculated by this "
+           "action will depend on what functions of the distribution you choose to calculate.");
+  keys.reset_style("ATOMS","atoms");
 }
 
 DihedralCorrelation::DihedralCorrelation(const ActionOptions&ao):
-PLUMED_MULTICOLVAR_INIT(ao)
+  Action(ao),
+  MultiColvarBase(ao)
 {
   // Read in the atoms
-  int natoms=8; readAtoms( natoms );
+  std::vector<AtomNumber> all_atoms;
+  readAtomsLikeKeyword( "ATOMS", 8, all_atoms );
+  setupMultiColvarBase( all_atoms );
+  // Stuff for central atoms
+  std::vector<bool> catom_ind(8, false);
+  catom_ind[1]=catom_ind[2]=catom_ind[5]=catom_ind[6]=true;
+  setAtomsForCentralAtom( catom_ind );
 
   // And setup the ActionWithVessel
-  if( getNumberOfVessels()==0 ){
-     std::string fake_input;
-     addVessel( "SUM", fake_input, -1 );  // -1 here means that this value will be named getLabel()
-     readVesselKeywords();  // This makes sure resizing is done
+  if( getNumberOfVessels()==0 ) {
+    std::string fake_input;
+    addVessel( "SUM", fake_input, -1 );  // -1 here means that this value will be named getLabel()
+    readVesselKeywords();  // This makes sure resizing is done
   }
 
   // And check everything has been read in correctly
   checkRead();
 }
 
-double DihedralCorrelation::compute(){
-  Vector d10,d11,d12;
-  d10=getSeparation(getPosition(1),getPosition(0));
-  d11=getSeparation(getPosition(2),getPosition(1));
-  d12=getSeparation(getPosition(3),getPosition(2));
+double DihedralCorrelation::compute( const unsigned& tindex, AtomValuePack& myatoms ) const {
+  const Vector d10=getSeparation(myatoms.getPosition(1),myatoms.getPosition(0));
+  const Vector d11=getSeparation(myatoms.getPosition(2),myatoms.getPosition(1));
+  const Vector d12=getSeparation(myatoms.getPosition(3),myatoms.getPosition(2));
 
-  Vector dd10,dd11,dd12; PLMD::Torsion t1;
-  double phi1  = t1.compute(d10,d11,d12,dd10,dd11,dd12);
+  Vector dd10,dd11,dd12;
+  PLMD::Torsion t1;
+  const double phi1  = t1.compute(d10,d11,d12,dd10,dd11,dd12);
 
-  Vector d20,d21,d22;
-  d20=getSeparation(getPosition(5),getPosition(4));
-  d21=getSeparation(getPosition(6),getPosition(5));
-  d22=getSeparation(getPosition(7),getPosition(6));
+  const Vector d20=getSeparation(myatoms.getPosition(5),myatoms.getPosition(4));
+  const Vector d21=getSeparation(myatoms.getPosition(6),myatoms.getPosition(5));
+  const Vector d22=getSeparation(myatoms.getPosition(7),myatoms.getPosition(6));
 
-  Vector dd20,dd21,dd22; PLMD::Torsion t2;
-  double phi2 = t2.compute( d20, d21, d22, dd20, dd21, dd22 );
+  Vector dd20,dd21,dd22;
+  PLMD::Torsion t2;
+  const double phi2 = t2.compute( d20, d21, d22, dd20, dd21, dd22 );
 
   // Calculate value
-  double value = 0.5 * ( 1 + cos( phi2 - phi1 ) );
+  const double diff = phi2 - phi1;
+  const double value = 0.5*(1.+cos(diff));
   // Derivatives wrt phi1
-  dd10 *= 0.5*sin( phi2 - phi1 );
-  dd11 *= 0.5*sin( phi2 - phi1 );
-  dd12 *= 0.5*sin( phi2 - phi1 );
+  const double dval = 0.5*sin(diff);
+  dd10 *= dval;
+  dd11 *= dval;
+  dd12 *= dval;
   // And add
-  addAtomsDerivatives(0,dd10);
-  addAtomsDerivatives(1,dd11-dd10);
-  addAtomsDerivatives(2,dd12-dd11);
-  addAtomsDerivatives(3,-dd12);
-  addBoxDerivatives  (-(extProduct(d10,dd10)+extProduct(d11,dd11)+extProduct(d12,dd12)));
+  addAtomDerivatives(1, 0, dd10, myatoms );
+  addAtomDerivatives(1, 1, dd11-dd10, myatoms );
+  addAtomDerivatives(1, 2, dd12-dd11, myatoms );
+  addAtomDerivatives(1, 3, -dd12, myatoms );
+  myatoms.addBoxDerivatives  (1, -(extProduct(d10,dd10)+extProduct(d11,dd11)+extProduct(d12,dd12)));
   // Derivative wrt phi2
-  dd20 *= -0.5*sin( phi2 - phi1 );
-  dd21 *= -0.5*sin( phi2 - phi1 );
-  dd22 *= -0.5*sin( phi2 - phi1 );
+  dd20 *= -dval;
+  dd21 *= -dval;
+  dd22 *= -dval;
   // And add
-  addAtomsDerivatives(4,dd20);
-  addAtomsDerivatives(5,dd21-dd20);
-  addAtomsDerivatives(6,dd22-dd21);
-  addAtomsDerivatives(7,-dd22);
-  addBoxDerivatives  (-(extProduct(d20,dd20)+extProduct(d21,dd21)+extProduct(d22,dd22)));
+  addAtomDerivatives(1, 4, dd20, myatoms );
+  addAtomDerivatives(1, 5, dd21-dd20, myatoms );
+  addAtomDerivatives(1, 6, dd22-dd21, myatoms );
+  addAtomDerivatives(1, 7, -dd22, myatoms );
+  myatoms.addBoxDerivatives(1, -(extProduct(d20,dd20)+extProduct(d21,dd21)+extProduct(d22,dd22)));
 
   return value;
-}
-
-Vector DihedralCorrelation::getCentralAtom(){
-   addCentralAtomDerivatives( 1, 0.25*Tensor::identity() );
-   addCentralAtomDerivatives( 2, 0.25*Tensor::identity() );
-   addCentralAtomDerivatives( 5, 0.25*Tensor::identity() );
-   addCentralAtomDerivatives( 6, 0.25*Tensor::identity() );
-   return 0.25*( getPosition(1) + getPosition(2) + getPosition(5) + getPosition(6) );
 }
 
 }

@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -32,6 +32,7 @@ namespace crystallization {
 class Steinhardt : public VectorMultiColvar {
 private:
   unsigned tmom;
+  double rcut,rcut2;
   SwitchingFunction switchingFunction;
 protected:
   std::vector<double> coeff_poly;
@@ -39,10 +40,9 @@ protected:
   void setAngularMomentum( const unsigned& ang );
 public:
   static void registerKeywords( Keywords& keys );
-  Steinhardt( const ActionOptions& ao );
-  void calculateVector();
-  Vector getCentralAtom();
-  double deriv_poly( const unsigned&, const double&, double& );
+  explicit Steinhardt( const ActionOptions& ao );
+  void calculateVector( multicolvar::AtomValuePack& myatoms ) const ;
+  double deriv_poly( const unsigned&, const double&, double& ) const ;
 };
 
 }

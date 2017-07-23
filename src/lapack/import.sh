@@ -20,7 +20,10 @@ sed 's|"types/simple.h"|"simple.h"|' "$GRO"/include/gmx_lapack.h |
            a++;
            if(a==1){
              print "#include \"simple.h\""
-             print "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+             print "#ifndef __PLUMED_LAPACK_RETURNS_FLOAT"
+             print "#define __PLUMED_LAPACK_RETURNS_FLOAT float"
+             print "#endif"
+             print "#if ! defined(__PLUMED_HAS_EXTERNAL_LAPACK)"
              print "#include \"def_internal.h\""
              print "namespace PLMD{"
              print "namespace lapack{"
@@ -31,12 +34,15 @@ sed 's|"types/simple.h"|"simple.h"|' "$GRO"/include/gmx_lapack.h |
            }
            if(a==2){
              print "}"
-             print "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+             print "#if ! defined(__PLUMED_HAS_EXTERNAL_LAPACK)"
              print "}"
              print "#endif"
            }
          }
-         if(!inside) print
+         if(!inside){
+           if(NF==1 && $1=="float") print "__PLUMED_LAPACK_RETURNS_FLOAT"
+           else print
+         }
          if(inside && $1=="#endif") inside=0;
        }' > lapack.h
 
@@ -79,7 +85,7 @@ cat << EOF > simple.h
 EOF
 
 {
-echo "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+echo "#if ! defined(__PLUMED_HAS_EXTERNAL_LAPACK)"
 for file in "$GRO"/src/gmxlib/gmx_lapack/*.c
 do
   awk '{
@@ -107,6 +113,6 @@ echo "#endif"
 } | sed 's/static //' > lapack.cpp
 
 cd ../
-./header.sh
+./header.sh lapack
 
 

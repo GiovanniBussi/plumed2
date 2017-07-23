@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -27,8 +27,8 @@
 
 using namespace std;
 
-namespace PLMD{
-namespace generic{
+namespace PLMD {
+namespace generic {
 
 //+PLUMEDOC GENERIC RANDOM_EXCHANGES
 /*
@@ -43,26 +43,26 @@ Using the following three input files one can run a bias exchange
 metadynamics simulation using a different angle in each replica.
 Exchanges will be randomly tried between replicas 0-1, 0-2 and 1-2
 
-Here is plumed.dat.0
-\verbatim
+Here is plumed.0.dat
+\plumedfile
 RANDOM_EXCHANGES
 t: TORSION ATOMS=1,2,3,4
 METAD ARG=t HEIGHT=0.1 PACE=100 SIGMA=0.3
-\endverbatim
+\endplumedfile
 
-Here is plumed.dat.1
-\verbatim
+Here is plumed.1.dat
+\plumedfile
 RANDOM_EXCHANGES
 t: TORSION ATOMS=2,3,4,5
 METAD ARG=t HEIGHT=0.1 PACE=100 SIGMA=0.3
-\endverbatim
+\endplumedfile
 
-Here is plumed.dat.2
-\verbatim
+Here is plumed.2.dat
+\plumedfile
 RANDOM_EXCHANGES
 t: TORSION ATOMS=3,4,5,6
 METAD ARG=t HEIGHT=0.1 PACE=100 SIGMA=0.3
-\endverbatim
+\endplumedfile
 
 \warning Multi replica simulations are presently only working with gromacs.
 
@@ -77,20 +77,20 @@ class RandomExchanges:
 {
 public:
   static void registerKeywords( Keywords& keys );
-  RandomExchanges(const ActionOptions&ao);
-  void calculate(){}
-  void apply(){}
+  explicit RandomExchanges(const ActionOptions&ao);
+  void calculate() {}
+  void apply() {}
 };
 
 PLUMED_REGISTER_ACTION(RandomExchanges,"RANDOM_EXCHANGES")
 
-void RandomExchanges::registerKeywords( Keywords& keys ){
+void RandomExchanges::registerKeywords( Keywords& keys ) {
   Action::registerKeywords(keys);
   keys.add("optional","SEED","seed for random exchanges");
 }
 
 RandomExchanges::RandomExchanges(const ActionOptions&ao):
-Action(ao)
+  Action(ao)
 {
   plumed.getExchangePatterns().setFlag(ExchangePatterns::RANDOM);
 // I convert the seed to -seed because I think it is more general to use a positive seed in input

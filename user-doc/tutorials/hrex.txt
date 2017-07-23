@@ -1,16 +1,30 @@
 /**
 \page hrex Using Hamiltonian replica exchange with GROMACS
 
-If you patch GROMACS using this special PLUMED branch you should be able to perform
-Hamiltonian replica exchange with different topologies. This patch is modifying GROMACS
-much more than the original PLUMED patch, so: be even more careful!
+When patching GROMACS with PLUMED, it is also possible to perform 
+Hamiltonian replica exchange with different topologies.
+Although this feature is provided together with PLUMED, it is actually
+a new feature for GROMACS itself that can be enabled using the `-hrex`
+flag of `mdrun`.
 This implementation is very close to the one used to produce the data in this paper
-\cite bussi2013mp.
+\cite bussi2013mp. In case you find it useful, please cite this paper.
 
-\section multipletopologies Generate multiple topologies
+\warning This feature is currently used by several groups and should be
+robust enough. However, be sure that you understand its limitations and
+to perform all the tests discussed in this page before using it in production.
 
-Use the plumed partial_tempering command line tool.
+In this short tutorial you will learn how to do two things:
+- Generate scaled topologies with `plumed partial_tempering`. This is actually not directly related to
+  the `-hrex` flag.
+- Run GROMACS with replica exchange and multiple topologies.
 
+\section multipletopologies Generate scaled topologies
+
+Plumed comes with a `partial_tempering` command line tool that can be used to generate
+scaled topologies. Notice that you might want to generate these topologies
+by yourself. This step is totally independent from the use of the `-hrex` flag.
+
+The `partial_tempering` tool can be invoked as follows:
 \verbatim
   plumed partial_tempering scale < processed.top
 \endverbatim
@@ -72,11 +86,11 @@ all other terms (bonds/bends) are identical.
 
 \section hrexpatch Run GROMACS
 
-If GROMACS has been patched with this version of PLUMED it should accept the -hrex option
-in mdrun. Please double check this (mdrun -h should list this possibility). Also
-notice that only the patch for gromacs 4.6.5 implementes hrex.
-First of all prepare separate topologies for each replicas using plumed partial_tempering
-tool as shown above. Then run a normal replica exchange with gromacs adding the flag "-hrex" on the command line.
+If GROMACS has been patched with PLUMED it should accept the -hrex option
+in mdrun. Please double check this (mdrun -h should list this possibility).
+Notice that not all the versions of GROMACS allow this feature.
+First of all prepare separate topologies for each replicas using `plumed partial_tempering`
+tool as shown above (or using some other tool). Then run a normal replica exchange with gromacs adding the flag "-hrex" on the command line.
 
 A complete run script could be adapted from the following
 \verbatim
@@ -115,20 +129,31 @@ do
 # -maxwarn is often needed because box could be charged
   grompp_mpi_d  -maxwarn 1 -o topol$i.tpr -f grompp$i.mdp -p topol$i.top
 done
-mpirun -np $nrep mdrun_mpi_d -v -plumed plumed.dat -multi $nrep -replex 100 -nsteps 15000000 -hrex
+mpirun -np $nrep gmx_mpi mdrun_d -v -plumed plumed.dat -multi $nrep -replex 100 -nsteps 15000000 -hrex
 \endverbatim
 
 Notice that total cell could be charged. This happens whenever the scaled portion of the system
 is not neutral. There should be no problem in this. When used with pbc, GROMACS
 will add a compensating background.
 
-Suggested checks:
+Suggested check:
 - Try with several identical force fields (hardcode the same lambda for all replicas in the
   script above) and different seed/starting point. Acceptance should be 1.0
 
+Notice that when you run with GPUs acceptance could be different from 1.0.
+The reason is that to compute the acceptance GROMACS is sending the coordinates to the neighboring
+replicas which then recompute energy. If all the tpr files are identical, one would expect
+energy to be identically to the originally computed one. However, calculations
+made with GPUs are typically not reproducible to machine precision. For a large system, even
+an error in the total energy for the last significant digit could be on the order of a kJ.
+This results in practice in a lower acceptance. The error induced on the final ensemble is
+expected to be very small.
+
+
 Warnings:
-- Topologies should have the same number of atoms, same masses and same constraint topology
-- Acceptance is not computed correctly if rcoulomb!=rvdw.
+- Topologies should have the same number of atoms, same masses and same constraint topology.
+  Some of these differences (e.g. masses) are not explicitly checked and might lead to
+  unnoticed errors in the final results.
 - Choose neighbor list update (nstlist) that divides replex. Notice that running with GPUs
   GROMACS is going to change nstlist automatically, be sure that it still divides replex.
 - Option -hrex requires also option -plumed. If you do not care about plumed, just provide an empty

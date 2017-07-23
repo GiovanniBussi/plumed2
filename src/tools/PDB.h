@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2014 The plumed team
+   Copyright (c) 2011-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -26,16 +26,17 @@
 #include "Vector.h"
 #include <vector>
 #include <string>
-#include "Log.h"
 #include <map>
 
 
-namespace PLMD{
+namespace PLMD {
+
+class Log;
 
 /// Minimalistic pdb parser.
 /// Contain positions, atomic indexes, occupancy and beta.
 /// We should also add other info (e.g. residue name etc).
-class PDB{
+class PDB {
   std::vector<unsigned> block_ends;
   std::vector<std::string> atomsymb, chain;
   std::vector<unsigned> residue;
@@ -58,9 +59,11 @@ public:
 /// Access to the beta array
   const std::vector<double>     & getBeta()const;
 /// This is used to set the keyword ARG - this is so we
-/// we can use a1.* in the input for reference configurations 
+/// we can use a1.* in the input for reference configurations
   void setArgKeyword( const std::string& new_args );
-/// Access to the lines of REMARK 
+/// Add information to the remark
+  void addRemark( const std::vector<std::string>& v1 );
+/// Access to the lines of REMARK
   const std::vector<std::string>     & getRemark()const;
 /// Access to the indexes
   const std::vector<AtomNumber> & getAtomNumbers()const;
@@ -70,11 +73,11 @@ public:
   void getChainNames( std::vector<std::string>& chains ) const;
 /// Get the residues in each of the chains
   void getResidueRange( const std::string& chainname, unsigned& res_start, unsigned& res_end, std::string& errmsg ) const;
-/// Get the atoms in each of the chains 
+/// Get the atoms in each of the chains
   void getAtomRange( const std::string& chainname, AtomNumber& a_start, AtomNumber& a_end, std::string& errmsg ) const;
 /// Get the chain ID that a particular residue is a part of
   std::string getChainID(const unsigned& resnumber) const;
-///use the log to dump information  
+///use the log to dump information
   friend Log& operator<<(Log& ostr, const PDB& pdb);
 /// return the name of a specific atom
   std::string getAtomName(AtomNumber a) const;
@@ -84,16 +87,30 @@ public:
   std::string getResidueName(AtomNumber a) const;
 /// get the name of the resnum'th residue
   std::string getResidueName(const unsigned& resnum ) const;
+/// get the name of the resnum'th residue of chain
+/// Chain=="*" matches any chain and makes it equivalent to getResidueName
+  std::string getResidueName(const unsigned& resnum,const std::string& chain ) const;
 /// Check if any of the residues are named name
   bool checkForResidue( const std::string& name ) const ;
 /// Check if any of the atoms are named atom
   bool checkForAtom( const std::string& name ) const ;
 /// Return the atom named aname from residue number resnum
   AtomNumber getNamedAtomFromResidue( const std::string& aname, const unsigned& resnum ) const;
+/// Return the atom named aname from residue number resnum and chain.
+/// Chain=="*" matches any chain and makes it equivalent to getNamedAtomFromResidue.
+  AtomNumber getNamedAtomFromResidueAndChain( const std::string& aname, const unsigned& resnum, const std::string& chain ) const;
+/// Access to the atoms of a residue
+  std::vector<AtomNumber> getAtomsInResidue(const unsigned& resnum,const std::string& chainid)const;
+/// Access to the atoms of a chain
+  std::vector<AtomNumber> getAtomsInChain(const std::string& chainid)const;
 /// Get the extents of the blocks containing the atoms
   const std::vector<unsigned> & getAtomBlockEnds() const ;
 /// Get the number of blocks of atoms in the pdb
   unsigned getNumberOfAtomBlocks() const ;
+/// Set the position array
+  void setPositions(const std::vector<Vector> &v);
+/// Access to the position array
+  Vector getPosition(AtomNumber a)const;
 };
 
 }

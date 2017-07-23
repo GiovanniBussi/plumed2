@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2014-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -26,27 +26,16 @@ namespace PLMD {
 
 class NormalizedEuclideanDistance : public ArgumentOnlyDistance {
 public:
-  NormalizedEuclideanDistance( const ReferenceConfigurationOptions& ro );
-  void read( const PDB& );
-  double calc( const std::vector<Value*>& vals, const std::vector<double>& arg, const bool& squared );
+  explicit NormalizedEuclideanDistance( const ReferenceConfigurationOptions& ro );
 };
 
 PLUMED_REGISTER_METRIC(NormalizedEuclideanDistance,"NORM-EUCLIDEAN")
 
 NormalizedEuclideanDistance::NormalizedEuclideanDistance( const ReferenceConfigurationOptions& ro ):
-ReferenceConfiguration(ro),
-ArgumentOnlyDistance(ro)
+  ReferenceConfiguration(ro),
+  ArgumentOnlyDistance(ro)
 {
   hasweights=true;
 }
-
-void NormalizedEuclideanDistance::read( const PDB& pdb ){
-  readArgumentsFromPDB( pdb );
-}
-
-double NormalizedEuclideanDistance::calc( const std::vector<Value*>& vals, const std::vector<double>& arg, const bool& squared ){
-  return calculateArgumentDistance( vals, arg, squared );
-}
-
 
 }

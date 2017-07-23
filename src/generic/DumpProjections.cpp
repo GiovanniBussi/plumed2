@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2012-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -27,36 +27,48 @@
 
 using namespace std;
 
-namespace PLMD{
-namespace generic{
+namespace PLMD {
+namespace generic {
 
-//+PLUMEDOC ANALYSIS DUMPPROJECTIONS
+//+PLUMEDOC PRINTANALYSIS DUMPPROJECTIONS
 /*
 Dump the derivatives with respect to the input parameters for one or more objects (generally CVs, functions or biases).
+
+\par Examples
+
+Compute the distance between two groups and write on a file the
+derivatives of this distance with respect to all the atoms of the two groups
+
+\plumedfile
+x1: CENTER ATOMS=1-10
+x2: CENTER ATOMS=11-20
+d: DISTANCE ATOMS=x1,x2
+DUMPPROJECTIONS ARG=d FILE=proj STRIDE=20
+\endplumedfile
 
 */
 //+ENDPLUMEDOC
 
 class DumpProjections :
-public ActionPilot,
-public ActionWithArguments
+  public ActionPilot,
+  public ActionWithArguments
 {
   string file;
   string fmt;
   OFile of;
 public:
-  void calculate(){}
-  DumpProjections(const ActionOptions&);
+  void calculate() {}
+  explicit DumpProjections(const ActionOptions&);
   static void registerKeywords(Keywords& keys);
-  void apply(){}
+  void apply() {}
   void update();
-  bool checkNeedsGradients()const{return true;}
+  bool checkNeedsGradients()const {return true;}
   ~DumpProjections();
 };
 
 PLUMED_REGISTER_ACTION(DumpProjections,"DUMPPROJECTIONS")
 
-void DumpProjections::registerKeywords(Keywords& keys){
+void DumpProjections::registerKeywords(Keywords& keys) {
   Action::registerKeywords(keys);
   ActionPilot::registerKeywords(keys);
   ActionWithArguments::registerKeywords(keys);
@@ -64,13 +76,16 @@ void DumpProjections::registerKeywords(Keywords& keys){
   keys.add("compulsory","STRIDE","1","the frequency with which the derivatives should be output");
   keys.add("compulsory","FILE","the name of the file on which to output the derivatives");
   keys.add("compulsory","FMT","%15.10f","the format with which the derivatives should be output");
+  keys.use("RESTART");
+  keys.use("UPDATE_FROM");
+  keys.use("UPDATE_UNTIL");
 }
 
 DumpProjections::DumpProjections(const ActionOptions&ao):
-Action(ao),
-ActionPilot(ao),
-ActionWithArguments(ao),
-fmt("%15.10f")
+  Action(ao),
+  ActionPilot(ao),
+  ActionWithArguments(ao),
+  fmt("%15.10f")
 {
   parse("FILE",file);
   if( file.length()==0 ) error("filename not specified");
@@ -81,16 +96,16 @@ fmt("%15.10f")
   log.printf("  with format %s\n",fmt.c_str());
   checkRead();
 
-  for(unsigned i=0;i<getNumberOfArguments();++i){
-     (getPntrToArgument(i)->getPntrToAction())->turnOnDerivatives();
+  for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+    (getPntrToArgument(i)->getPntrToAction())->turnOnDerivatives();
   }
 }
 
 
-void DumpProjections::update(){
+void DumpProjections::update() {
   of.fmtField(" %f").printField("time",getTime());
-  for(unsigned i=0;i<getNumberOfArguments();i++){
-    for(unsigned j=0;j<getNumberOfArguments();j++){
+  for(unsigned i=0; i<getNumberOfArguments(); i++) {
+    for(unsigned j=0; j<getNumberOfArguments(); j++) {
       of.fmtField(fmt);
       of.printField(getPntrToArgument(i)->getName()+"-"+getPntrToArgument(j)->getName(),getProjection(i,j));
     }
@@ -98,7 +113,7 @@ void DumpProjections::update(){
   of.printField();
 }
 
-DumpProjections::~DumpProjections(){
+DumpProjections::~DumpProjections() {
 }
 
 }

@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2012-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -29,13 +29,13 @@
 #include <iosfwd>
 #include "tools/Keywords.h"
 
-namespace PLMD{
+namespace PLMD {
 
 class CLTool;
 class CLToolOptions;
 
 /// Same as ActionRegister, but for CLTools
-class CLToolRegister{
+class CLToolRegister {
 /// Write on a stream the list of registered directives
   friend std::ostream &operator<<(std::ostream &,const CLToolRegister&);
 /// Pointer to a function which, given the options, create an CLTool
@@ -46,10 +46,6 @@ class CLToolRegister{
   std::map<std::string,creator_pointer> m;
 /// Map cltool name to the keywords for this function
   std::map<std::string,Keywords> mk;
-/// Iterator over the map
-  typedef std::map<std::string,creator_pointer>::iterator mIterator;
-/// Iterator over the map
-  typedef std::map<std::string,creator_pointer>::const_iterator const_mIterator;
 /// Set of disabled cltools (which were registered more than once)
   std::set<std::string> disabled;
 public:
@@ -68,7 +64,7 @@ public:
 /// Returns a list of the allowed CLTools
   std::vector<std::string> list()const;
 /// Print out the instructions for using the tool in html ready for input into the manual
-  bool printManual(const std::string& cltool); 
+  bool printManual(const std::string& cltool);
 };
 
 /// Function returning a reference to the CLToolRegister.

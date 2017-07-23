@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013,2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -20,106 +20,59 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
+#include "Between.h"
 #include "VesselRegister.h"
-#include "FunctionVessel.h"
-#include "tools/HistogramBead.h"
-#include "ActionWithVessel.h"
 
 namespace PLMD {
 namespace vesselbase {
 
-class Between : public FunctionVessel {
-private:
-  bool norm;
-  std::vector<double> df;
-  HistogramBead hist;
-public:
-  static void registerKeywords( Keywords& keys );
-  static void reserveKeyword( Keywords& keys );
-  Between( const VesselOptions& da );
-  std::string function_description();
-  bool calculate();
-  void finish();
-};
-
 PLUMED_REGISTER_VESSEL(Between,"BETWEEN")
 
-void Between::registerKeywords( Keywords& keys ){
+void Between::registerKeywords( Keywords& keys ) {
   FunctionVessel::registerKeywords( keys );
   HistogramBead::registerKeywords( keys );
   keys.addFlag("NORM",false,"calculate the fraction of values rather than the number");
 }
 
-void Between::reserveKeyword( Keywords& keys ){
-  keys.reserve("numbered","BETWEEN","calculate the number of values that are within a certain range. "
-                                    "These quantities are calculated using kernel density estimation as described on "
-                                    "\\ref histogrambead.",true); 
+void Between::reserveKeyword( Keywords& keys ) {
+  keys.reserve("vessel","BETWEEN","calculate the number of values that are within a certain range. "
+               "These quantities are calculated using kernel density estimation as described on "
+               "\\ref histogrambead.");
   keys.addOutputComponent("between","BETWEEN","the number/fraction of values within a certain range. This is calculated using one of the "
-                                              "formula described in the description of the keyword so as to make it continuous. "
-                                              "You can calculate this quantity multiple times using different parameters."); 
+                          "formula described in the description of the keyword so as to make it continuous. "
+                          "You can calculate this quantity multiple times using different parameters.");
 }
 
 Between::Between( const VesselOptions& da ) :
-FunctionVessel(da)
-{ 
-
+  FunctionVessel(da)
+{
+  usetol=true;
   bool isPeriodic=getAction()->isPeriodic();
   double min, max; std::string str_min, str_max;
-  if( isPeriodic ){
-      getAction()->retrieveDomain( str_min, str_max );
-      Tools::convert(str_min,min); Tools::convert(str_max,max);
+  if( isPeriodic ) {
+    getAction()->retrieveDomain( str_min, str_max );
+    Tools::convert(str_min,min); Tools::convert(str_max,max);
   }
 
-  parseFlag("NORM",norm); std::string errormsg; df.resize(2); 
+  parseFlag("NORM",norm); std::string errormsg;
 
-  hist.set( getAllInput(),"",errormsg );
+  hist.set( getAllInput(),errormsg );
   if( !isPeriodic ) hist.isNotPeriodic();
-  else hist.isPeriodic( min, max ); 
+  else hist.isPeriodic( min, max );
   if( errormsg.size()!=0 ) error( errormsg );
 }
 
-std::string Between::function_description(){
+std::string Between::value_descriptor() {
   if(norm) return "the fraction of values " + hist.description();
   return "the number of values " + hist.description();
 }
 
-bool Between::calculate(){
-  double weight=getAction()->getElementValue(1);
-  plumed_dbg_assert( weight>=getTolerance() );
-  double val=getAction()->getElementValue(0);
-  double dval, f = hist.calculate(val, dval);
-
-  bool bigw=addValueUsingTolerance(1,weight);
-  if( !bigw ) return false;
-
-  double contr=weight*f;
-  bool addval=addValueUsingTolerance(0,contr);
-  if( addval ){
-     getAction()->chainRuleForElementDerivatives( 0, 0, weight*dval, this );
-     if(diffweight){
-        getAction()->chainRuleForElementDerivatives( 0, 1, f, this ); 
-        if(norm) getAction()->chainRuleForElementDerivatives( 1, 1, 1.0, this );
-     }
-  }
-  return ( contr>getNLTolerance() );
+double Between::calcTransform( const double& val, double& dv ) const {
+  double f = hist.calculate(val, dv); return f;
 }
 
-void Between::finish(){
-  double denom=getFinalValue(1);
-  if( norm && diffweight ){ 
-     df[0] = 1.0 / denom;
-     setOutputValue( getFinalValue(0) / denom ); 
-     df[1] = -getFinalValue(0) / ( denom*denom );
-     mergeFinalDerivatives( df );
-  } else if (norm) {
-     df[0] = 1.0 / denom; df[1]=0.0;
-     setOutputValue( getFinalValue(0) / denom );
-     mergeFinalDerivatives( df );
-  } else {
-     setOutputValue( getFinalValue(0) );
-     df[0] = 1.0; df[1]=0.0;
-     mergeFinalDerivatives( df );
-  }
+double Between::getCutoff() {
+  return std::numeric_limits<double>::max();
 }
 
 }

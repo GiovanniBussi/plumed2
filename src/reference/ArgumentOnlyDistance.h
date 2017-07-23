@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -32,13 +32,13 @@ class PDB;
 class Pbc;
 
 class ArgumentOnlyDistance : public ReferenceArguments {
-private:
-  std::vector<double> tmparg;
 public:
-  ArgumentOnlyDistance( const ReferenceConfigurationOptions& ro );
-  double calc( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, const std::vector<double>& arg, const bool& squared );
-  double calculate( const std::vector<Value*>& vals, const bool& squared );
-  virtual double calc( const std::vector<Value*>& vals, const std::vector<double>& arg, const bool& squared )=0;
+  explicit ArgumentOnlyDistance( const ReferenceConfigurationOptions& ro );
+  void read( const PDB& pdb );
+  bool pcaIsEnabledForThisReference() { return true; }
+  void setupPCAStorage( ReferenceValuePack& mypack ) { mypack.switchOnPCAOption(); }
+  double calc( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, const std::vector<double>& arg, ReferenceValuePack& myder, const bool& squared ) const ;
+  double calculate( const std::vector<Value*>& vals, ReferenceValuePack& myder, const bool& squared ) const ;
 };
 
 }

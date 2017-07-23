@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -27,6 +27,7 @@
 #include <vector>
 #include "Vessel.h"
 #include "core/Value.h"
+#include "tools/MultiValue.h"
 
 namespace PLMD {
 namespace vesselbase {
@@ -34,36 +35,54 @@ namespace vesselbase {
 /**
 \ingroup TOOLBOX
 This class allows you to calculate the vessel in one ActionWithVessel.  The user thinks
-it is created in a different Action however.  At the moment this is used for region 
+it is created in a different Action however.  At the moment this is used for region
 */
 
 class BridgeVessel : public Vessel {
 private:
   unsigned inum;
+  // bool in_normal_calculate;
   std::vector<double> mynumerical_values;
   ActionWithVessel* myOutputAction;
   ActionWithValue* myOutputValues;
+  // We create a tempory multivalue here so as to avoid vector resizing
+  MultiValue my_tmp_val;
 public:
-  BridgeVessel( const VesselOptions& );
+  explicit BridgeVessel( const VesselOptions& );
 /// Does this have derivatives
   bool hasDerivatives();
 /// Resize the quantities in the vessel
   void resize();
+/// Get the action that reads the command in
+  ActionWithVessel* getOutputAction();
 /// Setup the action we are outputting to
   void setOutputAction( ActionWithVessel* myOutputAction );
-/// Apply some force 
+/// Apply some force
   bool applyForce( std::vector<double>& forces );
 /// Should not be called
   std::string description();
 /// Jobs to do before the task list starts
   void prepare();
+/// Set the start of the buffer
+  void setBufferStart( unsigned& start );
+/// This transforms the derivatives using the output value
+  MultiValue& transformDerivatives( const unsigned& current, MultiValue& invals, MultiValue& outvals );
 /// Actually do the calculation
-  bool calculate();
+  void calculate( const unsigned& current, MultiValue& myvals, std::vector<double>& buffer, std::vector<unsigned>& der_index ) const ;
 /// Finish the calculation
-  void finish();
+  void finish( const std::vector<double>& buffer );
 /// Calculate numerical derivatives
   void completeNumericalDerivatives();
+/// Set the task flags in the bridged class the same as in the original class
+  void copyTaskFlags();
+/// Return a tempory multi value - we do this so as to avoid vector resizing
+  MultiValue& getTemporyMultiValue();
 };
+
+inline
+ActionWithVessel* BridgeVessel::getOutputAction() {
+  return myOutputAction;
+}
 
 }
 }

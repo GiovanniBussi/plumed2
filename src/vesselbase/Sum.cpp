@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2014 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -23,59 +23,40 @@
 #include "VesselRegister.h"
 
 namespace PLMD {
-namespace vesselbase{
+namespace vesselbase {
 
 class Sum : public FunctionVessel {
-private:
-  std::vector<double> df;
 public:
   static void registerKeywords( Keywords& keys );
   static void reserveKeyword( Keywords& keys );
-  Sum( const VesselOptions& da );
-  std::string function_description();
-  bool calculate();
-  void finish();
+  explicit Sum( const VesselOptions& da );
+  std::string value_descriptor();
+  double calcTransform( const double& val, double& dv ) const ;
 };
 
 PLUMED_REGISTER_VESSEL(Sum,"SUM")
 
-void Sum::registerKeywords( Keywords& keys ){
+void Sum::registerKeywords( Keywords& keys ) {
   FunctionVessel::registerKeywords( keys );
 }
 
-void Sum::reserveKeyword( Keywords& keys ){
-  keys.reserveFlag("SUM",false,"calculate the sum of all the quantities.",true);
+void Sum::reserveKeyword( Keywords& keys ) {
+  keys.reserve("vessel","SUM","calculate the sum of all the quantities.");
   keys.addOutputComponent("sum","SUM","the sum of values");
 }
 
 Sum::Sum( const VesselOptions& da ) :
-FunctionVessel(da),
-df(2)
+  FunctionVessel(da)
 {
 }
 
-std::string Sum::function_description(){
-  return "the sum of all the values"; 
+std::string Sum::value_descriptor() {
+  return "the sum of all the values";
 }
 
-bool Sum::calculate(){
-  double weight=getAction()->getElementValue(1);
-  plumed_dbg_assert( weight>=getTolerance() );
-
-  double val=getAction()->getElementValue(0);
-  addValueIgnoringTolerance(0,weight*val);
-  getAction()->chainRuleForElementDerivatives( 0, 0, weight, this );
-  if(diffweight) getAction()->chainRuleForElementDerivatives(0, 1, val, this);
-  return true;
+double Sum::calcTransform( const double& val, double& dv ) const {
+  dv=1.0; return val;
 }
-
-void Sum::finish(){
-  setOutputValue( getFinalValue(0) ); 
-  df[0]=1.0; df[1]=0.0;
-  mergeFinalDerivatives( df );
-}
-
-
 
 }
 }

@@ -16,23 +16,33 @@ sed 's|"types/simple.h"|"simple.h"|' "$GRO"/include/gmx_blas.h |
            a++;
            if(a==1){
              print "#include \"simple.h\""
-             print "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+             print "#ifndef __PLUMED_BLAS_RETURNS_FLOAT"
+             print "#define __PLUMED_BLAS_RETURNS_FLOAT float"
+             print "#endif"
+             print "#if ! defined (__PLUMED_HAS_EXTERNAL_BLAS)"
              print "#include \"def_internal.h\""
              print "namespace PLMD{"
              print "namespace blas{"
              print "#else"
+             print "namespace PLMD{"
+             print "namespace blas{"
+             print "}"
+             print "}"
              print "#include \"def_external.h\""
              print "extern \"C\"{"
              print "#endif"
            }
            if(a==2){
              print "}"
-             print "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+             print "#if ! defined (__PLUMED_HAS_EXTERNAL_BLAS)"
              print "}"
              print "#endif"
            }
          }
-         if(!inside) print
+         if(!inside){
+           if(NF==1 && $1=="float") print "__PLUMED_BLAS_RETURNS_FLOAT"
+           else print
+         }
          if(inside && $1=="#endif") inside=0;
        }' > blas.h
 
@@ -74,7 +84,7 @@ cat << EOF > simple.h
 EOF
 
 {
-echo "#if defined(__PLUMED_INTERNAL_LAPACK) || defined (__PLUMED_INTERNAL_BLAS)"
+echo "#if ! defined (__PLUMED_HAS_EXTERNAL_BLAS)"
 for file in "$GRO"/src/gmxlib/gmx_blas/*.c
 do
   awk '{
@@ -99,6 +109,6 @@ echo "#endif"
 } > blas.cpp
 
 cd ../
-./header.sh
+./header.sh blas
 
 

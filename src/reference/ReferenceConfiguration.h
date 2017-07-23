@@ -1,8 +1,8 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013-2015 The plumed team
+   Copyright (c) 2013-2017 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
-   See http://www.plumed-code.org for more information.
+   See http://www.plumed.org for more information.
 
    This file is part of plumed, version 2.
 
@@ -28,35 +28,40 @@
 #include "tools/Tensor.h"
 #include "tools/Tools.h"
 #include "tools/Exception.h"
+#include "ReferenceValuePack.h"
+#include "tools/Matrix.h"
 
-namespace PLMD{
+namespace PLMD {
 
 class Value;
 class Pbc;
 class OFile;
 class PDB;
-
-/// \ingroup TOOLBOX
-/// Abstract base class for calculating the distance from a reference configuration.
-/// A reference configuration can either have a particular set of atoms in a particular
-/// given configuration or it can be that a particular set of colvars have a particular 
-/// set of values.  It could also be a combination of both.  To allow all the posible
-/// permutations and in order make it easy to add new ways of calculating the distance 
-/// we have implemented this using polymorphism and multiple inheritance. 
+class Direction;
 
 class ReferenceConfigurationOptions {
-friend class ReferenceConfiguration;
+  friend class ReferenceConfiguration;
 private:
   std::string tt;
 public:
-  ReferenceConfigurationOptions( const std::string& type );
+  explicit ReferenceConfigurationOptions( const std::string& type );
   bool usingFastOption() const ;
   std::string getMultiRMSDType() const ;
 };
 
+/// \ingroup INHERIT
+/// Abstract base class for calculating the distance from a reference configuration.
+/// A reference configuration can either have a particular set of atoms in a particular
+/// given configuration or it can be that a particular set of colvars have a particular
+/// set of values.  It could also be a combination of both.  To allow all the posible
+/// permutations and in order make it easy to add new ways of calculating the distance
+/// we have implemented this using polymorphism and multiple inheritance.  The following
+/// provides \ref AddingAMetric "information" on how to implement a new method for
+/// calculating the distance between a pair of configurations
+
 class ReferenceConfiguration {
-friend class SingleDomainRMSD;
-friend double distance( const Pbc& pbc, const std::vector<Value*> & vals, ReferenceConfiguration*, ReferenceConfiguration*, const bool& squared );
+  friend class SingleDomainRMSD;
+  friend double distance( const Pbc& pbc, const std::vector<Value*> & vals, ReferenceConfiguration*, ReferenceConfiguration*, const bool& squared );
 private:
 /// The name of this particular config
   std::string name;
@@ -65,7 +70,7 @@ private:
 /// A vector containing all the remarks from the pdb input
   std::vector<std::string> line;
 /// This is used to store the values of arguments
-  std::vector<double> tmparg;
+//  std::vector<double> tmparg;
 /// These are used to do fake things when we copy frames
   std::vector<AtomNumber> fake_atom_numbers;
   std::vector<std::string> fake_arg_names;
@@ -75,50 +80,54 @@ private:
   std::vector<double> fake_metric;
 protected:
 /// Derivatives wrt to the arguments
-  std::vector<double> arg_ders;
-/// The virial contribution has to be stored 
-  bool virialWasSet;
-  Tensor virial;
+//  std::vector<double> arg_ders;
+/// The virial contribution has to be stored
+//  bool virialWasSet;
+//  Tensor virial;
 /// Derivatives wrt to the atoms
-  std::vector<Vector> atom_ders;
+//  std::vector<Vector> atom_ders;
 /// Crash with an error
   void error(const std::string& msg);
-/// Clear the derivatives 
-  void clearDerivatives();
+/// Clear the derivatives
+//  void clearDerivatives();
 public:
-  ReferenceConfiguration( const ReferenceConfigurationOptions& ro );
+  explicit ReferenceConfiguration( const ReferenceConfigurationOptions& ro );
 /// Destructor
   virtual ~ReferenceConfiguration();
 /// Return the name of this metric
   std::string getName() const ;
+///
+  virtual unsigned getNumberOfReferencePositions() const ;
+  virtual unsigned getNumberOfReferenceArguments() const ;
 /// Retrieve the atoms that are required for this guy
-  virtual void getAtomRequests( std::vector<AtomNumber>&, bool disable_checks=false ){}
+  virtual void getAtomRequests( std::vector<AtomNumber>&, bool disable_checks=false ) {}
 /// Retrieve the arguments that are required for this guy
-  virtual void getArgumentRequests( std::vector<std::string>&, bool disable_checks=false ){}
+  virtual void getArgumentRequests( std::vector<std::string>&, bool disable_checks=false ) {}
 /// Set the final number of arguments
-  virtual void setNumberOfArguments( const unsigned& );
+//  virtual void setNumberOfArguments( const unsigned& );
 /// Set the final number of atoms
-  virtual void setNumberOfAtoms( const unsigned& );
-/// Set the reference configuration using a PDB 
+//  virtual void setNumberOfAtoms( const unsigned& );
+/// Set the reference configuration using a PDB
   virtual void set( const PDB& );
-/// Do all local business for setting the configuration 
+/// Do all local business for setting the configuration
   virtual void read( const PDB& )=0;
 /// Set the weight for this frame
   void setWeight( const double& ww );
 /// Return the weight for this frame
   double getWeight() const ;
 /// Calculate the distance from the reference configuration
-  double calculate( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, const bool& squared=false );
+  double calculate( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, ReferenceValuePack& myder, const bool& squared=false ) const ;
 /// Calculate the distance from the reference configuration
-  virtual double calc( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, const std::vector<double>& args, const bool& squared )=0;
-/// Return the derivative wrt to the ith atom
-  Vector getAtomDerivative( const unsigned& ) const ;
-/// Return the derivative wrt to the ith argument
-  double getArgumentDerivative( const unsigned& ) const ;
+  virtual double calc( const std::vector<Vector>& pos, const Pbc& pbc, const std::vector<Value*>& vals, const std::vector<double>& args,
+                       ReferenceValuePack& myder, const bool& squared ) const=0;
+// /// Return the derivative wrt to the ith atom
+//   Vector getAtomDerivative( const unsigned& ) const ;
+// /// Return the derivative wrt to the ith argument
+//   double getArgumentDerivative( const unsigned& ) const ;
 /// Return the derivatives of the distance wrt the cell vectors.  This returns false
-/// for everything other than DRMSD as these sort of calculations have to be done 
-/// separately when you use RMSD 
-  bool getVirial( Tensor& virout ) const ;    
+/// for everything other than DRMSD as these sort of calculations have to be done
+/// separately when you use RMSD
+//   bool getVirial( Tensor& virout ) const ;
 /// Parse something from the pdb remarks
   template<class T>
   bool parse( const std::string&key, T&t, bool ignore_missing=false );
@@ -136,34 +145,46 @@ public:
 /// Set the reference structure (perhaps should also pass the pbc and align and displace )
   void setReferenceConfig( const std::vector<Vector>& pos, const std::vector<double>& arg, const std::vector<double>& metric );
 /// Print a pdb file containing the reference configuration
-  void print( OFile& ofile, const double& time, const double& weight, const double& old_norm );
-  void print( OFile& ofile, const std::string& fmt );
+  void print( OFile& ofile, const double& time, const double& weight, const double& lunits, const double& old_norm );
+  void print( OFile& ofile, const std::string& fmt, const double& lunits );
 /// Get one of the referene arguments
-  virtual double getReferenceArgument( const unsigned& i ){ plumed_error(); return 0.0; }
-/// These are overwritten in ReferenceArguments and ReferenceAtoms but are required here 
+  virtual double getReferenceArgument( const unsigned& i ) const { plumed_error(); return 0.0; }
+/// These are overwritten in ReferenceArguments and ReferenceAtoms but are required here
 /// to make PLMD::distance work
-  virtual const std::vector<Vector>& getReferencePositions();
-  virtual const std::vector<double>& getReferenceArguments(); 
+  virtual const std::vector<Vector>& getReferencePositions() const ;
+  virtual const std::vector<double>& getReferenceArguments() const ;
   virtual const std::vector<double>& getReferenceMetric();
 /// These are overwritten in ReferenceArguments and ReferenceAtoms to make frame copying work
   virtual const std::vector<AtomNumber>& getAbsoluteIndexes();
   virtual const std::vector<std::string>& getArgumentNames();
+/// Extract a Direction giving you the displacement from some position
+  void extractDisplacementVector( const std::vector<Vector>& pos, const std::vector<Value*>& vals,
+                                  const std::vector<double>& arg, const bool& nflag,
+                                  Direction& mydir ) const ;
+/// Stuff for pca
+  virtual bool pcaIsEnabledForThisReference() { return false; }
+  double projectDisplacementOnVector( const Direction& mydir, const std::vector<Value*>& vals,
+                                      const std::vector<double>& arg, ReferenceValuePack& mypack ) const ;
+/// Stuff to setup pca
+  virtual void setupPCAStorage( ReferenceValuePack& mypack ) { plumed_error(); }
+/// Move the reference configuration by an ammount specified using a Direction
+  void displaceReferenceConfiguration( const double& weight, Direction& dir );
 };
 
-inline
-Vector ReferenceConfiguration::getAtomDerivative( const unsigned& ider ) const {
-  plumed_dbg_assert( ider<atom_ders.size() );
-  return atom_ders[ider];
-}
+// inline
+// Vector ReferenceConfiguration::getAtomDerivative( const unsigned& ider ) const {
+//   plumed_dbg_assert( ider<atom_ders.size() );
+//   return atom_ders[ider];
+// }
+
+// inline
+// double ReferenceConfiguration::getArgumentDerivative( const unsigned& ider ) const {
+//   plumed_dbg_assert( ider<arg_ders.size() );
+//   return arg_ders[ider];
+// }
 
 inline
-double ReferenceConfiguration::getArgumentDerivative( const unsigned& ider ) const {
-  plumed_dbg_assert( ider<arg_ders.size() );
-  return arg_ders[ider];
-}
-
-inline
-void ReferenceConfiguration::setWeight( const double& ww ){
+void ReferenceConfiguration::setWeight( const double& ww ) {
   weight=ww;
 }
 
@@ -173,42 +194,52 @@ double ReferenceConfiguration::getWeight() const {
 }
 
 template<class T>
-bool ReferenceConfiguration::parse(const std::string&key, T&t, bool ignore_missing ){
+bool ReferenceConfiguration::parse(const std::string&key, T&t, bool ignore_missing ) {
   bool found=Tools::parse(line,key,t);
-  if(!ignore_missing && !found) error(key + " is missing"); 
+  if(!ignore_missing && !found) error(key + " is missing");
   return found;
 }
 
 template<class T>
-bool ReferenceConfiguration::parseVector(const std::string&key,std::vector<T>&t, bool ignore_missing){
+bool ReferenceConfiguration::parseVector(const std::string&key,std::vector<T>&t, bool ignore_missing) {
   bool found=Tools::parseVector(line,key,t);
   if(!ignore_missing && !found)  error(key + " is missing");
   return found;
 }
 
 inline
-const std::vector<Vector>& ReferenceConfiguration::getReferencePositions(){
+const std::vector<Vector>& ReferenceConfiguration::getReferencePositions() const {
   return fake_refatoms;
 }
 
 inline
-const std::vector<double>& ReferenceConfiguration::getReferenceArguments(){
+const std::vector<double>& ReferenceConfiguration::getReferenceArguments() const {
   return fake_refargs;
 }
 
 inline
-const std::vector<double>& ReferenceConfiguration::getReferenceMetric(){
+const std::vector<double>& ReferenceConfiguration::getReferenceMetric() {
   return fake_metric;
 }
 
 inline
-const std::vector<AtomNumber>& ReferenceConfiguration::getAbsoluteIndexes(){
+const std::vector<AtomNumber>& ReferenceConfiguration::getAbsoluteIndexes() {
   return fake_atom_numbers;
 }
 
 inline
-const std::vector<std::string>& ReferenceConfiguration::getArgumentNames(){
+const std::vector<std::string>& ReferenceConfiguration::getArgumentNames() {
   return fake_arg_names;
+}
+
+inline
+unsigned ReferenceConfiguration::getNumberOfReferencePositions() const {
+  return 0;
+}
+
+inline
+unsigned ReferenceConfiguration::getNumberOfReferenceArguments() const {
+  return 0;
 }
 
 
