@@ -373,22 +373,39 @@ std::uint32_t Registry::nativeCommSize() const {
 }
 
 namespace {
-thread_local Registry *active_registry = nullptr;
+Registry &kernel_registry() {
+  static Registry registry;
+  return registry;
 }
-
-RegistryScope::RegistryScope(Registry &registry) noexcept : previous_(active_registry) {
-  active_registry = &registry;
-}
-
-RegistryScope::~RegistryScope() {
-  active_registry = previous_;
 }
 
 Registry &currentRegistry() {
-  if (!active_registry) {
-    throw std::runtime_error("no MPI provider context is active on this thread");
+  return kernel_registry();
+}
+
+MPI_Comm importComm(Registry &registry, const void *native) {
+  MPI_Comm result{};
+  if (native) {
+    const std::uint32_t native_size = registry.nativeCommSize();
+    if (native_size > sizeof(result.storage)) {
+      throw std::runtime_error("native MPI_Comm exceeds configured wrapper storage");
+    }
+    std::memcpy(&result.storage, native, native_size);
   }
-  return *active_registry;
+  return result;
+}
+
+bool exportComm(Registry &registry, MPI_Comm value,
+                plumed_mpiw_handle_storage *storage) {
+  if (!storage) {
+    return false;
+  }
+  const std::uint32_t native_size = registry.nativeCommSize();
+  if (native_size > sizeof(value.storage)) {
+    return false;
+  }
+  *storage = value.storage;
+  return true;
 }
 
 }  // namespace mpiwrap_provider
@@ -396,29 +413,13 @@ Registry &currentRegistry() {
 #if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)
 
 MPI_Comm mpiwrap_Comm_from_native(const void *native) {
-  MPI_Comm result{};
-  if (!native) {
-    return result;
-  }
-  const std::uint32_t native_size = mpiwrap_provider::currentRegistry().nativeCommSize();
-  if (native_size > sizeof(result.storage)) {
-    throw std::runtime_error("native MPI_Comm exceeds configured wrapper storage");
-  }
-  std::memcpy(&result.storage, native, native_size);
-  return result;
+  return mpiwrap_provider::importComm(mpiwrap_provider::currentRegistry(), native);
 }
 
 bool mpiwrap_Comm_export_storage(MPI_Comm value,
                                  plumed_mpiw_handle_storage *storage) {
-  if (!storage) {
-    return false;
-  }
-  const std::uint32_t native_size = mpiwrap_provider::currentRegistry().nativeCommSize();
-  if (native_size > sizeof(value.storage)) {
-    return false;
-  }
-  *storage = value.storage;
-  return true;
+  return mpiwrap_provider::exportComm(mpiwrap_provider::currentRegistry(), value,
+                                      storage);
 }
 #endif
 

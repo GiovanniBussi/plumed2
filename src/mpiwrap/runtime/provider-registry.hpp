@@ -3,6 +3,7 @@
 #define PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
 
 #include "../generated/mpiwrap-pointers.h"
+#include "../generated/mpiwrap.h"
 
 #include <cstdint>
 #include <mutex>
@@ -78,18 +79,12 @@ private:
   bool installed_;
 };
 
-class RegistryScope {
-public:
-  explicit RegistryScope(Registry &registry) noexcept;
-  ~RegistryScope();
-  RegistryScope(const RegistryScope &) = delete;
-  RegistryScope &operator=(const RegistryScope &) = delete;
-
-private:
-  Registry *previous_;
-};
-
+// The loaded kernel owns one immutable provider registry shared by all its
+// rank threads. Injection mutates it only before object construction.
 Registry &currentRegistry();
+MPI_Comm importComm(Registry &registry, const void *native);
+bool exportComm(Registry &registry, MPI_Comm value,
+                plumed_mpiw_handle_storage *storage);
 
 }  // namespace mpiwrap_provider
 }  // namespace PLMD
