@@ -3,6 +3,8 @@
 #include "provider-registry.hpp"
 
 #include <cstring>
+#include <stdexcept>
+#include <string>
 
 namespace PLMD {
 namespace {
@@ -251,5 +253,7 @@ int mpiwrap_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 bool mpiwrap_has_Sendrecv() {
   return mpiwrap_provider::currentRegistry().bindings().MPI_Sendrecv_pointer != nullptr;
 }
+
+#include "../generated/provider-unavailable-functions.inc"
 
 } // namespace PLMD

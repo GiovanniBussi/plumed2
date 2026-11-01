@@ -20,6 +20,11 @@ HANDLES = {
     "MPI_Op": "OpTag",
     "MPI_Request": "RequestTag",
 }
+PROVIDER_FRONTEND_IMPLEMENTED = {
+    "MPI_Comm_rank", "MPI_Comm_size", "MPI_Bcast", "MPI_Allreduce",
+    "MPI_Barrier", "MPI_Irecv", "MPI_Isend", "MPI_Wait", "MPI_Get_count",
+    "MPI_Sendrecv",
+}
 
 
 def split_args(text):
@@ -389,6 +394,24 @@ def render_provider_constants(constants):
     return "\n".join(names) + "\n", "\n".join(functions) + "\n"
 
 
+def render_provider_unavailable(functions):
+    lines = ["// Generated provider definitions for calls without a runtime dispatch."]
+    for function in functions:
+        name = function["name"]
+        if name in PROVIDER_FRONTEND_IMPLEMENTED:
+            continue
+        result, _, args = parse_signature(function["signature"])
+        rendered = [wrapper_type(arg) for arg in args]
+        wrapper_name = function_wrapper_name(name)
+        lines.append(f"{wrapper_type(result)} {wrapper_name}({', '.join(rendered)}) {{")
+        lines.append(
+            f'  throw std::runtime_error(std::string("MPI function unavailable: {name} (provider ") + '
+            'mpiwrap_provider::currentRegistry().providerName() + ")");')
+        lines.append("}")
+        lines.append(f"bool mpiwrap_has_{name.removeprefix('MPI_')}() {{ return false; }}")
+    return "\n".join(lines) + "\n"
+
+
 
 
 def native_function_pointer_type(signature):
@@ -571,6 +594,7 @@ def generate(output, write=True):
         "provider-callbacks.h": render_provider_callbacks(functions),
         "provider-constant-names.inc": provider_constant_names,
         "provider-constant-functions.inc": provider_constant_functions,
+        "provider-unavailable-functions.inc": render_provider_unavailable(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
         "native-adapter-entries.inc": native_rows,
         "signature-ids.tsv": "function\tsignature_id\tsignature_version\tcanonical_type_sha256\n" + "".join(
