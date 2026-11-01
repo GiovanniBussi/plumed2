@@ -140,6 +140,8 @@ The loaded kernel's versioned function table is now extended from v4 to v5 by ap
 
 Native-MPI kernels reject this provider installer explicitly and retain the direct MPI path.
 
+The kernel registry now records the first `PlumedMain` construction. Its marker is the first `PlumedMain` data member so the state transition happens before communicator members are constructed. Registry installation checks that marker under the same mutex used by installation and rejects late provider selection, including when an existing object was constructed through the legacy C wrapper or `PLMD::PlumedHandle`. The focused registry test covers this rejection. This does not yet solve object/provider-library reference-count ownership for the new wrapper kernel handle.
+
 This is an entry-point checkpoint only, not the complete stage-5 lifecycle API. Public open/inject/create/release handles, old/new wrapper compatibility execution, loaded provider-library retention, injection-before-first-object enforcement across legacy and C++ construction paths, selected-kernel resolution, and full configured PLUMED builds remain outstanding. The legacy `plumed_implementation` structure is unchanged. Native and internal runtime behavior were not changed by the table extension.
 
 Checks after the table extension:
@@ -150,3 +152,4 @@ Checks after the table extension:
 - `python3 src/mpiwrap/tools/generate.py --check` passed: 22 generated files / 118 MPI functions.
 - Internal launch/runtime CTest passed 6/6 at 1, 2, and 4 ranks.
 - Repository astyle reported unchanged for `PlumedMainInitializer.h/.cpp`, `Plumed.h`, and `mpiwrap-registry.cpp`; `git diff --check` passed.
+- `CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-provider-registry.sh` passed after adding the late-injection guard. The `PlumedMain.h` header passes a C++17 syntax check; full source compilation still needs the generated `PlumedMainEnum.inc` build artifact.

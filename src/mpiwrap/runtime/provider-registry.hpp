@@ -41,6 +41,7 @@ public:
   bool installed() const noexcept {
     return ready_.load(std::memory_order_acquire);
   }
+  void markObjectCreated();
   const ProviderBindings &bindings() const {
     if (!ready_.load(std::memory_order_acquire)) {
       throw std::runtime_error("MPI provider is not installed");
@@ -93,12 +94,14 @@ private:
   std::uint32_t native_comm_size_;
   std::uint64_t compatibility_fingerprint_;
   bool installed_;
+  bool object_created_;
   std::atomic<bool> ready_;
 };
 
 // The loaded kernel owns one immutable provider registry shared by all its
 // rank threads. Injection mutates it only before object construction.
 Registry &currentRegistry();
+void noteKernelObjectCreated();
 MPI_Comm importComm(Registry &registry, const void *native);
 bool exportComm(Registry &registry, MPI_Comm value,
                 plumed_mpiw_handle_storage *storage);
