@@ -536,12 +536,18 @@ int Driver<real>::main(FILE* in,FILE*out,Communicator& pc) {
   if(Communicator::initialized()) {
     if(multi) {
       if(intracomm.Get_rank()==0) {
-        p.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
+        NativeMPICommStorage native_intercomm;
+        plumed_assert(intercomm.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
+        p.cmd("GREX setMPIIntercomm",native_intercomm.bytes);
       }
-      p.cmd("GREX setMPIIntracomm",&intracomm.Get_comm());
+      NativeMPICommStorage native_intracomm;
+      plumed_assert(intracomm.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
+      p.cmd("GREX setMPIIntracomm",native_intracomm.bytes);
       p.cmd("GREX init");
     }
-    p.cmd("setMPIComm",&intracomm.Get_comm());
+    NativeMPICommStorage native_comm;
+    plumed_assert(intracomm.Export_comm_native(native_comm)) << "could not export native MPI communicator";
+    p.cmd("setMPIComm",native_comm.bytes);
   }
   p.cmd("setLog",out);
   // the units should be passed with the same precision as the other real numbers

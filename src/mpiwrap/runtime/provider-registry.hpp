@@ -5,6 +5,7 @@
 #include "../generated/mpiwrap-pointers.h"
 #include "../generated/mpiwrap.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <atomic>
 #include <mutex>
@@ -108,6 +109,8 @@ void noteKernelObjectCreated();
 MPI_Comm importComm(Registry &registry, const void *native);
 bool exportComm(Registry &registry, MPI_Comm value,
                 plumed_mpiw_handle_storage *storage);
+bool exportNativeComm(Registry &registry, MPI_Comm value,
+                      void *output,std::size_t capacity);
 
 }  // namespace mpiwrap_provider
 }  // namespace PLMD

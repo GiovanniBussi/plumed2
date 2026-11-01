@@ -530,18 +530,24 @@ int MD_LinearExpansionPES::main( FILE* in, FILE* out, PLMD::Communicator& pc) {
     plumed->cmd("setRealPrecision",&s);
     if(replicas>1) {
       if (Communicator::initialized()) {
-        plumed->cmd("GREX setMPIIntracomm",&intra.Get_comm());
+        NativeMPICommStorage native_intracomm;
+        plumed_assert(intra.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
+        plumed->cmd("GREX setMPIIntracomm",native_intracomm.bytes);
         if (intra.Get_rank()==0) {
-          plumed->cmd("GREX setMPIIntercomm",&inter.Get_comm());
+          NativeMPICommStorage native_intercomm;
+          plumed_assert(inter.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
+          plumed->cmd("GREX setMPIIntercomm",native_intercomm.bytes);
         }
         plumed->cmd("GREX init");
-        plumed->cmd("setMPIComm",&intra.Get_comm());
+        plumed->cmd("setMPIComm",native_intracomm.bytes);
       } else {
         error("More than 1 replica but no MPI");
       }
     } else {
       if(Communicator::initialized()) {
-        plumed->cmd("setMPIComm",&pc.Get_comm());
+        NativeMPICommStorage native_comm;
+        plumed_assert(pc.Export_comm_native(native_comm)) << "could not export native MPI communicator";
+        plumed->cmd("setMPIComm",native_comm.bytes);
       }
     }
   }
