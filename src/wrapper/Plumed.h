@@ -3919,6 +3919,13 @@ typedef struct {
     Available with version>=4.
   */
   unsigned (*use_count)(void*);
+  /**
+    Installs one validated MPI provider before PLUMED object creation.
+
+    Available with version>=5. The descriptor uses the independent MPI provider
+    ABI; this symbol-table version only advertises that the entry is present.
+  */
+  int (*install_mpi_provider)(const void*,int (*)(void*,int,const char*,const char*),void*);
 } plumed_symbol_table_type;
 
 /* Utility to convert function pointers to pointers, just for the sake of printing them */
