@@ -20,8 +20,21 @@ target_link_libraries(plumed_thread_mpi PUBLIC Threads::Threads)
 add_executable(thread_mpi_launch_test tests/launch.cpp)
 target_link_libraries(thread_mpi_launch_test PRIVATE plumed_thread_mpi)
 
+add_executable(mpiwrap_runtime_test
+  tests/mpiwrap-runtime.cpp
+  ../mpiwrap/runtime/provider-registry.cpp
+  ../mpiwrap/runtime/provider-frontend.cpp
+  ../mpiwrap/runtime/thread-mpi-adapter.cpp)
+target_include_directories(mpiwrap_runtime_test PRIVATE
+  ../mpiwrap/generated ../mpiwrap/runtime)
+target_link_libraries(mpiwrap_runtime_test PRIVATE plumed_thread_mpi)
+
 enable_testing()
 foreach(ranks IN ITEMS 1 2 4)
   add_test(NAME launch_${ranks} COMMAND thread_mpi_launch_test ${ranks})
   set_tests_properties(launch_${ranks} PROPERTIES TIMEOUT 20)
+endforeach()
+foreach(ranks IN ITEMS 1 2 4)
+  add_test(NAME mpiwrap_runtime_${ranks} COMMAND mpiwrap_runtime_test ${ranks})
+  set_tests_properties(mpiwrap_runtime_${ranks} PROPERTIES TIMEOUT 20)
 endforeach()
