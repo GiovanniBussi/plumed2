@@ -184,6 +184,216 @@ std::int32_t barrier(plumed_mpiw_handle_storage comm) {
   return thread_mpi::tMPI_Barrier(decode_comm(comm));
 }
 
+std::int32_t initialized(std::int32_t *flag) {
+  if (!flag) {
+    return thread_mpi::TMPI_ERR_BUF;
+  }
+  return thread_mpi::tMPI_Initialized(flag);
+}
+
+std::int32_t comm_dup(plumed_mpiw_handle_storage comm,
+                      plumed_mpiw_handle_storage *newcomm) {
+  if (!newcomm) {
+    return thread_mpi::TMPI_ERR_COMM;
+  }
+  thread_mpi::tMPI_Comm native_newcomm{};
+  const int result = thread_mpi::tMPI_Comm_dup(decode_comm(comm), &native_newcomm);
+  if (result == thread_mpi::TMPI_SUCCESS) {
+    *newcomm = 0;
+    std::memcpy(newcomm, &native_newcomm, sizeof(native_newcomm));
+  }
+  return result;
+}
+
+std::int32_t comm_free(plumed_mpiw_handle_storage *comm) {
+  if (!comm) {
+    return thread_mpi::TMPI_ERR_COMM;
+  }
+  thread_mpi::tMPI_Comm native_comm = decode_comm(*comm);
+  const int result = thread_mpi::tMPI_Comm_free(&native_comm);
+  if (result == thread_mpi::TMPI_SUCCESS) {
+    *comm = 0;
+    std::memcpy(comm, &native_comm, sizeof(native_comm));
+  }
+  return result;
+}
+
+std::int32_t comm_split(plumed_mpiw_handle_storage comm, std::int32_t color,
+                        std::int32_t key,
+                        plumed_mpiw_handle_storage *newcomm) {
+  if (!newcomm) {
+    return thread_mpi::TMPI_ERR_COMM;
+  }
+  thread_mpi::tMPI_Comm native_newcomm{};
+  const int result = thread_mpi::tMPI_Comm_split(
+                       decode_comm(comm), color, key, &native_newcomm);
+  if (result == thread_mpi::TMPI_SUCCESS) {
+    *newcomm = 0;
+    std::memcpy(newcomm, &native_newcomm, sizeof(native_newcomm));
+  }
+  return result;
+}
+
+std::int32_t abort_comm(plumed_mpiw_handle_storage comm, std::int32_t code) {
+  return thread_mpi::tMPI_Abort(decode_comm(comm), code);
+}
+
+std::int32_t recv(void *buffer, std::int32_t count,
+                  plumed_mpiw_handle_storage datatype, std::int32_t source,
+                  std::int32_t tag, plumed_mpiw_handle_storage comm,
+                  plumed_mpiw_status *status) {
+  thread_mpi::tMPI_Status native_status{};
+  const int result = thread_mpi::tMPI_Recv(
+                       buffer, count, decode_datatype(datatype), source, tag,
+                       decode_comm(comm), status ? &native_status : nullptr);
+  if (result == thread_mpi::TMPI_SUCCESS && status) {
+    export_status(native_status, status);
+  }
+  return result;
+}
+
+std::int32_t scatter(const void *sendbuf, std::int32_t sendcount,
+                     plumed_mpiw_handle_storage sendtype, void *recvbuf,
+                     std::int32_t recvcount,
+                     plumed_mpiw_handle_storage recvtype, std::int32_t root,
+                     plumed_mpiw_handle_storage comm) {
+  return thread_mpi::tMPI_Scatter(
+           sendbuf, sendcount, decode_datatype(sendtype), recvbuf, recvcount,
+           decode_datatype(recvtype), root, decode_comm(comm));
+}
+
+std::int32_t gather(const void *sendbuf, std::int32_t sendcount,
+                    plumed_mpiw_handle_storage sendtype, void *recvbuf,
+                    std::int32_t recvcount,
+                    plumed_mpiw_handle_storage recvtype, std::int32_t root,
+                    plumed_mpiw_handle_storage comm) {
+  return thread_mpi::tMPI_Gather(
+           sendbuf, sendcount, decode_datatype(sendtype), recvbuf, recvcount,
+           decode_datatype(recvtype), root, decode_comm(comm));
+}
+
+bool checked_extent(std::int32_t count, std::size_t element_size,
+                    std::size_t *bytes) {
+  if (count < 0 || !bytes || (element_size != 0 &&
+                              static_cast<std::size_t>(count) >
+                              static_cast<std::size_t>(-1) / element_size)) {
+    return false;
+  }
+  *bytes = static_cast<std::size_t>(count) * element_size;
+  return true;
+}
+
+std::int32_t allgather(const void *sendbuf, std::int32_t sendcount,
+                       plumed_mpiw_handle_storage sendtype, void *recvbuf,
+                       std::int32_t recvcount,
+                       plumed_mpiw_handle_storage recvtype,
+                       plumed_mpiw_handle_storage comm) {
+  const auto native_sendtype = decode_datatype(sendtype);
+  const auto native_recvtype = decode_datatype(recvtype);
+  if (sendbuf != nullptr &&
+      (sendcount != recvcount || native_sendtype != native_recvtype)) {
+    return thread_mpi::TMPI_ERR_TYPE;
+  }
+  std::size_t bytes = 0;
+  const std::size_t element_size = builtin_type_size(native_recvtype);
+  if (element_size == 0 || !checked_extent(recvcount, element_size, &bytes)) {
+    return thread_mpi::TMPI_ERR_TYPE;
+  }
+  int rank = 0;
+  int size = 0;
+  const auto native_comm = decode_comm(comm);
+  int result = thread_mpi::tMPI_Comm_rank(native_comm, &rank);
+  if (result != thread_mpi::TMPI_SUCCESS) {
+    return result;
+  }
+  result = thread_mpi::tMPI_Comm_size(native_comm, &size);
+  if (result != thread_mpi::TMPI_SUCCESS) {
+    return result;
+  }
+  if (bytes != 0 && !recvbuf) {
+    return thread_mpi::TMPI_ERR_BUF;
+  }
+  unsigned char empty_segment = 0;
+  for (int root = 0; root < size; ++root) {
+    if (recvcount != 0 && static_cast<std::size_t>(root) >
+        static_cast<std::size_t>(-1) / bytes) {
+      return thread_mpi::TMPI_ERR_BUF;
+    }
+    auto *segment = recvbuf ? static_cast<unsigned char *>(recvbuf) +
+                    static_cast<std::size_t>(root) * bytes :
+                    &empty_segment;
+    if (root == rank && sendbuf != nullptr && bytes != 0) {
+      std::memcpy(segment, sendbuf, bytes);
+    }
+    result = thread_mpi::tMPI_Bcast(segment, recvcount, native_recvtype,
+                                    root, native_comm);
+    if (result != thread_mpi::TMPI_SUCCESS) {
+      return result;
+    }
+  }
+  return thread_mpi::TMPI_SUCCESS;
+}
+
+std::int32_t allgatherv(const void *sendbuf, std::int32_t sendcount,
+                        plumed_mpiw_handle_storage sendtype, void *recvbuf,
+                        const std::int32_t recvcounts[],
+                        const std::int32_t displacements[],
+                        plumed_mpiw_handle_storage recvtype,
+                        plumed_mpiw_handle_storage comm) {
+  const auto native_sendtype = decode_datatype(sendtype);
+  const auto native_recvtype = decode_datatype(recvtype);
+  if ((sendbuf != nullptr && native_sendtype != native_recvtype) ||
+      !recvcounts || !displacements) {
+    return thread_mpi::TMPI_ERR_TYPE;
+  }
+  const std::size_t element_size = builtin_type_size(native_recvtype);
+  if (element_size == 0) {
+    return thread_mpi::TMPI_ERR_TYPE;
+  }
+  int rank = 0;
+  int size = 0;
+  const auto native_comm = decode_comm(comm);
+  int result = thread_mpi::tMPI_Comm_rank(native_comm, &rank);
+  if (result != thread_mpi::TMPI_SUCCESS) {
+    return result;
+  }
+  result = thread_mpi::tMPI_Comm_size(native_comm, &size);
+  if (result != thread_mpi::TMPI_SUCCESS) {
+    return result;
+  }
+  if (sendbuf != nullptr && sendcount != recvcounts[rank]) {
+    return thread_mpi::TMPI_ERR_TYPE;
+  }
+  if (sendbuf != nullptr && !recvbuf && sendcount != 0) {
+    return thread_mpi::TMPI_ERR_BUF;
+  }
+  unsigned char empty_segment = 0;
+  for (int root = 0; root < size; ++root) {
+    std::size_t bytes = 0;
+    if (displacements[root] < 0 ||
+        !checked_extent(recvcounts[root], element_size, &bytes) ||
+        static_cast<std::size_t>(displacements[root]) >
+        static_cast<std::size_t>(-1) / element_size) {
+      return thread_mpi::TMPI_ERR_TYPE;
+    }
+    if (bytes != 0 && !recvbuf) {
+      return thread_mpi::TMPI_ERR_BUF;
+    }
+    auto *segment = recvbuf ? static_cast<unsigned char *>(recvbuf) +
+                    static_cast<std::size_t>(displacements[root]) * element_size :
+                    &empty_segment;
+    if (root == rank && sendbuf != nullptr && bytes != 0) {
+      std::memcpy(segment, sendbuf, bytes);
+    }
+    result = thread_mpi::tMPI_Bcast(segment, recvcounts[root], native_recvtype,
+                                    root, native_comm);
+    if (result != thread_mpi::TMPI_SUCCESS) {
+      return result;
+    }
+  }
+  return thread_mpi::TMPI_SUCCESS;
+}
+
 std::int32_t irecv(void *buffer, std::int32_t count,
                    plumed_mpiw_handle_storage datatype, std::int32_t source,
                    std::int32_t tag, plumed_mpiw_handle_storage comm,
@@ -263,17 +473,6 @@ std::int32_t sendrecv(const void *sendbuf, std::int32_t sendcount,
   return result;
 }
 
-int32_t get_world(void *output, uint32_t capacity) {
-  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
-    return -1;
-  }
-  plumed_mpiw_handle_storage storage = 0;
-  const thread_mpi::tMPI_Comm value = thread_mpi::TMPI_COMM_WORLD;
-  std::memcpy(&storage, &value, sizeof(value));
-  std::memcpy(output, &storage, sizeof(storage));
-  return 0;
-}
-
 int32_t get_self(void *output, uint32_t capacity) {
   if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
     return -1;
@@ -285,53 +484,60 @@ int32_t get_self(void *output, uint32_t capacity) {
   return 0;
 }
 
-int32_t get_integer_datatype(void *output, uint32_t capacity) {
-  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+template<typename Handle>
+int32_t exportHandle(void *output, uint32_t capacity, Handle value) {
+  static_assert(std::is_trivially_copyable<Handle>::value,
+                "tMPI constant handle must be byte-copyable");
+  if (!output || capacity != sizeof(plumed_mpiw_handle_storage) ||
+      sizeof(Handle) > sizeof(plumed_mpiw_handle_storage)) {
     return -1;
   }
   plumed_mpiw_handle_storage storage = 0;
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT;
-  std::memcpy(&storage, &value, sizeof(value));
+  if constexpr (!std::is_same<Handle, std::nullptr_t>::value) {
+    std::memcpy(&storage, &value, sizeof(value));
+  }
   std::memcpy(output, &storage, sizeof(storage));
   return 0;
 }
 
-int32_t get_sum(void *output, uint32_t capacity) {
-  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+template<typename Integer>
+int32_t exportInteger(void *output, uint32_t capacity, Integer value) {
+  static_assert(std::is_integral<Integer>::value || std::is_enum<Integer>::value,
+                "tMPI integer constant must be integral or enum");
+  if (!output || capacity != sizeof(int32_t) || sizeof(Integer) != sizeof(int32_t)) {
     return -1;
   }
-  plumed_mpiw_handle_storage storage = 0;
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_SUM;
-  std::memcpy(&storage, &value, sizeof(value));
+  const int32_t storage = static_cast<int32_t>(value);
   std::memcpy(output, &storage, sizeof(storage));
   return 0;
 }
 
-int32_t get_in_place(void *output, uint32_t capacity) {
-  if (!output || capacity != sizeof(void *)) {
+template<typename Pointer>
+int32_t exportPointer(void *output, uint32_t capacity, Pointer value) {
+  if (!output || capacity != sizeof(void *) || sizeof(Pointer) != sizeof(void *)) {
     return -1;
   }
-  void *value = nullptr;
-  std::memcpy(output, &value, sizeof(value));
+  void *storage = nullptr;
+  if constexpr (std::is_pointer<Pointer>::value) {
+    storage = value;
+  } else if constexpr (std::is_same<Pointer, std::nullptr_t>::value) {
+    storage = nullptr;
+  } else if constexpr (std::is_integral<Pointer>::value) {
+    if (value != 0) {
+      return -1;
+    }
+  } else {
+    static_assert(std::is_pointer<Pointer>::value,
+                  "unsupported tMPI sentinel representation");
+  }
+  std::memcpy(output, &storage, sizeof(storage));
   return 0;
 }
 
-int32_t get_status_ignore(void *output, uint32_t capacity) {
-  if (!output || capacity != sizeof(thread_mpi::tMPI_Status *)) {
-    return -1;
-  }
-  thread_mpi::tMPI_Status *value = nullptr;
-  std::memcpy(output, &value, sizeof(value));
-  return 0;
-}
+using namespace thread_mpi;
+#include "../generated/thread-mpi-constant-accessors.inc"
 
 static const char callback_unavailable[] = PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
-static const plumed_mpiw_constant_accessor_fn world_accessor = &get_world;
-static const plumed_mpiw_constant_accessor_fn self_accessor = &get_self;
-static const plumed_mpiw_constant_accessor_fn int_accessor = &get_integer_datatype;
-static const plumed_mpiw_constant_accessor_fn sum_accessor = &get_sum;
-static const plumed_mpiw_constant_accessor_fn in_place_accessor = &get_in_place;
-static const plumed_mpiw_constant_accessor_fn status_ignore_accessor = &get_status_ignore;
 static const plumed_mpiw_function_entry functions[] = {
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_rank", 0x4e7672aa,
@@ -373,6 +579,46 @@ static const plumed_mpiw_function_entry functions[] = {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Sendrecv", 0xb09a6fc1,
     1, reinterpret_cast<plumed_mpiw_generic_fn>(&sendrecv)
   },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Initialized", 0xd4498369,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&initialized)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_dup", 0xf0dc6608,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_dup)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_free", 0x4da4e1b2,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_free)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_split", 0x97f1adf0,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_split)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Abort", 0x84f458d6,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&abort_comm)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Recv", 0xdd56a4bc,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&recv)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Scatter", 0xb2fa0f58,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&scatter)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Gather", 0xb1f903d9,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&gather)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Allgather", 0xab8b26c9,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&allgather)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Allgatherv", 0x0f1b22f3,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&allgatherv)
+  },
 };
 static const plumed_mpiw_metadata_entry metadata[] = {
   {
@@ -381,31 +627,7 @@ static const plumed_mpiw_metadata_entry metadata[] = {
     PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI,
     sizeof(callback_unavailable), callback_unavailable
   },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_COMM_WORLD", sizeof(world_accessor), &world_accessor
-  },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_COMM_SELF", sizeof(self_accessor), &self_accessor
-  },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_INT", sizeof(int_accessor), &int_accessor
-  },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_SUM", sizeof(sum_accessor), &sum_accessor
-  },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_IN_PLACE", sizeof(in_place_accessor), &in_place_accessor
-  },
-  {
-    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
-    0, 0, "value:MPI_STATUS_IGNORE", sizeof(status_ignore_accessor),
-    &status_ignore_accessor
-  },
+#include "../generated/thread-mpi-constant-metadata.inc"
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,
     PLUMED_MPIW_METADATA_REQUIRED, 0,

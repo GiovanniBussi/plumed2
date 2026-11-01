@@ -11,66 +11,6 @@ int mpiwrap_Finalize() {
 bool mpiwrap_has_Finalize() {
   return false;
 }
-int mpiwrap_Initialized(int *flag) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Initialized (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Initialized() {
-  return false;
-}
-int mpiwrap_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Comm_dup (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Comm_dup() {
-  return false;
-}
-int mpiwrap_Comm_free(MPI_Comm *comm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Comm_free (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Comm_free() {
-  return false;
-}
-int mpiwrap_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Comm_split (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Comm_split() {
-  return false;
-}
-int mpiwrap_Abort(MPI_Comm comm, int errorcode) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Abort (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Abort() {
-  return false;
-}
-int mpiwrap_Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Scatter (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Scatter() {
-  return false;
-}
-int mpiwrap_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Gather (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Gather() {
-  return false;
-}
-int mpiwrap_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Allgather (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Allgather() {
-  return false;
-}
-int mpiwrap_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, MPI_Comm comm) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Allgatherv (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Allgatherv() {
-  return false;
-}
-int mpiwrap_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status) {
-  throw std::runtime_error(std::string("MPI function unavailable: MPI_Recv (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
-}
-bool mpiwrap_has_Recv() {
-  return false;
-}
 int mpiwrap_Error_string(int errorcode, char *string, int *resultlen) {
   throw std::runtime_error(std::string("MPI function unavailable: MPI_Error_string (provider ") + mpiwrap_provider::currentRegistry().providerName() + ")");
 }
