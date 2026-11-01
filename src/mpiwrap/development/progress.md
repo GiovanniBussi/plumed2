@@ -120,3 +120,16 @@ Latest stage-4 current-use runtime validation:
 - `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed 6/6: direct thread-MPI launch and wrapper runtime at 1/2/4 ranks. Wrapper semantics include current-use direct calls, size-one Allreduce, communicator dup/split/free, Gather/Scatter, Allgather, Allgatherv with gaps/in-place/nonuniform counts, request/status marshalling, and scalar datatype reductions.
 
 Lifecycle ownership, native adapter dispatch, all other selected function implementations (or clean unavailable definitions), PLUMED object integration, generated inline/declarations-last frontend architecture, callback bridges, and native runtime execution remain outstanding. MPI_Init/Finalize stay launcher-owned by design; MPI_Comm_f2c stays unavailable for the internal tMPI provider. Native MPICH/Open MPI runtime launch remains blocked before wrapper execution by sandbox process-manager initialization restrictions, as recorded above.
+
+## Stage 5 Communicator checkpoint
+
+`Communicator` now uses the generated wrapper types in both native and provider builds. Native MPI remains a direct path. In provider builds, an object constructed before runtime initialization keeps an explicit local-fallback state; it does not call tMPI communicator/self/rank accessors against an uninitialized runtime. The wrapper materializes `MPI_COMM_SELF` lazily when the provider reports an initialized runtime, and tracks whether its communicator is local fallback or an owned duplicate so cleanup does not free a fallback or standard communicator. `Set_comm(const TypesafePtr&)` treats the argument as a pointer to native handle bytes and imports them through the kernel registry helper, rather than reinterpreting the pointer as a wrapper object. Registry readiness is read with acquire semantics. The tMPI runtime test calls the public import/export helper on each rank without a thread-local registry scope.
+
+The independent lifecycle API and provider-injection symbol-table extension are not implemented yet. The current PLUMED kernel table is version 4; the required additive, append-only v5 entry and exact-target open–inject–create/release API remain a step-5 prerequisite. The legacy `plumed_implementation` layout has not been changed. Provider-library retention across future PLUMED object creation also remains to be connected. This checkpoint does not claim that Communicator has been exercised through a full PLUMED kernel build.
+
+Commands/results for this checkpoint:
+
+- `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed 6/6 internal launch/runtime tests at 1, 2, and 4 ranks, including public raw communicator import/export and rank-thread use.
+- Four `Communicator.cpp` compile checks passed: serial and `__PLUMED_MPIWRAP` with Clang C++17; native MPICH 5.0.1 and Open MPI 5.0.10 wrappers with `MPICH_CXX=/usr/bin/clang++` and `OMPI_CXX=/usr/bin/clang++`, respectively.
+- Astyle verification with repository `.astyle.options` reported unchanged for `Communicator.h`, `Communicator.cpp`, `provider-registry.hpp`, and the modified runtime test. `git diff --check` passed.
+- Commit: `1994c6b4f4832e89b3f0636bb53a6f6ca8b58cf0` (`Support lazy MPI wrapper communicators`).
