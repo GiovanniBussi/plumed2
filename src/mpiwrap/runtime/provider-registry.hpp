@@ -2,7 +2,7 @@
 #ifndef PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
 #define PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
 
-#include "../generated/provider-abi.h"
+#include "../generated/mpiwrap-pointers.h"
 
 #include <cstdint>
 #include <mutex>
@@ -29,6 +29,10 @@ public:
   bool install(const plumed_mpiw_provider_descriptor *descriptor,
                std::string &error);
   bool has(const char *name) const;
+  const ProviderBindings &bindings() const noexcept {
+    return bindings_;
+  }
+  std::uint32_t nativeCommSize() const;
 
   template<class Function>
   Function function(const char *name, std::uint32_t signature_id,
@@ -62,15 +66,30 @@ private:
   mutable std::mutex mutex_;
   std::unordered_map<std::string, FunctionEntry> functions_;
   std::unordered_map<std::string, std::string> metadata_;
+  ProviderBindings bindings_;
   std::string provider_name_;
   std::string provider_version_;
   plumed_mpiw_generic_fn identity_comm_rank_;
   plumed_mpiw_generic_fn identity_initialized_;
   const void *host_runtime_token_;
   std::uint32_t runtime_kind_;
+  std::uint32_t native_comm_size_;
   std::uint64_t compatibility_fingerprint_;
   bool installed_;
 };
+
+class RegistryScope {
+public:
+  explicit RegistryScope(Registry &registry) noexcept;
+  ~RegistryScope();
+  RegistryScope(const RegistryScope &) = delete;
+  RegistryScope &operator=(const RegistryScope &) = delete;
+
+private:
+  Registry *previous_;
+};
+
+Registry &currentRegistry();
 
 }  // namespace mpiwrap_provider
 }  // namespace PLMD

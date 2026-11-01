@@ -5,5 +5,6 @@
 static_assert(std::is_trivially_copyable<PLMD::MPI_Comm>::value, "handle transport");
 static_assert(std::is_trivially_copyable<PLMD::MPI_Status>::value, "status transport");
 int main() {
-  return PLMD::mpiwrap_provider::mpiwrap_Comm_rank_pointer != nullptr;
+  PLMD::mpiwrap_provider::ProviderBindings bindings;
+  return bindings.MPI_Comm_rank_pointer != nullptr;
 }

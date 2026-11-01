@@ -93,7 +93,21 @@ def render_header(functions, types, constants):
         "#endif",
         "#if defined(__PLUMED_HAS_MPI) || defined(PLUMED_MPIW_NATIVE_ADAPTER)",
         "#include <mpi.h>",
+        '#include "provider-abi.h"',
+        "#include <cstring>",
         "namespace PLMD {",
+        "inline MPI_Comm mpiwrap_Comm_from_native(const void *native) {",
+        "  MPI_Comm value{};",
+        "  if (native) std::memcpy(&value, native, sizeof(value));",
+        "  return value;",
+        "}",
+        "inline bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage) {",
+        "  if (!storage) return false;",
+        "  if constexpr (sizeof(MPI_Comm) > sizeof(plumed_mpiw_handle_storage)) return false;",
+        "  *storage = 0;",
+        "  std::memcpy(storage, &value, sizeof(value));",
+        "  return true;",
+        "}",
     ]
     for native in HANDLES:
         suffix = native.removeprefix("MPI_")
@@ -101,6 +115,7 @@ def render_header(functions, types, constants):
                   f"inline {native} mpiwrap_export_{suffix}({native} value) {{ return value; }}"]
     lines += ["} // namespace PLMD", "#else", '#include "provider-abi.h"',
               "#include <cstddef>", "#include <cstdint>", "#include <type_traits>",
+              'static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");',
               "namespace PLMD {"]
     for native in HANDLES:
         lines += [f"struct {native} {{",
@@ -128,6 +143,8 @@ def render_header(functions, types, constants):
         "static_assert(offsetof(MPI_Status, MPI_ERROR) == 8, \"status error offset\");",
         "static_assert(offsetof(MPI_Status, raw_size) == 12, \"status raw-size offset\");",
         "static_assert(offsetof(MPI_Status, raw) == 16, \"status bytes offset\");",
+        "MPI_Comm mpiwrap_Comm_from_native(const void *native);",
+        "bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);",
         "using MPI_User_function = void(void *, void *, int *, MPI_Datatype *);",
         "using MPI_Comm_errhandler_function = void(MPI_Comm *, int *, ...);",
     ]
@@ -208,13 +225,20 @@ def render_provider_callbacks(functions):
              "#define PLUMED_MPIWRAP_GENERATED_PROVIDER_CALLBACKS_H",
              '#include "provider-abi.h"', "#include <stdint.h>",
              "#ifdef __cplusplus", 'extern "C" {', "#endif",
-             "typedef void (*plumed_mpiw_user_function_fn)(void *, void *, int32_t *, plumed_mpiw_handle_storage *);",
-             "typedef void (*plumed_mpiw_comm_errhandler_function_fn)(plumed_mpiw_handle_storage *, int32_t *, ...);"]
+             "typedef void (*plumed_mpiw_user_callback_invoke_fn)(plumed_mpiw_generic_fn, void *, void *, int32_t, plumed_mpiw_handle_storage);",
+             "typedef struct { plumed_mpiw_generic_fn function; plumed_mpiw_user_callback_invoke_fn invoke; } plumed_mpiw_user_callback;",
+             "typedef void (*plumed_mpiw_comm_errhandler_invoke_fn)(plumed_mpiw_generic_fn, plumed_mpiw_handle_storage, int32_t);",
+             "typedef struct { plumed_mpiw_generic_fn function; plumed_mpiw_comm_errhandler_invoke_fn invoke; } plumed_mpiw_comm_errhandler_callback;"]
     for function in functions:
         if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
             continue
         result, name, raw_args = parse_signature(function["signature"])
-        args = [provider_argument(arg) for arg in raw_args]
+        if name == "MPI_Op_create":
+            args = ["plumed_mpiw_user_callback *", "int32_t", "plumed_mpiw_handle_storage *"]
+        elif name == "MPI_Comm_create_errhandler":
+            args = ["plumed_mpiw_comm_errhandler_callback *", "plumed_mpiw_handle_storage *"]
+        else:
+            args = [provider_argument(arg) for arg in raw_args]
         if not args:
             args = ["void"]
         lines.append(f"typedef {provider_result(result)} (*plumed_mpiw_{name}_fn)({', '.join(args)});")
@@ -228,15 +252,17 @@ def render_pointers(functions, constants):
         "#ifndef PLUMED_MPIWRAP_GENERATED_POINTERS_H",
         "#define PLUMED_MPIWRAP_GENERATED_POINTERS_H",
         '#include "provider-callbacks.h"',
+        "#include <cstdint>",
         "namespace PLMD { namespace mpiwrap_provider {",
+        "struct ProviderBindings {",
     ]
     for function in functions:
         if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
             continue
         name = parse_signature(function["signature"])[1]
         wrapper = function_wrapper_name(name)
-        lines += [f"using {wrapper}_fn = plumed_mpiw_{name}_fn;",
-                  f"inline {wrapper}_fn {wrapper}_pointer = nullptr;"]
+        lines += [f"  using {name}_fn = plumed_mpiw_{name}_fn;",
+                  f"  {name}_fn {name}_pointer = nullptr;"]
     for constant in constants:
         name = constant["standard_api_name"]
         category = constant["class"]
@@ -246,10 +272,57 @@ def render_pointers(functions, constants):
             callback = "std::int32_t (*)(std::int32_t *)"
         else:
             callback = "void *(*)()"
-        lines += [f"using value_{name}_fn = {callback};",
-                  f"inline value_{name}_fn value_{name}_pointer = nullptr;"]
-    lines += ["} } // namespace PLMD::mpiwrap_provider", "#endif"]
+        lines += [f"  using value_{name}_fn = {callback};",
+                  f"  value_{name}_fn value_{name}_pointer = nullptr;"]
+    lines += ["};", "} } // namespace PLMD::mpiwrap_provider", "#endif"]
     return "\n".join(lines) + "\n"
+
+
+def render_callback_bridges():
+    return "\n".join([
+        "// Generated by tools/generate.py; do not edit.",
+        "#ifndef PLUMED_MPIWRAP_GENERATED_CALLBACK_BRIDGES_H",
+        "#define PLUMED_MPIWRAP_GENERATED_CALLBACK_BRIDGES_H",
+        '#include "mpiwrap.h"',
+        '#include "provider-callbacks.h"',
+        "#include <exception>",
+        "namespace PLMD { namespace mpiwrap_provider {",
+        'extern "C" inline void invoke_user_callback(plumed_mpiw_generic_fn original, void *invec, void *inoutvec, std::int32_t length, plumed_mpiw_handle_storage datatype_storage) noexcept {',
+        "  using Callback = void (*)(void *, void *, int *, MPI_Datatype *);",
+        "  try {",
+        "    Callback callback = reinterpret_cast<Callback>(original);",
+        "    MPI_Datatype datatype{};",
+        "    datatype.storage = datatype_storage;",
+        "    int callback_length = static_cast<int>(length);",
+        "    callback(invec, inoutvec, &callback_length, &datatype);",
+        "  } catch (...) { std::terminate(); }",
+        "}",
+        "inline plumed_mpiw_user_callback make_user_callback(MPI_User_function *callback) {",
+        "  plumed_mpiw_user_callback result{};",
+        "  result.function = reinterpret_cast<plumed_mpiw_generic_fn>(callback);",
+        "  result.invoke = &invoke_user_callback;",
+        "  return result;",
+        "}",
+        'extern "C" inline void invoke_comm_errhandler_callback(plumed_mpiw_generic_fn original, plumed_mpiw_handle_storage comm_storage, std::int32_t error_code) noexcept {',
+        "  using Callback = void (*)(MPI_Comm *, int *, ...);",
+        "  try {",
+        "    Callback callback = reinterpret_cast<Callback>(original);",
+        "    MPI_Comm comm{};",
+        "    comm.storage = comm_storage;",
+        "    int native_error_code = static_cast<int>(error_code);",
+        "    callback(&comm, &native_error_code);",
+        "  } catch (...) { std::terminate(); }",
+        "}",
+        "inline plumed_mpiw_comm_errhandler_callback make_comm_errhandler_callback(MPI_Comm_errhandler_function *callback) {",
+        "  plumed_mpiw_comm_errhandler_callback result{};",
+        "  result.function = reinterpret_cast<plumed_mpiw_generic_fn>(callback);",
+        "  result.invoke = &invoke_comm_errhandler_callback;",
+        "  return result;",
+        "}",
+        "} } // namespace PLMD::mpiwrap_provider",
+        "#endif",
+        "",
+    ])
 
 
 def render_thread_mpi_availability(functions):
@@ -395,7 +468,7 @@ def render_wrapper_header_check():
         "#include <type_traits>",
         'static_assert(std::is_trivially_copyable<PLMD::MPI_Comm>::value, "handle transport");',
         'static_assert(std::is_trivially_copyable<PLMD::MPI_Status>::value, "status transport");',
-        "int main() { return PLMD::mpiwrap_provider::mpiwrap_Comm_rank_pointer != nullptr; }",
+        "int main() { PLMD::mpiwrap_provider::ProviderBindings bindings; return bindings.MPI_Comm_rank_pointer != nullptr; }",
         "",
     ])
 
@@ -469,6 +542,7 @@ def generate(output, write=True):
     files = {
         "mpiwrap.h": render_header(functions, types_doc["types"], constants),
         "mpiwrap-pointers.h": render_pointers(functions, constants),
+        "callback-bridges.h": render_callback_bridges(),
         "provider-abi.h": abi,
         "provider-callbacks.h": render_provider_callbacks(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
