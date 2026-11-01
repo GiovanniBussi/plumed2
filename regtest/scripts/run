@@ -40,6 +40,7 @@ test -f config || {
 }
 
 mpiprocs=0
+plumed_thread_mpi=auto
 
 plumed_needs=
 plumed_modules=
@@ -88,7 +89,9 @@ cd -
 
 if ((mpiprocs>0)); then
 mpi=""
-if $plumed_nompi config -q mpiexec
+if [[ -n "${PLUMED_MPIRUN:-}" ]]; then
+  mpi="$PLUMED_MPIRUN"
+elif $plumed_nompi config -q mpiexec
 then
   mpi="$($plumed_nompi config mpiexec)"
 fi
@@ -99,6 +102,21 @@ mpi="$mpi -np $mpiprocs"
 
 if ! $plumed_nompi config -q has mpi
 then
+  if [[ "$type" = driver && "$plumed_thread_mpi" = no ]] && $plumed_nompi --has-thread-mpi ; then
+    if [[ "${plumed_chdir:-no}" = yes ]]; then
+      echo "NOT_APPLICABLE (CHDIR is unsupported with thread-MPI)"
+    else
+      echo "NOT_APPLICABLE (thread-MPI disabled by test config)"
+    fi
+    exit 0
+  fi
+  # Internal thread-MPI launch is currently supported for the driver CLTool.
+  # Keep MPI regtests that compile/run external engines on their native launcher.
+  if [[ "$type" = driver && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]] && $plumed_nompi --has-thread-mpi ; then
+    echo "++ Using PLUMED internal thread-MPI with $mpiprocs ranks"
+    mpi=env
+    plumed="$plumed --tmpi-threads $mpiprocs"
+  else
     if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
       if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
         echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
@@ -108,7 +126,8 @@ then
     else
       echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
     fi
-  exit 0;
+    exit 0;
+  fi
 fi
 
 else

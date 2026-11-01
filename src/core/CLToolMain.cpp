@@ -167,6 +167,12 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
       } else {
         return 1;
       }
+    } else if(a=="--has-thread-mpi") {
+#if defined(__PLUMED_HAS_MPI)
+      return 1;
+#else
+      return 0;
+#endif
     } else if(a=="--has-cregex") {
       return (config::hasCregex()?0:1);
     } else if(a=="--has-dlopen") {
