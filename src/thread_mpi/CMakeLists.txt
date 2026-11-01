@@ -14,7 +14,8 @@ add_library(plumed_thread_mpi STATIC ${TMPI_SOURCES})
 target_include_directories(plumed_thread_mpi PUBLIC include PRIVATE src)
 target_compile_features(plumed_thread_mpi PUBLIC cxx_std_17)
 target_compile_definitions(plumed_thread_mpi PRIVATE
-  THREAD_PTHREADS HAVE_UNISTD_H HAVE_SYS_TIME_H HAVE_PTHREAD_H)
+  THREAD_PTHREADS HAVE_UNISTD_H HAVE_SYS_TIME_H HAVE_PTHREAD_H
+  SIZEOF_LONG_LONG_INT)
 target_link_libraries(plumed_thread_mpi PUBLIC Threads::Threads)
 
 add_executable(thread_mpi_launch_test tests/launch.cpp)
@@ -27,6 +28,7 @@ add_executable(mpiwrap_runtime_test
   ../mpiwrap/runtime/thread-mpi-adapter.cpp)
 target_include_directories(mpiwrap_runtime_test PRIVATE
   ../mpiwrap/generated ../mpiwrap/runtime)
+target_compile_definitions(mpiwrap_runtime_test PRIVATE SIZEOF_LONG_LONG_INT)
 target_link_libraries(mpiwrap_runtime_test PRIVATE plumed_thread_mpi)
 
 enable_testing()

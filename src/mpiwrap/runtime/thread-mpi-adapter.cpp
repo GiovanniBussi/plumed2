@@ -39,6 +39,37 @@ thread_mpi::tMPI_Op decode_op(plumed_mpiw_handle_storage storage) {
   return native;
 }
 
+thread_mpi::tMPI_Request decode_request(plumed_mpiw_handle_storage storage) {
+  thread_mpi::tMPI_Request native{};
+  std::memcpy(&native, &storage, sizeof(native));
+  return native;
+}
+
+plumed_mpiw_handle_storage encode_request(thread_mpi::tMPI_Request request) {
+  plumed_mpiw_handle_storage storage = 0;
+  std::memcpy(&storage, &request, sizeof(request));
+  return storage;
+}
+
+void export_status(const thread_mpi::tMPI_Status &native,
+                   plumed_mpiw_status *status) {
+  status->source = native.TMPI_SOURCE;
+  status->tag = native.TMPI_TAG;
+  status->error = native.TMPI_ERROR;
+  status->raw_size = sizeof(native);
+  std::memset(status->raw, 0, sizeof(status->raw));
+  std::memcpy(status->raw, &native, sizeof(native));
+}
+
+bool import_status(const plumed_mpiw_status *status,
+                   thread_mpi::tMPI_Status *native) {
+  if (!status || !native || status->raw_size != sizeof(*native)) {
+    return false;
+  }
+  std::memcpy(native, status->raw, sizeof(*native));
+  return true;
+}
+
 std::int32_t comm_rank(plumed_mpiw_handle_storage comm, std::int32_t *rank) {
   return thread_mpi::tMPI_Comm_rank(decode_comm(comm), rank);
 }
@@ -91,6 +122,12 @@ std::size_t builtin_type_size(thread_mpi::tMPI_Datatype datatype) {
     return sizeof(unsigned long long);
   }
 #endif
+  if (datatype == TMPI_C_BOOL) {
+    return sizeof(bool);
+  }
+  if (datatype == TMPI_INT64_T) {
+    return sizeof(std::int64_t);
+  }
   if (datatype == TMPI_FLOAT) {
     return sizeof(float);
   }
@@ -147,6 +184,85 @@ std::int32_t barrier(plumed_mpiw_handle_storage comm) {
   return thread_mpi::tMPI_Barrier(decode_comm(comm));
 }
 
+std::int32_t irecv(void *buffer, std::int32_t count,
+                   plumed_mpiw_handle_storage datatype, std::int32_t source,
+                   std::int32_t tag, plumed_mpiw_handle_storage comm,
+                   plumed_mpiw_handle_storage *request) {
+  if (!request) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  thread_mpi::tMPI_Request native_request{};
+  const int result = thread_mpi::tMPI_Irecv(
+                       buffer, count, decode_datatype(datatype), source, tag,
+                       decode_comm(comm), &native_request);
+  if (result == thread_mpi::TMPI_SUCCESS) {
+    *request = encode_request(native_request);
+  }
+  return result;
+}
+
+std::int32_t isend(const void *buffer, std::int32_t count,
+                   plumed_mpiw_handle_storage datatype, std::int32_t dest,
+                   std::int32_t tag, plumed_mpiw_handle_storage comm,
+                   plumed_mpiw_handle_storage *request) {
+  if (!request) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  thread_mpi::tMPI_Request native_request{};
+  const int result = thread_mpi::tMPI_Isend(
+                       buffer, count, decode_datatype(datatype), dest, tag,
+                       decode_comm(comm), &native_request);
+  if (result == thread_mpi::TMPI_SUCCESS) {
+    *request = encode_request(native_request);
+  }
+  return result;
+}
+
+std::int32_t wait(plumed_mpiw_handle_storage *request,
+                  plumed_mpiw_status *status) {
+  if (!request) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  thread_mpi::tMPI_Request native_request = decode_request(*request);
+  thread_mpi::tMPI_Status native_status{};
+  const int result = thread_mpi::tMPI_Wait(
+                       &native_request, status ? &native_status : nullptr);
+  *request = encode_request(native_request);
+  if (result == thread_mpi::TMPI_SUCCESS && status) {
+    export_status(native_status, status);
+  }
+  return result;
+}
+
+std::int32_t get_count(const plumed_mpiw_status *status,
+                       plumed_mpiw_handle_storage datatype,
+                       std::int32_t *count) {
+  thread_mpi::tMPI_Status native_status{};
+  if (!import_status(status, &native_status)) {
+    return thread_mpi::TMPI_ERR_STATUS;
+  }
+  return thread_mpi::tMPI_Get_count(&native_status, decode_datatype(datatype), count);
+}
+
+std::int32_t sendrecv(const void *sendbuf, std::int32_t sendcount,
+                      plumed_mpiw_handle_storage sendtype, std::int32_t dest,
+                      std::int32_t sendtag, void *recvbuf,
+                      std::int32_t recvcount,
+                      plumed_mpiw_handle_storage recvtype, std::int32_t source,
+                      std::int32_t recvtag, plumed_mpiw_handle_storage comm,
+                      plumed_mpiw_status *status) {
+  thread_mpi::tMPI_Status native_status{};
+  const int result = thread_mpi::tMPI_Sendrecv(
+                       sendbuf, sendcount, decode_datatype(sendtype), dest,
+                       sendtag, recvbuf, recvcount, decode_datatype(recvtype),
+                       source, recvtag, decode_comm(comm),
+                       status ? &native_status : nullptr);
+  if (result == thread_mpi::TMPI_SUCCESS && status) {
+    export_status(native_status, status);
+  }
+  return result;
+}
+
 int32_t get_world(void *output, uint32_t capacity) {
   if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
     return -1;
@@ -200,12 +316,22 @@ int32_t get_in_place(void *output, uint32_t capacity) {
   return 0;
 }
 
+int32_t get_status_ignore(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(thread_mpi::tMPI_Status *)) {
+    return -1;
+  }
+  thread_mpi::tMPI_Status *value = nullptr;
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
+
 static const char callback_unavailable[] = PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
 static const plumed_mpiw_constant_accessor_fn world_accessor = &get_world;
 static const plumed_mpiw_constant_accessor_fn self_accessor = &get_self;
 static const plumed_mpiw_constant_accessor_fn int_accessor = &get_integer_datatype;
 static const plumed_mpiw_constant_accessor_fn sum_accessor = &get_sum;
 static const plumed_mpiw_constant_accessor_fn in_place_accessor = &get_in_place;
+static const plumed_mpiw_constant_accessor_fn status_ignore_accessor = &get_status_ignore;
 static const plumed_mpiw_function_entry functions[] = {
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_rank", 0x4e7672aa,
@@ -226,6 +352,26 @@ static const plumed_mpiw_function_entry functions[] = {
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Barrier", 0xe7a052f4,
     1, reinterpret_cast<plumed_mpiw_generic_fn>(&barrier)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Irecv", 0xb69a0083,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&irecv)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Isend", 0xf5e9d915,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&isend)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Wait", 0x4b15813d,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&wait)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Get_count", 0x71967a66,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&get_count)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Sendrecv", 0xb09a6fc1,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&sendrecv)
   },
 };
 static const plumed_mpiw_metadata_entry metadata[] = {
@@ -254,6 +400,11 @@ static const plumed_mpiw_metadata_entry metadata[] = {
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
     0, 0, "value:MPI_IN_PLACE", sizeof(in_place_accessor), &in_place_accessor
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_STATUS_IGNORE", sizeof(status_ignore_accessor),
+    &status_ignore_accessor
   },
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,
