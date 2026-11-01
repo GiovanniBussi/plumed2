@@ -8,7 +8,9 @@ repo=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 
 cat > "$work/mpi-layout.cpp" <<'EOF'
 #include <mpi.h>
+#include <cstddef>
 #include <cstdio>
+#include <type_traits>
 namespace PLMD {
 int run_probe() {
   char library[MPI_MAX_LIBRARY_VERSION_STRING];
@@ -28,10 +30,17 @@ int run_probe() {
   std::printf("MPI_Request=%zu/%zu MPI_Op=%zu/%zu MPI_Errhandler=%zu/%zu MPI_Status=%zu/%zu\n",
               sizeof(MPI_Request), alignof(MPI_Request), sizeof(MPI_Op), alignof(MPI_Op),
               sizeof(MPI_Errhandler), alignof(MPI_Errhandler), sizeof(MPI_Status), alignof(MPI_Status));
+  std::printf("C_int=%zu/%d MPI_Aint=%zu/%d MPI_Fint=%zu/%d status_fields=%zu/%zu/%zu\n",
+              sizeof(int), std::is_signed<int>::value, sizeof(MPI_Aint),
+              std::is_signed<MPI_Aint>::value, sizeof(MPI_Fint),
+              std::is_signed<MPI_Fint>::value, offsetof(MPI_Status, MPI_SOURCE),
+              offsetof(MPI_Status, MPI_TAG), offsetof(MPI_Status, MPI_ERROR));
   return 0;
 }
 }
-int main() { return PLMD::run_probe(); }
+int main() {
+  return PLMD::run_probe();
+}
 EOF
 
 for provider in mpich openmpi; do
@@ -109,10 +118,16 @@ int run_probe() {
   std::printf("tMPI_Request=%zu/%zu tMPI_Op=%zu/%zu tMPI_Errhandler=%zu/%zu tMPI_Status=%zu/%zu\n",
               sizeof(tMPI_Request), alignof(tMPI_Request), sizeof(tMPI_Op), alignof(tMPI_Op),
               sizeof(tMPI_Errhandler), alignof(tMPI_Errhandler), sizeof(tMPI_Status), alignof(tMPI_Status));
+  std::printf("tMPI_C_int=%zu/%d tMPI_status_fields=%zu/%zu/%zu\n",
+              sizeof(int), std::is_signed<int>::value,
+              offsetof(tMPI_Status, TMPI_SOURCE), offsetof(tMPI_Status, TMPI_TAG),
+              offsetof(tMPI_Status, TMPI_ERROR));
   return 0;
 }
 }
-int main() { return PLMD::run_probe(); }
+int main() {
+  return PLMD::run_probe();
+}
 EOF
 echo "[gromacs-tmpi] tag=$tag commit=$actual"
 if ${CXX:-c++} -std=c++17 -Wall -Wextra -fsyntax-only \
