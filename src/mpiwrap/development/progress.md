@@ -48,3 +48,18 @@ Stage-2 validation run in the dedicated clone:
 Current step-2 result is a reproducible, isolated import plus rank-launch and namespace-collision evidence. General PLUMED integration, wrapper dispatch, and the known single-rank collective repair remain later steps.
 
 The primary review identified that astyle behavior depended on tool availability and output location. The importer now preserves upstream formatting and does not invoke astyle on the imported third-party files, which are nested outside the project module-root scan. Reproducibility was checked with `--check` into the tracked output and a second import into `/private/tmp/mpiw-reimport-check-2`; imported upstream files matched byte-for-byte (`diff -qr` only reported expected non-import artifacts: CMake/tests/tools). Project astyle was separately applied to the new test code. This follow-up changes import provenance and stage-2 evidence only.
+
+## Stage 3 checkpoint: generated frontend and provider contract
+
+`tools/generate.py` now renders the selected MPI-5 surface from the reviewed machine-readable manifests. It produces concrete POD wrapper handle structs (not a generic handle template), MPI-compatible public status field names, provider-facing namespaced wrappers and `mpiwrap_has_*` declarations, typed function-pointer slots restored from C-compatible provider callback typedefs, generated native/tMPI adapter entry fragments, route availability, canonical signature fingerprints, and coverage/support tables. The provider frontend alone remaps MPI names; the native branch includes the installed `mpi.h` and identity handle helpers. Native `MPI_Pcontrol` remains checked against its MPI prototype, while its variadic forwarding entry and provider pointer are omitted under the agreed unavailable policy. Native use remains direct. The generated output is reproducible with `python3 src/mpiwrap/tools/generate.py --check`; generation applies the repository astyle binary to generated C/C++ files using the repository options.
+
+The signature ID is a SHA256-derived function-name ID with collision rejection. Each reviewed signature version is paired with a canonical C type fingerprint that ignores parameter names and formatting. A changed ABI type fails generation until both the version and fingerprint are intentionally updated. Function-specific provider route metadata controls entry emission; absent provider pointers are not opportunistically invoked. Array of wrapper handles still require explicit packing loops in the implementation layer.
+
+Validation in this checkpoint:
+
+- `python3 src/mpiwrap/tools/generate.py` — generated 16 files for 118 function records and applied astyle to generated C/C++ outputs.
+- `python3 src/mpiwrap/tools/generate.py --check` — passed deterministic output check.
+- `MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-generated.sh /Users/bussi/miniconda3/envs/mpich/bin/mpicxx /Users/bussi/miniconda3/envs/openmpi/bin/mpicxx src/thread_mpi/include` — passed provider header, C11 callback declarations, pinned namespaced tMPI entry/symbol declarations, exact native MPI prototypes and native adapter entries against MPICH and Open MPI headers. The wrapper emits benign unused linker-flag warnings under `-fsyntax-only`.
+- Explicit `rg` check confirmed `MPI_Pcontrol` is absent from generated provider pointer and native forwarding entry files.
+
+This is a generation and compile-contract checkpoint, not runtime dispatch. The generated wrappers are declarations and the provider pointer slots are not yet connected to lifecycle, marshalling, callbacks, or collective fallbacks. Those implementation tasks remain in the subsequent authorized stages.
