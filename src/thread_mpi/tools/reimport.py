@@ -182,7 +182,7 @@ def import_from(root, out):
             "Upstream path: src/external/thread_mpi\n"
             "Import transform: tools/reimport.py wraps C++ declarations and definitions in "
             "PLMD::thread_mpi; include directives remain at global scope.\n"
-            "No upstream function bodies were otherwise edited.\n"
+            "Upstream formatting is preserved; no upstream function bodies were edited.\n"
         )
         shutil.copytree(src / "include", out / "include", dirs_exist_ok=True)
         for p in sorted((src / "src").glob("*.h")):
@@ -201,21 +201,6 @@ def import_from(root, out):
             namespace_file(p, True)
         for p in sorted((out / "src").glob("*.cpp")):
             namespace_file(p, False)
-        repo = out.parents[1]
-        astyle = repo / "astyle/astyle"
-        options = repo / ".astyle.options"
-        if astyle.exists() and options.exists():
-            for p in sorted(list((out / "include").rglob("*.h")) +
-                            list((out / "src").glob("*.h")) +
-                            list((out / "src").glob("*.cpp"))):
-                formatted = subprocess.check_output(
-                    [str(astyle), f"--options={options}"], input=p.read_bytes())
-                p.write_bytes(formatted)
-
-
-def tree_digest(path):
-    return {p.relative_to(path).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in path.rglob("*") if p.is_file()}
 
 
 def import_digest(path):
