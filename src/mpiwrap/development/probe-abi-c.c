@@ -1,0 +1,30 @@
+#include "provider-abi-proposal.h"
+
+#include <stdio.h>
+
+int main(void) {
+  printf("status sizeof=%zu align=%zu source=%zu tag=%zu error=%zu raw_size=%zu raw=%zu\n",
+         sizeof(plumed_mpiw_status), _Alignof(plumed_mpiw_status),
+         offsetof(plumed_mpiw_status, source), offsetof(plumed_mpiw_status, tag),
+         offsetof(plumed_mpiw_status, error), offsetof(plumed_mpiw_status, raw_size),
+         offsetof(plumed_mpiw_status, raw));
+  printf("descriptor sizeof=%zu align=%zu functions=%zu metadata=%zu identity_rank=%zu token=%zu\n",
+         sizeof(plumed_mpiw_provider_descriptor), _Alignof(plumed_mpiw_provider_descriptor),
+         offsetof(plumed_mpiw_provider_descriptor, functions),
+         offsetof(plumed_mpiw_provider_descriptor, metadata),
+         offsetof(plumed_mpiw_provider_descriptor, identity_comm_rank),
+         offsetof(plumed_mpiw_provider_descriptor, host_runtime_token));
+  printf("function-entry sizeof=%zu align=%zu name=%zu signature=%zu pointer=%zu\n",
+         sizeof(plumed_mpiw_function_entry), _Alignof(plumed_mpiw_function_entry),
+         offsetof(plumed_mpiw_function_entry, name),
+         offsetof(plumed_mpiw_function_entry, signature_id),
+         offsetof(plumed_mpiw_function_entry, function));
+  printf("metadata-entry sizeof=%zu align=%zu name=%zu value-size=%zu value=%zu\n",
+         sizeof(plumed_mpiw_metadata_entry), _Alignof(plumed_mpiw_metadata_entry),
+         offsetof(plumed_mpiw_metadata_entry, name),
+         offsetof(plumed_mpiw_metadata_entry, value_size),
+         offsetof(plumed_mpiw_metadata_entry, value));
+  printf("native-C-int sizeof=%zu signed=%d MPI_Fint metadata=provider-reported\n",
+         sizeof(int), ((int)-1 < 0) ? 1 : 0);
+  return 0;
+}
