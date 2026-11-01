@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 extern "C" const plumed_mpiw_provider_descriptor *
@@ -104,6 +105,24 @@ int run(int ranks) {
       !mpiwrap_has_Get_count() || !mpiwrap_has_Sendrecv()) {
     std::cerr << "required tMPI provider entries missing\n";
     return 1;
+  }
+  if (mpiwrap_has_Initialized()) {
+    std::cerr << "unimplemented tMPI call reported as available\n";
+    return 1;
+  }
+  int initialized = 0;
+  try {
+    (void)mpiwrap_Initialized(&initialized);
+    std::cerr << "unimplemented tMPI call did not throw\n";
+    return 1;
+  } catch (const std::runtime_error &error) {
+    if (std::string(error.what()).find("MPI_Initialized") == std::string::npos ||
+        std::string(error.what()).find("PLUMED embedded thread-MPI") ==
+        std::string::npos) {
+      std::cerr << "unavailable diagnostic omitted function/provider identity: "
+                << error.what() << '\n';
+      return 1;
+    }
   }
   if (thread_mpi::tMPI_Init_fn(0, ranks, thread_mpi::TMPI_AFFINITY_NONE,
                                rank_work, nullptr) != thread_mpi::TMPI_SUCCESS) {
