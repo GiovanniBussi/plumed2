@@ -6,6 +6,9 @@
 #include <cstring>
 #include <unordered_set>
 #include <vector>
+#if defined(__PLUMED_HAS_DLOPEN)
+#include <dlfcn.h>
+#endif
 
 namespace PLMD {
 namespace mpiwrap_provider {
@@ -323,8 +326,18 @@ Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullp
   host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
   compatibility_fingerprint_(0), installed_(false), object_created_(false), ready_(false) {}
 
+Registry::~Registry() {
+#if defined(__PLUMED_HAS_DLOPEN)
+  for (void *library : provider_libraries_) {
+    if (library) {
+      dlclose(library);
+    }
+  }
+#endif
+}
+
 bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
-                       std::string &error) {
+                       std::string &error,void *provider_library) {
   std::unordered_map<std::string, FunctionEntry> next_functions;
   std::unordered_map<std::string, std::string> next_metadata;
   std::unordered_map<std::string, ValueEntry> next_values;
@@ -359,10 +372,16 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
         compatibility_fingerprint_ == next_fingerprint &&
         sameFunctions(functions_, next_functions) && metadata_ == next_metadata &&
         values_ == next_values) {
+      if (provider_library) {
+        provider_libraries_.push_back(provider_library);
+      }
       error.clear();
       return true;
     }
     return setError(error, "conflicting MPI provider is already installed");
+  }
+  if (provider_library) {
+    provider_libraries_.push_back(provider_library);
   }
   functions_.swap(next_functions);
   metadata_.swap(next_metadata);

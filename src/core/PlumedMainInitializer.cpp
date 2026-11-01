@@ -507,7 +507,8 @@ extern "C" void plumed_plumedmain_finalize(void*plumed) {
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
   int (*report)(void*,int,const char*,const char*),
-  void*context) {
+  void*context,
+  void*provider_library) {
   std::string error;
 #if defined(__PLUMED_HAS_MPI)
   (void) descriptor;
@@ -517,7 +518,8 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
     if(!descriptor) {
       error="null MPI provider descriptor";
     } else if(PLMD::mpiwrap_provider::currentRegistry().install(
-                static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error)) {
+                static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error,
+                provider_library)) {
       return 0;
     }
   } catch(const std::exception &exception) {

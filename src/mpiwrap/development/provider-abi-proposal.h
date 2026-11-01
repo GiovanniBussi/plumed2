@@ -12,6 +12,11 @@
 #define PLUMED_MPIW_STATUS_CAPACITY 128
 #endif
 
+/* The sole factory symbol resolved by plumed_kernel_load_mpi_wrapper. */
+#ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
+#define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
+#endif
+
 typedef PLUMED_MPIW_HANDLE_TYPE plumed_mpiw_handle_storage;
 
 #define PLUMED_MPIW_FUNCTION_REQUIRED UINT32_C(1)
@@ -73,7 +78,7 @@ typedef struct {
   const void *value;         /* copied by installer for recognized metadata */
 } plumed_mpiw_metadata_entry;
 
-typedef struct {
+typedef struct plumed_mpiw_provider_descriptor {
   uint32_t struct_size;
   uint32_t abi_major;
   uint32_t abi_minor;
