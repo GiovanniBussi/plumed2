@@ -697,7 +697,9 @@ same syntax of --atom-distribution
     auto sw=k.stopwatch.startStop("A Initialization");
     // MPI should also be initialized (it is not with plumed --no-mpi)
     if(Communicator::initialized() && domain_decomposition) {
-      p.cmd("setMPIComm",&pc.Get_comm());
+      NativeMPICommStorage native_comm;
+      plumed_assert(pc.Export_comm_native(native_comm)) << "could not export native MPI communicator";
+      p.cmd("setMPIComm",native_comm.bytes);
     }
     p.cmd("setRealPrecision",(int)sizeof(double));
     p.cmd("setMDLengthUnits",1.0);

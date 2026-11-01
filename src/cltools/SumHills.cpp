@@ -437,7 +437,9 @@ int CLToolSumHills::main(FILE* in,FILE*out,Communicator& pc) {
   ss="setNatoms";
   plumed.cmd(ss,&nn);
   if(Communicator::initialized()) {
-    plumed.cmd("setMPIComm",&pc.Get_comm());
+    NativeMPICommStorage native_comm;
+    plumed_assert(pc.Export_comm_native(native_comm)) << "could not export native MPI communicator";
+    plumed.cmd("setMPIComm",native_comm.bytes);
   }
   plumed.cmd("init",&nn);
   std::vector <bool> isdone(cvs.size(),false);

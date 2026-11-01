@@ -101,6 +101,7 @@ def render_header(functions, types, constants):
         "#if defined(__PLUMED_HAS_MPI) || defined(PLUMED_MPIW_NATIVE_ADAPTER)",
         "#include <mpi.h>",
         '#include "provider-abi.h"',
+        "#include <cstddef>",
         "#include <cstring>",
         "namespace PLMD {",
         "inline MPI_Comm mpiwrap_Comm_from_native(const void *native) {",
@@ -113,6 +114,11 @@ def render_header(functions, types, constants):
         "  if constexpr (sizeof(MPI_Comm) > sizeof(plumed_mpiw_handle_storage)) return false;",
         "  *storage = 0;",
         "  std::memcpy(storage, &value, sizeof(value));",
+        "  return true;",
+        "}",
+        "inline bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity) {",
+        "  if (!output || sizeof(value) > capacity) return false;",
+        "  std::memcpy(output, &value, sizeof(value));",
         "  return true;",
         "}",
     ]
@@ -152,6 +158,7 @@ def render_header(functions, types, constants):
         "static_assert(offsetof(MPI_Status, raw) == 16, \"status bytes offset\");",
         "MPI_Comm mpiwrap_Comm_from_native(const void *native);",
         "bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);",
+        "bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);",
         "using MPI_User_function = void(void *, void *, int *, MPI_Datatype *);",
         "using MPI_Comm_errhandler_function = void(MPI_Comm *, int *, ...);",
     ]

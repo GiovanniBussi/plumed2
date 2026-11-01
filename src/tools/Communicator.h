@@ -22,6 +22,7 @@
 #ifndef __PLUMED_tools_Communicator_h
 #define __PLUMED_tools_Communicator_h
 #include "../mpiwrap/generated/mpiwrap.h"
+#include <cstddef>
 #include <cstdlib>
 #include "Exception.h"
 #include "TypesafePtr.h"
@@ -32,6 +33,13 @@
 #include "Matrix.h"
 
 namespace PLMD {
+
+/// Aligned storage for passing a native MPI_Comm through a PLUMED C API.
+/// The handle is copied as bytes because the receiving kernel may use a
+/// different C++ MPI_Comm type from the caller.
+struct NativeMPICommStorage {
+  alignas(std::max_align_t) unsigned char bytes[sizeof(plumed_mpiw_handle_storage)] {};
+};
 
 /// \ingroup TOOLBOX
 /// Class containing wrappers to MPI.
@@ -194,6 +202,8 @@ public:
   void Set_comm(MPI_Comm comm);
 /// Reference to MPI communicator
   MPI_Comm & Get_comm();
+/// Export the active communicator using the native MPI_Comm representation.
+  bool Export_comm_native(NativeMPICommStorage &storage) const;
 /// Mark this communicator as a stand-in on this process.
 /// A stand-in is a communicator that other processes were given but this
 /// process was not, so it does not connect this process to the processes it
