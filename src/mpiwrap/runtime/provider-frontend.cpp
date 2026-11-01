@@ -5,6 +5,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace PLMD {
 namespace {
@@ -252,6 +253,188 @@ int mpiwrap_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 
 bool mpiwrap_has_Sendrecv() {
   return mpiwrap_provider::currentRegistry().bindings().MPI_Sendrecv_pointer != nullptr;
+}
+
+int mpiwrap_Initialized(int *flag) {
+  if (!flag) {
+    throw std::runtime_error("MPI_Initialized requires flag output");
+  }
+  std::int32_t native_flag = 0;
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Initialized_pointer,
+                    "MPI_Initialized");
+  const int result = function(&native_flag);
+  if (result == 0) {
+    *flag = native_flag;
+  }
+  return result;
+}
+
+bool mpiwrap_has_Initialized() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Initialized_pointer != nullptr;
+}
+
+int mpiwrap_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm) {
+  if (!newcomm) {
+    throw std::runtime_error("MPI_Comm_dup requires newcomm output");
+  }
+  plumed_mpiw_handle_storage result_storage = 0;
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Comm_dup_pointer,
+                    "MPI_Comm_dup");
+  const int result = function(comm.storage, &result_storage);
+  if (result == 0) {
+    std::memcpy(&newcomm->storage, &result_storage, sizeof(result_storage));
+  }
+  return result;
+}
+
+bool mpiwrap_has_Comm_dup() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Comm_dup_pointer != nullptr;
+}
+
+int mpiwrap_Comm_free(MPI_Comm *comm) {
+  if (!comm) {
+    throw std::runtime_error("MPI_Comm_free requires comm input/output");
+  }
+  plumed_mpiw_handle_storage comm_storage = 0;
+  std::memcpy(&comm_storage, &comm->storage, sizeof(comm_storage));
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Comm_free_pointer,
+                    "MPI_Comm_free");
+  const int result = function(&comm_storage);
+  if (result == 0) {
+    std::memcpy(&comm->storage, &comm_storage, sizeof(comm_storage));
+  }
+  return result;
+}
+
+bool mpiwrap_has_Comm_free() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Comm_free_pointer != nullptr;
+}
+
+int mpiwrap_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) {
+  if (!newcomm) {
+    throw std::runtime_error("MPI_Comm_split requires newcomm output");
+  }
+  plumed_mpiw_handle_storage result_storage = 0;
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Comm_split_pointer,
+                    "MPI_Comm_split");
+  const int result = function(comm.storage, color, key, &result_storage);
+  if (result == 0) {
+    std::memcpy(&newcomm->storage, &result_storage, sizeof(result_storage));
+  }
+  return result;
+}
+
+bool mpiwrap_has_Comm_split() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Comm_split_pointer != nullptr;
+}
+
+int mpiwrap_Abort(MPI_Comm comm, int errorcode) {
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Abort_pointer,
+                    "MPI_Abort");
+  return function(comm.storage, errorcode);
+}
+
+bool mpiwrap_has_Abort() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Abort_pointer != nullptr;
+}
+
+int mpiwrap_Recv(void *buffer, int count, MPI_Datatype datatype, int source,
+                 int tag, MPI_Comm comm, MPI_Status *status) {
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Recv_pointer,
+                    "MPI_Recv");
+  plumed_mpiw_status transport_status{};
+  const int result = function(buffer, count, datatype.storage, source, tag,
+                              comm.storage,
+                              status ? &transport_status : nullptr);
+  if (result == 0 && status) {
+    copyStatus(transport_status, status);
+  }
+  return result;
+}
+
+bool mpiwrap_has_Recv() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Recv_pointer != nullptr;
+}
+
+int mpiwrap_Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                    void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                    int root, MPI_Comm comm) {
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Scatter_pointer,
+                    "MPI_Scatter");
+  return function(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount,
+                  recvtype.storage, root, comm.storage);
+}
+
+bool mpiwrap_has_Scatter() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Scatter_pointer != nullptr;
+}
+
+int mpiwrap_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                   int root, MPI_Comm comm) {
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Gather_pointer,
+                    "MPI_Gather");
+  return function(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount,
+                  recvtype.storage, root, comm.storage);
+}
+
+bool mpiwrap_has_Gather() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Gather_pointer != nullptr;
+}
+
+int mpiwrap_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                      void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                      MPI_Comm comm) {
+  auto function = requireFunction(
+                    mpiwrap_provider::currentRegistry().bindings().MPI_Allgather_pointer,
+                    "MPI_Allgather");
+  return function(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount,
+                  recvtype.storage, comm.storage);
+}
+
+bool mpiwrap_has_Allgather() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Allgather_pointer != nullptr;
+}
+
+int mpiwrap_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                       void *recvbuf, const int recvcounts[], const int displs[],
+                       MPI_Datatype recvtype, MPI_Comm comm) {
+  if (!recvcounts || !displs) {
+    throw std::runtime_error("MPI_Allgatherv requires count and displacement arrays");
+  }
+  auto &bindings = mpiwrap_provider::currentRegistry().bindings();
+  auto get_size = requireFunction(bindings.MPI_Comm_size_pointer, "MPI_Comm_size");
+  std::int32_t native_comm_size = 0;
+  const int size_result = get_size(comm.storage, &native_comm_size);
+  if (size_result != 0) {
+    return size_result;
+  }
+  const int comm_size = native_comm_size;
+  if (comm_size < 0) {
+    throw std::runtime_error("MPI_Comm_size returned a negative size");
+  }
+  std::vector<std::int32_t> count_storage(static_cast<std::size_t>(comm_size));
+  std::vector<std::int32_t> displacement_storage(static_cast<std::size_t>(comm_size));
+  for (int i = 0; i < comm_size; ++i) {
+    count_storage[static_cast<std::size_t>(i)] = recvcounts[i];
+    displacement_storage[static_cast<std::size_t>(i)] = displs[i];
+  }
+  auto function = requireFunction(bindings.MPI_Allgatherv_pointer, "MPI_Allgatherv");
+  return function(sendbuf, sendcount, sendtype.storage, recvbuf,
+                  count_storage.data(), displacement_storage.data(),
+                  recvtype.storage, comm.storage);
+}
+
+bool mpiwrap_has_Allgatherv() {
+  return mpiwrap_provider::currentRegistry().bindings().MPI_Allgatherv_pointer != nullptr;
 }
 
 #include "../generated/provider-unavailable-functions.inc"

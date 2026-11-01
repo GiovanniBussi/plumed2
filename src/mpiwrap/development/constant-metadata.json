@@ -67,8 +67,8 @@
       "mpi5_binding": "retained C constant; provider value is never assumed portable",
       "provider_value": "obtained lazily from selected native adapter; transport as exact typed value/handle/sentinel",
       "thread_mpi_2026_4": {
-        "status": "stable-tmpi-unavailable; throw unless reviewed translation is provided",
-        "binding": null
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_UNSIGNED_LONG"
       },
       "semantic_test": "constant:MPI_UNSIGNED_LONG",
       "translation": "typed opaque handle bytes through accessor; never numeric-convert"
