@@ -63,3 +63,17 @@ Validation in this checkpoint:
 - Explicit `rg` check confirmed `MPI_Pcontrol` is absent from generated provider pointer and native forwarding entry files.
 
 This is a generation and compile-contract checkpoint, not runtime dispatch. The generated wrappers are declarations and the provider pointer slots are not yet connected to lifecycle, marshalling, callbacks, or collective fallbacks. Those implementation tasks remain in the subsequent authorized stages.
+
+## Stage 4 implementation checkpoint: atomic registry validation
+
+`runtime/provider-registry.{hpp,cpp}` adds a per-kernel provider registry. It validates the fixed descriptor prefix and ABI major, runtime kind, bounded identity strings, configured handle/status/int/Fint representations, zero reserved fields, required identity anchors, table pointer/count consistency, exact function/metadata entry strides, duplicate names, generated function IDs/versions, unknown required entries, and unsupported capability bits before publishing any callback. Unknown optional function/metadata entries are ignored. Recognized generic function pointers are stored only after signature validation and are restored to the exact generated type at lookup; no data-pointer conversion or generic invocation occurs. Function lookup checks the name and signature again; `require()` reports a missing MPI name and provider identity. Installation is atomic, can be retried after validation failure, and permits same-provider reinjection only when anchors, provider identity, compatibility fields, and the complete recognized function slot set match.
+
+`tests/test-provider-registry.cpp` exercises malformed handle capacity, truncated descriptors, signature mismatch, duplicate names, unknown required entries, retry after failure, exact typed function-pointer restoration and invocation, wrong-version lookup, missing-function diagnostics, same-provider reinjection, and conflicting anchors/representation/function slots. `check-provider-registry.sh` builds with warnings as errors in a temporary directory and runs the mock test.
+
+Commands/results:
+
+- `./astyle/astyle --options=.astyle.options src/mpiwrap/runtime/provider-registry.hpp src/mpiwrap/runtime/provider-registry.cpp src/mpiwrap/tests/test-provider-registry.cpp` — all files reported unchanged on final formatting verification.
+- `CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-provider-registry.sh` — passed: provider registry validation and typed restoration.
+- `python3 src/mpiwrap/tools/generate.py --check` — passed: 16 generated files for 118 functions.
+
+This is only the descriptor-registry slice. Lazy frontend wrappers, provider value accessors, marshalling conversions, callback bridges, fallback collectives, race/recursion tests, and sanitizers remain outstanding; no production dispatch is claimed yet.
