@@ -24,6 +24,7 @@
 #include "tools/Exception.h"
 #include "lepton/Exception.h"
 #include "../mpiwrap/runtime/provider-registry.hpp"
+#include "../mpiwrap/runtime/thread-mpi-launcher.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -538,9 +539,16 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   return 1;
 }
 
+extern "C" int plumed_plumedmain_launch_internal_threads(
+  int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
+  int (*report)(void*,int,const char*,const char*), void*report_context) {
+  return PLMD::mpiwrap_provider::launchInternalThreadMPI(
+           ranks, callback, callback_context, result, report, report_context);
+}
+
 // values here should be consistent with those in plumed_symbol_table_init !!!!
 plumed_symbol_table_type_x plumed_symbol_table= {
-  5,
+  6,
   {plumed_plumedmain_create,plumed_plumedmain_cmd,plumed_plumedmain_finalize},
   plumed_plumedmain_cmd_nothrow,
   plumed_plumedmain_cmd_safe,
@@ -548,12 +556,13 @@ plumed_symbol_table_type_x plumed_symbol_table= {
   plumed_plumedmain_create_reference,
   plumed_plumedmain_delete_reference,
   plumed_plumedmain_use_count,
-  plumed_plumedmain_install_mpi_provider
+  plumed_plumedmain_install_mpi_provider,
+  plumed_plumedmain_launch_internal_threads
 };
 
 // values here should be consistent with those above !!!!
 extern "C" void plumed_symbol_table_init() {
-  plumed_symbol_table.version=5;
+  plumed_symbol_table.version=6;
   plumed_symbol_table.functions.create=plumed_plumedmain_create;
   plumed_symbol_table.functions.cmd=plumed_plumedmain_cmd;
   plumed_symbol_table.functions.finalize=plumed_plumedmain_finalize;
@@ -564,6 +573,7 @@ extern "C" void plumed_symbol_table_init() {
   plumed_symbol_table.delete_reference=plumed_plumedmain_delete_reference;
   plumed_symbol_table.use_count=plumed_plumedmain_use_count;
   plumed_symbol_table.install_mpi_provider=plumed_plumedmain_install_mpi_provider;
+  plumed_symbol_table.launch_internal_threads=plumed_plumedmain_launch_internal_threads;
 }
 
 namespace PLMD {

@@ -45,6 +45,10 @@ public:
     return ready_.load(std::memory_order_acquire);
   }
   void markObjectCreated();
+  bool beginInternalLaunch(const plumed_mpiw_provider_descriptor *descriptor,
+                           std::string &error);
+  void finishInternalLaunch() noexcept;
+  std::uint32_t runtimeKind() const;
   const ProviderBindings &bindings() const {
     if (!ready_.load(std::memory_order_acquire)) {
       throw std::runtime_error("MPI provider is not installed");
@@ -99,6 +103,8 @@ private:
   std::vector<void *> provider_libraries_;
   bool installed_;
   bool object_created_;
+  bool internal_launch_started_;
+  bool internal_launch_active_;
   std::atomic<bool> ready_;
 };
 

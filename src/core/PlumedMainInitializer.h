@@ -70,6 +70,9 @@ typedef struct {
   int (*install_mpi_provider)(const void*descriptor,
                               int (*report)(void*,int,const char*,const char*),
                               void*context,void*provider_library);
+  /* Available with version>=6. Launches the embedded thread-MPI runtime. */
+  int (*launch_internal_threads)(int, int (*)(int,const void*,std::size_t,void*), void*, int*,
+                                 int (*)(void*,int,const char*,const char*), void*);
 } plumed_symbol_table_type_x;
 
 
@@ -103,6 +106,10 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   int (*report)(void*,int,const char*,const char*),
   void*context,
   void*provider_library);
+
+extern "C" int plumed_plumedmain_launch_internal_threads(
+  int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
+  int (*report)(void*,int,const char*,const char*), void*report_context);
 
 /**
   Static symbol table that is accessed by the plumed loader.
