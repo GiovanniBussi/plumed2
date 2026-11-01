@@ -44,6 +44,14 @@ void rank_work(const void *) {
     failures.fetch_add(1);
     return;
   }
+  const MPI_Comm imported_world = mpiwrap_Comm_from_native(&thread_mpi::TMPI_COMM_WORLD);
+  int imported_rank = -1;
+  int imported_size = 0;
+  if (mpiwrap_Comm_rank(imported_world, &imported_rank) != thread_mpi::TMPI_SUCCESS ||
+      mpiwrap_Comm_size(imported_world, &imported_size) != thread_mpi::TMPI_SUCCESS ||
+      imported_rank != rank || imported_size != size) {
+    failures.fetch_add(1);
+  }
   if (!float_type.storage || !double_type.storage || !char_type.storage ||
       !unsigned_type.storage || !unsigned_long_type.storage ||
       !unsigned_long_long_type.storage || !long_double_type.storage ||
@@ -295,6 +303,13 @@ int run(int ranks) {
       !mpiwrap_has_Gather() || !mpiwrap_has_Allgather() ||
       !mpiwrap_has_Allgatherv()) {
     std::cerr << "required tMPI provider entries missing\n";
+    return 1;
+  }
+  MPI_Comm imported_world = mpiwrap_Comm_from_native(&thread_mpi::TMPI_COMM_WORLD);
+  plumed_mpiw_handle_storage exported_world = 0;
+  if (!mpiwrap_Comm_export_storage(imported_world, &exported_world) ||
+      exported_world != imported_world.storage) {
+    std::cerr << "public native communicator import/export failed\n";
     return 1;
   }
   if (mpiwrap_has_Init()) {

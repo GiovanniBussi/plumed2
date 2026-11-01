@@ -38,6 +38,9 @@ public:
   bool install(const plumed_mpiw_provider_descriptor *descriptor,
                std::string &error);
   bool has(const char *name) const;
+  bool installed() const noexcept {
+    return ready_.load(std::memory_order_acquire);
+  }
   const ProviderBindings &bindings() const {
     if (!ready_.load(std::memory_order_acquire)) {
       throw std::runtime_error("MPI provider is not installed");

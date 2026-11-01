@@ -21,9 +21,7 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef __PLUMED_tools_Communicator_h
 #define __PLUMED_tools_Communicator_h
-#ifdef __PLUMED_HAS_MPI
-#include <mpi.h>
-#endif
+#include "../mpiwrap/generated/mpiwrap.h"
 #include <cstdlib>
 #include "Exception.h"
 #include "TypesafePtr.h"
@@ -35,26 +33,19 @@
 
 namespace PLMD {
 
-#ifndef  __PLUMED_HAS_MPI
-/// Surrogate of MPI_Comm when MPI library is not available
-class MPI_Comm {};
-/// Surrogate of MPI_Datatype when MPI library is not available
-class MPI_Datatype {};
-/// Surrogate of MPI_Status when MPI library is not available
-class MPI_Status {};
-/// Surrogate of MPI_Request when MPI library is not available
-class MPI_Request {};
-#endif
-
 /// \ingroup TOOLBOX
 /// Class containing wrappers to MPI.
 /// All the MPI related stuff is relegated here.
 class Communicator {
 /// Communicator
-  MPI_Comm communicator;
+  mutable MPI_Comm communicator{};
 /// True if this process holds the communicator only as a stand-in.
 /// See setStandIn().
   bool standIn=false;
+/// True while communicator is only a serial local fallback.
+  mutable bool localFallback=true;
+/// Return the communicator used by the active runtime, materializing self lazily.
+  MPI_Comm activeComm() const;
 /// In debug builds, raise an error if this communicator is a stand-in.
   void checkNotStandIn()const;
 /// Function returning the MPI type.
