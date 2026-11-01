@@ -312,6 +312,17 @@ int run(int ranks) {
     std::cerr << "public native communicator import/export failed\n";
     return 1;
   }
+  alignas(std::max_align_t)
+  unsigned char native_world[sizeof(plumed_mpiw_handle_storage)] {};
+  MPI_Comm native_roundtrip{};
+  if (mpiwrap_Comm_export_native(imported_world, native_world,
+                                 sizeof(native_world))) {
+    native_roundtrip = mpiwrap_Comm_from_native(native_world);
+  }
+  if (native_roundtrip.storage != imported_world.storage) {
+    std::cerr << "public native communicator byte export/import failed\n";
+    return 1;
+  }
   if (mpiwrap_has_Init()) {
     std::cerr << "unimplemented tMPI call reported as available\n";
     return 1;

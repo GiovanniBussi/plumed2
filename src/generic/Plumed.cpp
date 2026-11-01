@@ -237,8 +237,12 @@ API([&]() {
       log<<"  running replicas as standard multi replic (with suffix)\n";
       if(root) {
         intercomm.Set_comm(&multi_sim_comm.Get_comm());
-        p.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
-        p.cmd("GREX setMPIIntracomm",&comm_self.Get_comm());
+        NativeMPICommStorage native_intercomm;
+        NativeMPICommStorage native_intracomm;
+        plumed_assert(intercomm.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
+        plumed_assert(comm_self.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
+        p.cmd("GREX setMPIIntercomm",native_intercomm.bytes);
+        p.cmd("GREX setMPIIntracomm",native_intracomm.bytes);
         p.cmd("GREX init");
       }
     }

@@ -212,7 +212,9 @@ public:
     int s=sizeof(double);
     plumed->cmd("setRealPrecision",&s);
     if(Communicator::initialized()) {
-      plumed->cmd("setMPIComm",&pc.Get_comm());
+      NativeMPICommStorage native_comm;
+      plumed_assert(pc.Export_comm_native(native_comm)) << "could not export native MPI communicator";
+      plumed->cmd("setMPIComm",native_comm.bytes);
     }
     int natoms=( std::floor(dim/3) +  2 );
     plumed->cmd("setNatoms",&natoms);

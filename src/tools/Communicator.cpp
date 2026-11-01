@@ -443,6 +443,16 @@ MPI_Comm & Communicator::Get_comm() {
   return communicator;
 }
 
+bool Communicator::Export_comm_native(NativeMPICommStorage &storage) const {
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+  if (!mpiwrap_provider::currentRegistry().installed()) {
+    return false;
+  }
+#endif
+  return mpiwrap_Comm_export_native(activeComm(), storage.bytes,
+                                    sizeof(storage.bytes));
+}
+
 bool Communicator::initialized() {
 #if defined(__PLUMED_HAS_MPI)
   int flag=0;

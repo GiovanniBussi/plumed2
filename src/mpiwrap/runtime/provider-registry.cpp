@@ -493,6 +493,20 @@ bool exportComm(Registry &registry, MPI_Comm value,
   return true;
 }
 
+bool exportNativeComm(Registry &registry, MPI_Comm value, void *output,
+                      std::size_t capacity) {
+  if (!output) {
+    return false;
+  }
+  const std::uint32_t native_size = registry.nativeCommSize();
+  if (native_size == 0 || native_size > sizeof(value.storage) ||
+      native_size > capacity) {
+    return false;
+  }
+  std::memcpy(output, &value.storage, native_size);
+  return true;
+}
+
 }  // namespace mpiwrap_provider
 
 #if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)
@@ -505,6 +519,12 @@ bool mpiwrap_Comm_export_storage(MPI_Comm value,
                                  plumed_mpiw_handle_storage *storage) {
   return mpiwrap_provider::exportComm(mpiwrap_provider::currentRegistry(), value,
                                       storage);
+}
+
+bool mpiwrap_Comm_export_native(MPI_Comm value, void *output,
+                                std::size_t capacity) {
+  return mpiwrap_provider::exportNativeComm(
+           mpiwrap_provider::currentRegistry(), value, output, capacity);
 }
 #endif
 

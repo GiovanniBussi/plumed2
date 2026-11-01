@@ -189,3 +189,16 @@ Commands/results:
 - A static-link host using `PLMD::Kernel::openStatic()` linked against `src/lib/install/libplumed.a`, created/finalized an object, and exited successfully.
 - A runtime-selected host using `PLMD::Kernel::openSelected()` with `PLUMED_KERNEL=/private/tmp/mpiw-IozTkN/plumed2/src/lib/libplumedKernel.dylib` created/finalized an object successfully.
 - These actual-kernel tests supplement the checked-in mock lifecycle test; they are temporary probes, not committed integration tests.
+
+## Stage 5 nested-kernel communicator boundary
+
+Nested PLUMED C API calls now pass `MPI_Comm` as aligned native bytes, not as the caller's C++ wrapper object. `Communicator::Export_comm_native` routes through the generated native/provider conversion helper, which copies exactly the native communicator size and rejects insufficient capacity. All in-tree `setMPIComm`, `GREX setMPIIntracomm`, and `GREX setMPIIntercomm` calls that forward a `Communicator` to another `Plumed`/`PlumedMain` instance use this boundary. This lets the receiving kernel interpret its own native `MPI_Comm` representation while keeping its legacy API contract.
+
+The internal tMPI runtime test now imports a native `TMPI_COMM_WORLD`, exports its bytes, reimports them, and compares the resulting wrapper storage on each launch size. This exercises the provider-side native-size copy and wrapper import together; it does not emulate a host/guest pair built with different real MPI vendors. The actual native MPI process-manager tests remain blocked by sandbox startup restrictions noted earlier.
+
+Checks after this change:
+
+- `python3 src/mpiwrap/tools/generate.py --check` — passed all 22 generated files and 118 MPI functions.
+- `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed 6/6 launcher/runtime tests at 1, 2, and 4 ranks, including the native-byte communicator round trip.
+- `make -C src/lib -j4` — passed the configured serial PLUMED build, including `Communicator.cpp` and all modified nested C API callers. The first attempt caught use of the two-argument `plumed_massert` macro; these checks now use `plumed_assert` with an export failure message.
+- Repository astyle was applied with `.astyle.options` to every modified C/C++ source/header; `git diff --check` passed.
