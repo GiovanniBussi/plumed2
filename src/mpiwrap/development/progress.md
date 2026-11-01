@@ -46,3 +46,5 @@ Stage-2 validation run in the dedicated clone:
 - `nm -gU /tmp/mpiw-stage2-final/libplumed_thread_mpi.a | rg '(^| )_?tMPI_'` — no matches; namespaced symbol check found `PLMD::thread_mpi::tMPI_Comm_rank`.
 
 Current step-2 result is a reproducible, isolated import plus rank-launch and namespace-collision evidence. General PLUMED integration, wrapper dispatch, and the known single-rank collective repair remain later steps.
+
+The primary review identified that locating astyle relative to the generated output made `--check` dependent on its temporary directory. The importer now resolves the required astyle binary and options from the repository containing the script, and fails clearly if either is missing. It no longer silently changes behavior when formatting tools are absent. Reproducibility was checked with `--check` into the tracked output and a second import into `/private/tmp/mpiw-reimport-check`; all imported files matched byte-for-byte (`diff -qr` only reported expected non-import artifacts: CMake/tests/tools). This follow-up changes the deterministic import tooling and stage-2 evidence only.
