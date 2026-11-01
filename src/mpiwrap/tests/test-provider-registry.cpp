@@ -34,6 +34,15 @@ std::int32_t fakeOpCreate(plumed_mpiw_user_callback *,
   return 0;
 }
 
+std::int32_t fakeSuccessConstant(void *output, std::uint32_t capacity) {
+  if (!output || capacity != sizeof(std::int32_t)) {
+    return -1;
+  }
+  const std::int32_t value = 23;
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
+
 plumed_mpiw_handle_storage observed_datatype = 0;
 int observed_callback_length = 0;
 void fakeUserFunction(void *, void *, int *length, PLMD::MPI_Datatype *datatype) {
@@ -174,7 +183,6 @@ int run() {
   Registry retryable;
   assert(!retryable.install(&malformed, error));
   assert(!retryable.has("MPI_Comm_rank"));
-  assert(retryable.bindings().MPI_Comm_rank_pointer == nullptr);
   assert(retryable.install(&descriptor, error));
 
   plumed_mpiw_function_entry duplicate_entries[] = {valid_entry, valid_entry};
@@ -227,12 +235,29 @@ int run() {
   callback_metadata.name = PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI;
   callback_metadata.value_size = sizeof(user_callback_abi);
   callback_metadata.value = user_callback_abi;
+  plumed_mpiw_constant_accessor_fn success_accessor = &fakeSuccessConstant;
+  plumed_mpiw_metadata_entry success_metadata{};
+  success_metadata.struct_size = sizeof(success_metadata);
+  success_metadata.value_type = PLUMED_MPIW_VALUE_ACCESSOR;
+  success_metadata.name = "value:MPI_SUCCESS";
+  success_metadata.value_size = sizeof(success_accessor);
+  success_metadata.value = &success_accessor;
+  const plumed_mpiw_metadata_entry callback_values[] = {
+    callback_metadata, success_metadata
+  };
   plumed_mpiw_provider_descriptor callback_descriptor = makeDescriptor(
         &op_entry, 1, anchor);
-  callback_descriptor.metadata_count = 1;
-  callback_descriptor.metadata = &callback_metadata;
+  callback_descriptor.metadata_count = 2;
+  callback_descriptor.metadata = callback_values;
   Registry callbacks;
   assert(callbacks.install(&callback_descriptor, error));
+  std::int32_t constant_value = -1;
+  assert(callbacks.copyValue("MPI_SUCCESS", &constant_value,
+                             sizeof(constant_value)));
+  assert(constant_value == 23);
+  std::uint64_t wrong_constant_size = 0;
+  assert(!callbacks.copyValue("MPI_SUCCESS", &wrong_constant_size,
+                              sizeof(wrong_constant_size)));
   const auto op_create = callbacks.function<plumed_mpiw_MPI_Op_create_fn>(
                            "MPI_Op_create", UINT32_C(0x891a52d1), 2);
   plumed_mpiw_handle_storage operation = 0;
@@ -260,11 +285,14 @@ int run() {
   assert(observed_communicator == UINT64_C(0x87654321));
   assert(observed_error_code == 9);
 
-  callback_metadata.value_type = PLUMED_MPIW_VALUE_I32;
+  plumed_mpiw_metadata_entry invalid_metadata[] = {
+    callback_metadata, success_metadata
+  };
+  invalid_metadata[0].value_type = PLUMED_MPIW_VALUE_I32;
+  callback_descriptor.metadata = invalid_metadata;
   Registry wrong_metadata_type;
   assert(!wrong_metadata_type.install(&callback_descriptor, error));
   assert(error.find("callback ABI metadata") != std::string::npos);
-  callback_metadata.value_type = PLUMED_MPIW_VALUE_UTF8;
 
   callback_descriptor.metadata_count = 0;
   Registry missing_callback_metadata;

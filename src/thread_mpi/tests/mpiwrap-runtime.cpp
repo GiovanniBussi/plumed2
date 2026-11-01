@@ -5,8 +5,6 @@
 #include "../../mpiwrap/generated/provider-abi.h"
 
 #include <atomic>
-#include <cstdint>
-#include <cstring>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -15,42 +13,6 @@ extern "C" const plumed_mpiw_provider_descriptor *
 plumed_mpiw_thread_mpi_provider(void);
 
 namespace PLMD {
-namespace {
-
-plumed_mpiw_handle_storage pointerStorage(const void *pointer) {
-  plumed_mpiw_handle_storage storage = 0;
-  static_assert(sizeof(pointer) <= sizeof(storage), "pointer exceeds wrapper storage");
-  std::memcpy(&storage, &pointer, sizeof(pointer));
-  return storage;
-}
-
-}
-
-MPI_Comm mpiwrap_COMM_WORLD() {
-  MPI_Comm value{};
-  value.storage = pointerStorage(thread_mpi::TMPI_COMM_WORLD);
-  return value;
-}
-
-MPI_Datatype mpiwrap_INT() {
-  MPI_Datatype value{};
-  value.storage = pointerStorage(thread_mpi::TMPI_INT);
-  return value;
-}
-
-MPI_Op mpiwrap_SUM() {
-  MPI_Op value{};
-  static_assert(sizeof(thread_mpi::tMPI_Op) <= sizeof(value.storage),
-                "tMPI operation exceeds wrapper storage");
-  const thread_mpi::tMPI_Op native = thread_mpi::TMPI_SUM;
-  std::memcpy(&value.storage, &native, sizeof(native));
-  return value;
-}
-
-void *mpiwrap_IN_PLACE() {
-  return nullptr;
-}
-
 namespace mpiwrap_runtime_test {
 
 std::atomic<int> failures{0};
