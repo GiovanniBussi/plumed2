@@ -51,6 +51,42 @@ void rank_work(const void *) {
       mpiwrap_Barrier(world) != thread_mpi::TMPI_SUCCESS) {
     failures.fetch_add(1);
   }
+
+  const int next = (rank + 1) % size;
+  const int previous = (rank + size - 1) % size;
+  int ring_value = -1;
+  MPI_Request receive_request{};
+  MPI_Request send_request{};
+  MPI_Status receive_status{};
+  if (!mpiwrap_has_Irecv() || !mpiwrap_has_Isend() || !mpiwrap_has_Wait() ||
+      !mpiwrap_has_Get_count() ||
+      mpiwrap_Irecv(&ring_value, 1, integer, previous, 73, world,
+                    &receive_request) != thread_mpi::TMPI_SUCCESS ||
+      mpiwrap_Isend(&input, 1, integer, next, 73, world,
+                    &send_request) != thread_mpi::TMPI_SUCCESS ||
+      mpiwrap_Wait(&receive_request, &receive_status) != thread_mpi::TMPI_SUCCESS ||
+      mpiwrap_Wait(&send_request, MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS) {
+    failures.fetch_add(1);
+  } else {
+    int received_count = -1;
+    if (ring_value != previous + 1 || receive_status.MPI_SOURCE != previous ||
+        receive_status.MPI_TAG != 73 ||
+        mpiwrap_Get_count(&receive_status, integer, &received_count) !=
+        thread_mpi::TMPI_SUCCESS || received_count != 1) {
+      failures.fetch_add(1);
+    }
+  }
+
+  int sendrecv_value = input;
+  int sendrecv_result = -1;
+  MPI_Status sendrecv_status{};
+  if (mpiwrap_Sendrecv(&sendrecv_value, 1, integer, next, 74,
+                       &sendrecv_result, 1, integer, previous, 74, world,
+                       &sendrecv_status) != thread_mpi::TMPI_SUCCESS ||
+      sendrecv_result != previous + 1 || sendrecv_status.MPI_SOURCE != previous ||
+      sendrecv_status.MPI_TAG != 74) {
+    failures.fetch_add(1);
+  }
   ranks_seen.fetch_add(1);
 }
 
@@ -63,7 +99,9 @@ int run(int ranks) {
   }
   if (!mpiwrap_has_Comm_rank() || !mpiwrap_has_Comm_size() ||
       !mpiwrap_has_Bcast() || !mpiwrap_has_Allreduce() ||
-      !mpiwrap_has_Barrier()) {
+      !mpiwrap_has_Barrier() || !mpiwrap_has_Irecv() ||
+      !mpiwrap_has_Isend() || !mpiwrap_has_Wait() ||
+      !mpiwrap_has_Get_count() || !mpiwrap_has_Sendrecv()) {
     std::cerr << "required tMPI provider entries missing\n";
     return 1;
   }
