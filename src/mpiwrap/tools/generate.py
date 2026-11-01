@@ -23,7 +23,9 @@ HANDLES = {
 PROVIDER_FRONTEND_IMPLEMENTED = {
     "MPI_Comm_rank", "MPI_Comm_size", "MPI_Bcast", "MPI_Allreduce",
     "MPI_Barrier", "MPI_Irecv", "MPI_Isend", "MPI_Wait", "MPI_Get_count",
-    "MPI_Sendrecv",
+    "MPI_Sendrecv", "MPI_Initialized", "MPI_Comm_dup", "MPI_Comm_free",
+    "MPI_Comm_split", "MPI_Abort", "MPI_Recv", "MPI_Scatter", "MPI_Gather",
+    "MPI_Allgather", "MPI_Allgatherv",
 }
 
 
@@ -394,6 +396,44 @@ def render_provider_constants(constants):
     return "\n".join(names) + "\n", "\n".join(functions) + "\n"
 
 
+def render_thread_mpi_constants(constants):
+    accessors = ["// Generated stable thread-MPI constant accessors."]
+    metadata = ["// Generated descriptor metadata rows for stable thread-MPI values."]
+    for item in constants:
+        name = item["standard_api_name"]
+        provider = item.get("thread_mpi_2026_4", {})
+        binding = provider.get("binding")
+        if provider.get("status") != "stable-tmpi-mapped":
+            continue
+        if name == "MPI_COMM_SELF":
+            getter = "get_self"
+        else:
+            if not isinstance(binding, str) or not re.fullmatch(r"TMPI_[A-Z0-9_]+", binding):
+                raise ValueError(f"{name}: mapped tMPI constant lacks a symbol binding")
+            getter = f"get_{name}"
+            category = item["class"]
+            if category == "provider_handle":
+                export = "exportHandle"
+            elif category in {"provider_integer", "compile_time_integer"}:
+                export = "exportInteger"
+            elif category in {"buffer_sentinel", "status_sentinel"}:
+                export = "exportPointer"
+            else:
+                raise ValueError(f"{name}: unsupported tMPI constant class {category}")
+            accessors += [
+                f"int32_t {getter}(void *output, uint32_t capacity) {{",
+                f"  return {export}(output, capacity, {binding});",
+                "}",
+            ]
+        metadata.append(
+            f'{{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, 0, '
+            f'"value:{name}", sizeof(plumed_mpiw_constant_accessor_fn), '
+            f'&constant_accessor_{name} }},')
+        accessors.append(
+            f"static const plumed_mpiw_constant_accessor_fn constant_accessor_{name} = &{getter};")
+    return "\n".join(accessors) + "\n", "\n".join(metadata) + "\n"
+
+
 def render_provider_unavailable(functions):
     lines = ["// Generated provider definitions for calls without a runtime dispatch."]
     for function in functions:
@@ -586,6 +626,8 @@ def generate(output, write=True):
     native_rows, thread_rows = render_adapter_entries(functions, versions)
     provider_constant_names, provider_constant_functions = render_provider_constants(
         constants_doc["constants"])
+    thread_mpi_constant_accessors, thread_mpi_constant_metadata = render_thread_mpi_constants(
+        constants_doc["constants"])
     files = {
         "mpiwrap.h": render_header(functions, types_doc["types"], constants),
         "mpiwrap-pointers.h": render_pointers(functions, constants),
@@ -594,6 +636,8 @@ def generate(output, write=True):
         "provider-callbacks.h": render_provider_callbacks(functions),
         "provider-constant-names.inc": provider_constant_names,
         "provider-constant-functions.inc": provider_constant_functions,
+        "thread-mpi-constant-accessors.inc": thread_mpi_constant_accessors,
+        "thread-mpi-constant-metadata.inc": thread_mpi_constant_metadata,
         "provider-unavailable-functions.inc": render_provider_unavailable(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
         "native-adapter-entries.inc": native_rows,
