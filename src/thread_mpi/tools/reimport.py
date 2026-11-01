@@ -5,7 +5,6 @@ import pathlib
 import re
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import hashlib
