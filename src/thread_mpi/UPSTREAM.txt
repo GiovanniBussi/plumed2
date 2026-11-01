@@ -2,4 +2,4 @@ Source: GROMACS 2026.4 (v2026.4)
 Commit: 6c69f720aa7378fddfee67f99d51aff21ccfb0a2
 Upstream path: src/external/thread_mpi
 Import transform: tools/reimport.py wraps C++ declarations and definitions in PLMD::thread_mpi; include directives remain at global scope.
-No upstream function bodies were otherwise edited.
+Upstream formatting is preserved; no upstream function bodies were edited.
