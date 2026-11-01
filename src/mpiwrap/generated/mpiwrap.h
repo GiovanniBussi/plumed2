@@ -6,7 +6,27 @@
 #endif
 #if defined(__PLUMED_HAS_MPI) || defined(PLUMED_MPIW_NATIVE_ADAPTER)
 #include <mpi.h>
+#include "provider-abi.h"
+#include <cstring>
 namespace PLMD {
+inline MPI_Comm mpiwrap_Comm_from_native(const void *native) {
+  MPI_Comm value{};
+  if (native) {
+    std::memcpy(&value, native, sizeof(value));
+  }
+  return value;
+}
+inline bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage) {
+  if (!storage) {
+    return false;
+  }
+  if constexpr (sizeof(MPI_Comm) > sizeof(plumed_mpiw_handle_storage)) {
+    return false;
+  }
+  *storage = 0;
+  std::memcpy(storage, &value, sizeof(value));
+  return true;
+}
 inline MPI_Comm mpiwrap_import_Comm(MPI_Comm value) {
   return value;
 }
@@ -49,6 +69,7 @@ inline MPI_Request mpiwrap_export_Request(MPI_Request value) {
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");
 namespace PLMD {
 struct MPI_Comm {
   plumed_mpiw_handle_storage storage;
@@ -143,6 +164,8 @@ static_assert(offsetof(MPI_Status, MPI_TAG) == 4, "status tag offset");
 static_assert(offsetof(MPI_Status, MPI_ERROR) == 8, "status error offset");
 static_assert(offsetof(MPI_Status, raw_size) == 12, "status raw-size offset");
 static_assert(offsetof(MPI_Status, raw) == 16, "status bytes offset");
+MPI_Comm mpiwrap_Comm_from_native(const void *native);
+bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);
 using MPI_User_function = void(void *, void *, int *, MPI_Datatype *);
 using MPI_Comm_errhandler_function = void(MPI_Comm *, int *, ...);
 MPI_Datatype mpiwrap_FLOAT();

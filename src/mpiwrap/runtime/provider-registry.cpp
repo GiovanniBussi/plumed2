@@ -1,5 +1,6 @@
 // Runtime validation and typed lookup for one installed MPI provider.
 #include "provider-registry.hpp"
+#include "../generated/mpiwrap.h"
 
 #include <cstddef>
 #include <cstring>
@@ -32,7 +33,15 @@ const Signature *findSignature(const char *name) {
 }
 
 bool validString(const char *text) {
-  return text && text[0] != '\0' && std::memchr(text, '\0', 4096) != nullptr;
+  if (!text) {
+    return false;
+  }
+  for (std::size_t i = 0; i < 4096; ++i) {
+    if (text[i] == '\0') {
+      return i != 0;
+    }
+  }
+  return false;
 }
 
 bool powerOfTwo(std::uint32_t value) {
@@ -74,8 +83,7 @@ bool sameFunctions(
     if (match == right.end() ||
         entry.second.signature_id != match->second.signature_id ||
         entry.second.signature_version != match->second.signature_version ||
-        entry.second.flags != match->second.flags ||
-        entry.second.function != match->second.function) {
+        entry.second.flags != match->second.flags) {
       return false;
     }
   }
@@ -89,10 +97,13 @@ bool setError(std::string &error, const std::string &message) {
 
 bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
                         std::unordered_map<std::string, Registry::FunctionEntry> &functions,
+                        std::unordered_map<std::string, std::string> &metadata,
+                        ProviderBindings &bindings,
                         std::string &provider_name, std::string &provider_version,
                         plumed_mpiw_generic_fn &identity_comm_rank,
                         plumed_mpiw_generic_fn &identity_initialized,
                         const void *&host_runtime_token, std::uint32_t &runtime_kind,
+                        std::uint32_t &native_comm_size,
                         std::uint64_t &compatibility_fingerprint,
                         std::string &error) {
   if (!descriptor) {
@@ -134,12 +145,17 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
       !powerOfTwo(descriptor->native_status_align) ||
       descriptor->native_c_int_size != sizeof(std::int32_t) ||
       descriptor->native_c_int_signed != 1 ||
-      descriptor->native_fint_size == 0 ||
-      descriptor->native_fint_size > sizeof(std::int32_t) ||
-      descriptor->native_fint_signed != 1 ||
       descriptor->wrapper_handle_size != sizeof(plumed_mpiw_handle_storage) ||
       descriptor->wrapper_status_capacity != PLUMED_MPIW_STATUS_CAPACITY) {
     return setError(error, "MPI provider scalar, status, or wrapper representation is incompatible");
+  }
+  if (descriptor->runtime_kind == PLUMED_MPIW_RUNTIME_PROCESS_MPI) {
+    if (descriptor->native_fint_size == 0 || descriptor->native_fint_signed != 1) {
+      return setError(error, "process-MPI provider must report signed MPI_Fint metadata");
+    }
+  } else if (!((descriptor->native_fint_size == 0 && descriptor->native_fint_signed == 0) ||
+               (descriptor->native_fint_size > 0 && descriptor->native_fint_signed == 1))) {
+    return setError(error, "thread-MPI provider must report unavailable or signed MPI_Fint metadata");
   }
   for (std::uint32_t value : descriptor->reserved) {
     if (value != 0) {
@@ -185,21 +201,81 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
     }
     functions.emplace(entry.name, Registry::FunctionEntry{
       entry.signature_id, entry.signature_version, entry.flags, entry.function});
+#define PLUMED_MPIW_NATIVE_FUNCTION(func, id, version) \
+  if (std::strcmp(entry.name, #func) == 0) { \
+    bindings.func##_pointer = reinterpret_cast<ProviderBindings::func##_fn>(entry.function); \
+    }
+#include "../generated/native-adapter-entries.inc"
+#undef PLUMED_MPIW_NATIVE_FUNCTION
   }
 
   names.clear();
   for (std::uint64_t i = 0; i < descriptor->metadata_count; ++i) {
     const plumed_mpiw_metadata_entry &entry = descriptor->metadata[i];
     if (entry.struct_size != sizeof(entry) || !validString(entry.name) ||
-        (entry.value_size != 0 && !entry.value)) {
+        (entry.value_size != 0 && !entry.value) ||
+        (entry.flags & ~PLUMED_MPIW_METADATA_REQUIRED) != 0) {
       return setError(error, "malformed MPI provider metadata entry");
     }
     if (!names.emplace(entry.name).second) {
       return setError(error, std::string("duplicate MPI provider metadata: ") + entry.name);
     }
-    if ((entry.flags & PLUMED_MPIW_METADATA_REQUIRED) != 0) {
-      return setError(error, std::string("unknown required MPI provider metadata: ") + entry.name);
+    const bool user_callback = std::strcmp(
+                                 entry.name, PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI) == 0;
+    const bool error_callback = std::strcmp(
+                                  entry.name, PLUMED_MPIW_METADATA_MPI_ERRHANDLER_FUNCTION_ABI) == 0;
+    if (!user_callback && !error_callback) {
+      if ((entry.flags & PLUMED_MPIW_METADATA_REQUIRED) != 0) {
+        return setError(error, std::string("unknown required MPI provider metadata: ") + entry.name);
+      }
+      continue;
     }
+    if (entry.value_type != PLUMED_MPIW_VALUE_UTF8 ||
+        entry.value_size < 2 || entry.value_size > 64 || !entry.value) {
+      return setError(error, std::string("invalid callback ABI metadata: ") + entry.name);
+    }
+    const char *value = static_cast<const char *>(entry.value);
+    if (value[entry.value_size - 1] != '\0') {
+      return setError(error, std::string("unterminated callback ABI metadata: ") + entry.name);
+    }
+    for (std::uint64_t byte = 0; byte + 1 < entry.value_size; ++byte) {
+      if (value[byte] == '\0') {
+        return setError(error, std::string("embedded NUL in callback ABI metadata: ") + entry.name);
+      }
+    }
+    const std::string value_string(value, static_cast<std::size_t>(entry.value_size - 1));
+    const bool valid_variant = value_string == PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1 ||
+                               value_string == PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
+    if (!valid_variant) {
+      return setError(error, std::string("unsupported callback ABI variant: ") + entry.name);
+    }
+    metadata.emplace(entry.name, value_string);
+  }
+
+  const auto has_function = [&functions](const char *name) {
+    return functions.find(name) != functions.end();
+  };
+  const auto user_abi = metadata.find(PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI);
+  if (has_function("MPI_Op_create") &&
+      (user_abi == metadata.end() ||
+       user_abi->second != PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1)) {
+    return setError(error, "MPI_Op_create requires the supported MPI_User_function ABI metadata");
+  }
+  if (user_abi != metadata.end() &&
+      user_abi->second == PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE &&
+      has_function("MPI_Op_create")) {
+    return setError(error, "provider advertises an unavailable MPI_User_function callback");
+  }
+  const auto error_abi = metadata.find(PLUMED_MPIW_METADATA_MPI_ERRHANDLER_FUNCTION_ABI);
+  if (has_function("MPI_Comm_create_errhandler") &&
+      (error_abi == metadata.end() ||
+       error_abi->second != PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1)) {
+    return setError(error, "MPI_Comm_create_errhandler requires the supported callback ABI metadata");
+  }
+  if (error_abi != metadata.end() &&
+      error_abi->second == PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE &&
+      has_function("MPI_Comm_create_errhandler")) {
+    return setError(error, "provider advertises an unavailable error-handler callback");
   }
 
   provider_name = descriptor->provider_name;
@@ -208,6 +284,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
   identity_initialized = descriptor->identity_initialized;
   host_runtime_token = descriptor->host_runtime_token;
   runtime_kind = descriptor->runtime_kind;
+  native_comm_size = descriptor->native_comm_size;
   compatibility_fingerprint = ::PLMD::mpiwrap_provider::compatibilityFingerprint(*descriptor);
   return true;
 }
@@ -215,23 +292,26 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 }  // namespace
 
 Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullptr),
-  host_runtime_token_(nullptr), runtime_kind_(0),
+  host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
   compatibility_fingerprint_(0), installed_(false) {}
 
 bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
                        std::string &error) {
   std::unordered_map<std::string, FunctionEntry> next_functions;
+  std::unordered_map<std::string, std::string> next_metadata;
+  ProviderBindings next_bindings{};
   std::string next_name;
   std::string next_version;
   plumed_mpiw_generic_fn next_comm_rank = nullptr;
   plumed_mpiw_generic_fn next_initialized = nullptr;
   const void *next_token = nullptr;
   std::uint32_t next_runtime_kind = 0;
+  std::uint32_t next_native_comm_size = 0;
   std::uint64_t next_fingerprint = 0;
-  if (!validateDescriptor(descriptor, next_functions,
+  if (!validateDescriptor(descriptor, next_functions, next_metadata, next_bindings,
                           next_name, next_version, next_comm_rank,
                           next_initialized, next_token, next_runtime_kind,
-                          next_fingerprint,
+                          next_native_comm_size, next_fingerprint,
                           error)) {
     return false;
   }
@@ -244,19 +324,22 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
         host_runtime_token_ == next_token &&
         provider_name_ == next_name && provider_version_ == next_version &&
         compatibility_fingerprint_ == next_fingerprint &&
-        sameFunctions(functions_, next_functions)) {
+        sameFunctions(functions_, next_functions) && metadata_ == next_metadata) {
       error.clear();
       return true;
     }
     return setError(error, "conflicting MPI provider is already installed");
   }
   functions_.swap(next_functions);
+  metadata_.swap(next_metadata);
+  bindings_ = next_bindings;
   provider_name_.swap(next_name);
   provider_version_.swap(next_version);
   identity_comm_rank_ = next_comm_rank;
   identity_initialized_ = next_initialized;
   host_runtime_token_ = next_token;
   runtime_kind_ = next_runtime_kind;
+  native_comm_size_ = next_native_comm_size;
   compatibility_fingerprint_ = next_fingerprint;
   installed_ = true;
   error.clear();
@@ -281,5 +364,62 @@ std::string Registry::providerVersion() const {
   return provider_version_;
 }
 
+std::uint32_t Registry::nativeCommSize() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!installed_) {
+    throw std::runtime_error("MPI provider is not installed");
+  }
+  return native_comm_size_;
+}
+
+namespace {
+thread_local Registry *active_registry = nullptr;
+}
+
+RegistryScope::RegistryScope(Registry &registry) noexcept : previous_(active_registry) {
+  active_registry = &registry;
+}
+
+RegistryScope::~RegistryScope() {
+  active_registry = previous_;
+}
+
+Registry &currentRegistry() {
+  if (!active_registry) {
+    throw std::runtime_error("no MPI provider context is active on this thread");
+  }
+  return *active_registry;
+}
+
 }  // namespace mpiwrap_provider
+
+#if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)
+
+MPI_Comm mpiwrap_Comm_from_native(const void *native) {
+  MPI_Comm result{};
+  if (!native) {
+    return result;
+  }
+  const std::uint32_t native_size = mpiwrap_provider::currentRegistry().nativeCommSize();
+  if (native_size > sizeof(result.storage)) {
+    throw std::runtime_error("native MPI_Comm exceeds configured wrapper storage");
+  }
+  std::memcpy(&result.storage, native, native_size);
+  return result;
+}
+
+bool mpiwrap_Comm_export_storage(MPI_Comm value,
+                                 plumed_mpiw_handle_storage *storage) {
+  if (!storage) {
+    return false;
+  }
+  const std::uint32_t native_size = mpiwrap_provider::currentRegistry().nativeCommSize();
+  if (native_size > sizeof(value.storage)) {
+    return false;
+  }
+  *storage = value.storage;
+  return true;
+}
+#endif
+
 }  // namespace PLMD

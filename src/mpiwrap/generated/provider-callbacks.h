@@ -6,8 +6,16 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef void (*plumed_mpiw_user_function_fn)(void *, void *, int32_t *, plumed_mpiw_handle_storage *);
-typedef void (*plumed_mpiw_comm_errhandler_function_fn)(plumed_mpiw_handle_storage *, int32_t *, ...);
+typedef void (*plumed_mpiw_user_callback_invoke_fn)(plumed_mpiw_generic_fn, void *, void *, int32_t, plumed_mpiw_handle_storage);
+typedef struct {
+  plumed_mpiw_generic_fn function;
+  plumed_mpiw_user_callback_invoke_fn invoke;
+} plumed_mpiw_user_callback;
+typedef void (*plumed_mpiw_comm_errhandler_invoke_fn)(plumed_mpiw_generic_fn, plumed_mpiw_handle_storage, int32_t);
+typedef struct {
+  plumed_mpiw_generic_fn function;
+  plumed_mpiw_comm_errhandler_invoke_fn invoke;
+} plumed_mpiw_comm_errhandler_callback;
 typedef int32_t (*plumed_mpiw_MPI_Init_fn)(int32_t * argc, char *** argv);
 typedef int32_t (*plumed_mpiw_MPI_Finalize_fn)(void);
 typedef int32_t (*plumed_mpiw_MPI_Initialized_fn)(int32_t * flag);
@@ -30,7 +38,7 @@ typedef int32_t (*plumed_mpiw_MPI_Barrier_fn)(plumed_mpiw_handle_storage comm);
 typedef int32_t (*plumed_mpiw_MPI_Get_count_fn)(const plumed_mpiw_status * status, plumed_mpiw_handle_storage datatype, int32_t * count);
 typedef int32_t (*plumed_mpiw_MPI_Sendrecv_fn)(const void * sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, int32_t dest, int32_t sendtag, void * recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, int32_t source, int32_t recvtag, plumed_mpiw_handle_storage comm, plumed_mpiw_status * status);
 typedef int32_t (*plumed_mpiw_MPI_Error_string_fn)(int32_t errorcode, char * string, int32_t * resultlen);
-typedef int32_t (*plumed_mpiw_MPI_Comm_create_errhandler_fn)(plumed_mpiw_comm_errhandler_function_fn  comm_errhandler_fn, plumed_mpiw_handle_storage * errhandler);
+typedef int32_t (*plumed_mpiw_MPI_Comm_create_errhandler_fn)(plumed_mpiw_comm_errhandler_callback *, plumed_mpiw_handle_storage *);
 typedef plumed_mpiw_handle_storage (*plumed_mpiw_MPI_Comm_f2c_fn)(int32_t comm);
 typedef int32_t (*plumed_mpiw_MPI_Send_fn)(const void * buf, int32_t count, plumed_mpiw_handle_storage datatype, int32_t dest, int32_t tag, plumed_mpiw_handle_storage comm);
 typedef int32_t (*plumed_mpiw_MPI_Bsend_fn)(const void * buf, int32_t count, plumed_mpiw_handle_storage datatype, int32_t dest, int32_t tag, plumed_mpiw_handle_storage comm);
@@ -77,7 +85,7 @@ typedef int32_t (*plumed_mpiw_MPI_Scatterv_fn)(const void * sendbuf, const int32
 typedef int32_t (*plumed_mpiw_MPI_Alltoall_fn)(const void * sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void * recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm);
 typedef int32_t (*plumed_mpiw_MPI_Alltoallv_fn)(const void * sendbuf, const int32_t sendcounts[], const int32_t sdispls[], plumed_mpiw_handle_storage sendtype, void * recvbuf, const int32_t recvcounts[], const int32_t rdispls[], plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm);
 typedef int32_t (*plumed_mpiw_MPI_Reduce_fn)(const void * sendbuf, void * recvbuf, int32_t count, plumed_mpiw_handle_storage datatype, plumed_mpiw_handle_storage op, int32_t root, plumed_mpiw_handle_storage comm);
-typedef int32_t (*plumed_mpiw_MPI_Op_create_fn)(plumed_mpiw_user_function_fn  user_fn, int32_t commute, plumed_mpiw_handle_storage * op);
+typedef int32_t (*plumed_mpiw_MPI_Op_create_fn)(plumed_mpiw_user_callback *, int32_t, plumed_mpiw_handle_storage *);
 typedef int32_t (*plumed_mpiw_MPI_Op_free_fn)(plumed_mpiw_handle_storage * op);
 typedef int32_t (*plumed_mpiw_MPI_Reduce_scatter_fn)(const void * sendbuf, void * recvbuf, const int32_t recvcounts[], plumed_mpiw_handle_storage datatype, plumed_mpiw_handle_storage op, plumed_mpiw_handle_storage comm);
 typedef int32_t (*plumed_mpiw_MPI_Scan_fn)(const void * sendbuf, void * recvbuf, int32_t count, plumed_mpiw_handle_storage datatype, plumed_mpiw_handle_storage op, plumed_mpiw_handle_storage comm);
