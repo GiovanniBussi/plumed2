@@ -26,6 +26,7 @@ typedef PLUMED_MPIW_HANDLE_TYPE plumed_mpiw_handle_storage;
 #define PLUMED_MPIW_VALUE_U64 UINT32_C(4)
 #define PLUMED_MPIW_VALUE_UTF8 UINT32_C(5)
 #define PLUMED_MPIW_VALUE_OPAQUE UINT32_C(6)
+#define PLUMED_MPIW_VALUE_ACCESSOR UINT32_C(7)
 
 #define PLUMED_MPIW_RUNTIME_PROCESS_MPI UINT32_C(1)
 #define PLUMED_MPIW_RUNTIME_THREAD_MPI UINT32_C(2)
@@ -35,6 +36,8 @@ typedef PLUMED_MPIW_HANDLE_TYPE plumed_mpiw_handle_storage;
 #define PLUMED_MPIW_SIG_HANDLE_VALUE UINT32_C(0x00010003)
 
 typedef void (*plumed_mpiw_generic_fn)(void);
+typedef int32_t (*plumed_mpiw_constant_accessor_fn)(void *output,
+    uint32_t capacity);
 
 /* Public status fields plus raw storage for the provider-native status bytes. */
 typedef struct {

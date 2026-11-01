@@ -6,6 +6,7 @@
 #include "../generated/mpiwrap.h"
 
 #include <cstdint>
+#include <atomic>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -22,6 +23,13 @@ public:
     std::uint32_t flags;
     plumed_mpiw_generic_fn function;
   };
+  struct ValueEntry {
+    std::uint32_t value_type;
+    plumed_mpiw_constant_accessor_fn accessor;
+    bool operator==(const ValueEntry &other) const {
+      return value_type == other.value_type;
+    }
+  };
 
   Registry();
   Registry(const Registry &) = delete;
@@ -30,10 +38,14 @@ public:
   bool install(const plumed_mpiw_provider_descriptor *descriptor,
                std::string &error);
   bool has(const char *name) const;
-  const ProviderBindings &bindings() const noexcept {
+  const ProviderBindings &bindings() const {
+    if (!ready_.load(std::memory_order_acquire)) {
+      throw std::runtime_error("MPI provider is not installed");
+    }
     return bindings_;
   }
   std::uint32_t nativeCommSize() const;
+  bool copyValue(const char *name, void *output, std::size_t size) const;
 
   template<class Function>
   Function function(const char *name, std::uint32_t signature_id,
@@ -67,6 +79,7 @@ private:
   mutable std::mutex mutex_;
   std::unordered_map<std::string, FunctionEntry> functions_;
   std::unordered_map<std::string, std::string> metadata_;
+  std::unordered_map<std::string, ValueEntry> values_;
   ProviderBindings bindings_;
   std::string provider_name_;
   std::string provider_version_;
@@ -77,6 +90,7 @@ private:
   std::uint32_t native_comm_size_;
   std::uint64_t compatibility_fingerprint_;
   bool installed_;
+  std::atomic<bool> ready_;
 };
 
 // The loaded kernel owns one immutable provider registry shared by all its
