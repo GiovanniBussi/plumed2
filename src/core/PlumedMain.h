@@ -51,6 +51,9 @@ typedef struct {
 
 namespace PLMD {
 
+namespace mpiwrap_provider {
+void noteKernelObjectCreated();
+}
 
 
 class ActionAtomistic;
@@ -80,6 +83,8 @@ It does not contain any static data.
 */
 class PlumedMain:
   public WithCmd {
+/// Marks this kernel as having created an object before any communicators are constructed.
+  const bool mpiwrapObjectCreated=(mpiwrap_provider::noteKernelObjectCreated(),true);
 /// Pointers to files opened in actions associated to this object.
 /// Notice that with the current implementation this should be at the top of this
 /// structure. Indeed, this should be destroyed *after* all the actions allocated

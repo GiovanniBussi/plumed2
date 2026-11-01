@@ -321,7 +321,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 
 Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullptr),
   host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
-  compatibility_fingerprint_(0), installed_(false), ready_(false) {}
+  compatibility_fingerprint_(0), installed_(false), object_created_(false), ready_(false) {}
 
 bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
                        std::string &error) {
@@ -347,6 +347,9 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   }
 
   std::lock_guard<std::mutex> lock(mutex_);
+  if (object_created_) {
+    return setError(error, "MPI provider must be installed before the first PLUMED object is created");
+  }
   if (installed_) {
     if (runtime_kind_ == next_runtime_kind &&
         identity_comm_rank_ == next_comm_rank &&
@@ -377,6 +380,11 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   ready_.store(true, std::memory_order_release);
   error.clear();
   return true;
+}
+
+void Registry::markObjectCreated() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  object_created_ = true;
 }
 
 bool Registry::has(const char *name) const {
@@ -435,6 +443,10 @@ Registry &kernel_registry() {
 
 Registry &currentRegistry() {
   return kernel_registry();
+}
+
+void noteKernelObjectCreated() {
+  currentRegistry().markObjectCreated();
 }
 
 MPI_Comm importComm(Registry &registry, const void *native) {

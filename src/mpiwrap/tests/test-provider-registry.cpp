@@ -107,6 +107,11 @@ int run() {
 
   Registry registry;
   std::string error;
+  Registry late_provider;
+  late_provider.markObjectCreated();
+  assert(!late_provider.install(&descriptor, error));
+  assert(error.find("before the first PLUMED object") != std::string::npos);
+  error.clear();
   descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage) + 1;
   assert(!registry.install(&descriptor, error));
   assert(!error.empty());
