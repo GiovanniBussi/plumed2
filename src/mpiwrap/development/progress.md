@@ -175,3 +175,17 @@ Commands/results after the lifecycle implementation:
 - C11/C++17 wrapper implementation syntax checks passed with dlopen enabled; `src/core/PlumedMainInitializer.cpp` passed serial and native MPICH/Open MPI syntax checks. The MPI wrapper drivers report only unused linker flags in syntax-only mode.
 
 Full PLUMED configure/build and symbol-table old/new integration tests remain required. Provider injection selection via `PLUMED_MPI_WRAPPER`, automatic internal tMPI fallback, native provider adapters, build/config reporting, launcher, `makempi`, and broad regression integration remain later work.
+
+## Stage 5 configured-kernel integration validation
+
+A full serial PLUMED configure/build now confirms the new always-built `mpiwrap` registry module links into the real kernel, the v5 table definition agrees with wrapper declarations, and the modified `PlumedMainInitializer.cpp`, `Communicator.cpp`, `PlumedHandle.cpp`, `Plumed.c`, and `PlumedStatic.cpp` compile together. The built kernel exports `plumed_symbol_table` and `plumed_plumedmain_install_mpi_provider`. These checks use the serial configuration; they do not establish MPI provider dispatch or runtime communication.
+
+Commands/results:
+
+- `./configure --disable-mpi` — passed with Clang C++17 on macOS; PLUMED configured as serial with dlopen support.
+- `make -C src/lib -j4` — passed and produced `src/lib/libplumedKernel.dylib`, `src/lib/libplumed.dylib`, and `src/lib/install/libplumed.a`. Existing warnings from unrelated Lepton, molfile, and xdrfile sources were emitted.
+- `nm -gU src/lib/libplumedKernel.dylib | rg '_plumed_symbol_table$|_plumed_plumedmain_install_mpi_provider$|_plumed_plumedmain_create$'` — confirmed the table, v5 install entry, and legacy create symbol are exported.
+- An ephemeral C++17 host using `PLMD::Kernel::open(path, mode)` loaded the built kernel, created a `plumed` object from the same table, finalized it, and exited successfully.
+- A static-link host using `PLMD::Kernel::openStatic()` linked against `src/lib/install/libplumed.a`, created/finalized an object, and exited successfully.
+- A runtime-selected host using `PLMD::Kernel::openSelected()` with `PLUMED_KERNEL=/private/tmp/mpiw-IozTkN/plumed2/src/lib/libplumedKernel.dylib` created/finalized an object successfully.
+- These actual-kernel tests supplement the checked-in mock lifecycle test; they are temporary probes, not committed integration tests.
