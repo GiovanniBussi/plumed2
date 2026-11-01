@@ -133,3 +133,18 @@ Commands/results for this checkpoint:
 - Four `Communicator.cpp` compile checks passed: serial and `__PLUMED_MPIWRAP` with Clang C++17; native MPICH 5.0.1 and Open MPI 5.0.10 wrappers with `MPICH_CXX=/usr/bin/clang++` and `OMPI_CXX=/usr/bin/clang++`, respectively.
 - Astyle verification with repository `.astyle.options` reported unchanged for `Communicator.h`, `Communicator.cpp`, `provider-registry.hpp`, and the modified runtime test. `git diff --check` passed.
 - Commit: `1994c6b4f4832e89b3f0636bb53a6f6ca8b58cf0` (`Support lazy MPI wrapper communicators`).
+
+## Stage 5 append-only provider entry checkpoint
+
+The loaded kernel's versioned function table is now extended from v4 to v5 by appending one C-compatible `install_mpi_provider` function pointer after the entire old prefix. The core exports a nothrow installer that calls the kernel-owned registry, reports validation/exception errors through the supplied callback, and returns a status code. The wrapper-side duplicate table declaration has the same appended function type and documents that provider descriptor ABI versioning remains independent. A small always-built module translation unit links the existing provider registry into the kernel; it has no MPI header or vendor-library dependency.
+
+This is an entry-point checkpoint only, not the complete stage-5 lifecycle API. Public open/inject/create/release handles, old/new wrapper compatibility execution, loaded provider-library retention, injection-before-first-object enforcement across legacy and C++ construction paths, selected-kernel resolution, and full configured PLUMED builds remain outstanding. The legacy `plumed_implementation` structure is unchanged. Native and internal runtime behavior were not changed by the table extension.
+
+Checks after the table extension:
+
+- C11 and C++17 syntax checks passed for both ordinary wrapper inclusion and implementation-mode `Plumed.h` inclusion.
+- `clang++ -std=c++17 -I src -fsyntax-only src/core/PlumedMainInitializer.cpp` passed.
+- `clang++ -std=c++17 -I src -Isrc/mpiwrap/generated -Isrc/mpiwrap/runtime -c src/mpiwrap/mpiwrap-registry.cpp -o /private/tmp/mpiwrap-registry.o` passed.
+- `python3 src/mpiwrap/tools/generate.py --check` passed: 22 generated files / 118 MPI functions.
+- Internal launch/runtime CTest passed 6/6 at 1, 2, and 4 ranks.
+- Repository astyle reported unchanged for `PlumedMainInitializer.h/.cpp`, `Plumed.h`, and `mpiwrap-registry.cpp`; `git diff --check` passed.
