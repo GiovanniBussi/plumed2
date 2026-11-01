@@ -28,9 +28,11 @@ Only the native C-compatible adapter that calls the real MPI implementation may 
 
 The checked header proposes these fields: `struct_size`, independent provider `abi_major/abi_minor`, runtime kind and flags, fixed-width capability words, native handle sizes and status alignment, native C `int` size/signedness and `MPI_Fint` size/signedness, wrapper handle/status capacities, provider identity strings, counted function and metadata arrays, runtime identity anchors for `Comm_rank` and `Initialized`, and an optional host runtime token. The dimensions of capability/reserved arrays and which identity anchors are fixed versus required named metadata remain design proposals; the owner may choose a smaller fixed header and make nonessential compatibility data named required metadata. Each callback receives or fills wrapper transport storage (`plumed_mpiw_handle_storage` handles and `plumed_mpiw_status`), while only adapter code sees native MPI declarations. The signedness field is fixed-width 0/1 and rejected if inconsistent with supported conversion rules. Native C `int` metadata is mandatory for counts, ranks, and status fields; `MPI_Fint` metadata is descriptive while provider-mode `Comm_f2c` remains unavailable. Its C layout and offsets are compiler dependent in the ordinary platform ABI sense; both sides compile against the same installed declaration and verify layout using `probe-abi.cpp`.
 
-Handle storage defaults to `uintptr_t`, selected by `PLUMED_MPIW_HANDLE_TYPE`; custom choices must be unsigned integer types and become part of the installed wrapper configuration. The provider advertises native sizes for communicator, group, datatype, request, operation, and error-handler handles. Installation rejects any handle larger than `wrapper_handle_size`, before publishing any callback. Wrapper handle size is also validated against the kernel's generated configuration so separately built host adapters cannot exchange objects with incompatible wrapper layouts. The `plumed_mpiw_status` layout has `int32_t source`, `tag`, and `error` at fixed offsets 0, 4, and 8, then `uint32_t raw_size` and `PLUMED_MPIW_STATUS_CAPACITY` raw bytes (default 128). The descriptor advertises wrapper status capacity and native status size/alignment. Status size beyond capacity is rejected. The kernel build selects `PLUMED_MPIW_HANDLE_TYPE` and `PLUMED_MPIW_STATUS_CAPACITY` once, and the same configured types/capacities are used by all wrappers, generated callbacks, and adapters in that build. The proposal defaults are `uintptr_t` and 128 bytes; neither is an owner-approved final value. A provider may not change the kernel's chosen capacities by claiming different values. Public status fields are transport fields, not byte aliases of an implementation's native `MPI_Status`.
+Handle storage is a distinct standard-layout, trivially copyable wrapper type for each MPI handle kind, containing one configured unsigned integer member (default `uintptr_t`). Zero the entire integer, `memcpy` native handle bytes into it, and reconstruct a correctly typed native local by the reverse copy. The stored integer is opaque bytes, not a fabricated pointer or numeric conversion. Generate explicit equality/inequality operators per handle kind with no cross-kind conversion. Before publishing callbacks, reject every native handle larger than the selected integer storage. Native equality must match equality of the copied representation for supported providers; noncanonical padding must be rejected or normalized in a reviewed adapter. Never use `MPI_Comm_compare` as handle identity. Native MPI builds keep their native MPI typedefs and direct calls unchanged.
 
-Runtime identity is the structured compatibility fingerprint: runtime kind, native representation sizes/alignments, relevant callback-ABI variant metadata, and a small set of native runtime function-pointer anchors. Compare anchors as function pointers, never as integers or data pointers. These anchors identify the underlying runtime binding and are not called using the generic transport type. Providers whose symbol interposition or isolation makes anchors ambiguous must supply the same explicit host runtime token to adapters for one runtime instance. Names and version strings alone do not establish identity. Re-injection of an identical descriptor is idempotent; a conflicting or ambiguous identity is rejected.
+Storage is configured once per PLUMED build, with `uintptr_t` as the default unsigned handle integer and a separate 128-byte default raw-status capacity. The generated configuration header, public provider header, native adapter, and any runtime-compiled adapter must agree on both values; the descriptor reports actual native sizes independently and cannot override wrapper capacities. The `plumed_mpiw_status` layout has `int32_t source`, `tag`, and `error` at offsets 0, 4, and 8, then `uint32_t raw_size` at offset 12 and `PLUMED_MPIW_STATUS_CAPACITY` provider-native status bytes at offset 16. It preserves native raw status for subsequent status inquiries while exposing portable fields; it never aliases a native `MPI_Status` in the frontend. Native `int` and `MPI_Fint` sizes/signedness are explicit descriptor facts, with checked conversion/range rules required for every use.
+
+Runtime identity is the structured compatibility fingerprint: runtime kind, native representation sizes/alignments, required callback-ABI variant metadata, and a small set of native runtime function-pointer anchors. Compare anchors as function pointers, never as integers or data pointers. These anchors identify the underlying runtime binding and are not called using the generic transport type. Providers whose symbol interposition or isolation makes anchors ambiguous must supply the same explicit host runtime token to adapters for one runtime instance. Names and version strings alone do not establish identity. Re-injection of an identical descriptor is idempotent; a conflicting or ambiguous identity is rejected. The kernel owns or retains each dynamically loaded provider-library reference after successful installation and until the kernel handle and all objects created from that kernel are released.
 
 The descriptor ABI version is not the PLUMED kernel symbol-table version. The kernel table version tells a wrapper which kernel entry points exist. The provider ABI version tells that kernel whether the injected MPI adapter's descriptor and object representations are compatible. The wrapper must check the kernel table version before reading appended injection entries. The planned injection entry points are still names for review, not approved public declarations.
 
@@ -51,32 +53,75 @@ Validation is atomic: copy and validate into temporary kernel-owned state, then 
 
 ## Load, inject, then create examples
 
-The following pseudocode shows the intended ordering; exact public names and ownership forms need primary-agent review. A handle loaded through a wrapper API binds one exact kernel instance so injection cannot accidentally target a different `PLUMED_KERNEL` selection.
+The following is the proposed concrete lifecycle surface for primary review. C functions return status codes, fill output handles only on success, and never throw; an optional non-throwing error callback receives diagnostics. The C++ convenience class mirrors these operations with RAII and translates failures to PLUMED exceptions. A kernel handle binds to one exact kernel instance, so injection cannot target a different `PLUMED_KERNEL` selection.
+
+```c
+typedef struct plumed_kernel_handle_impl *plumed_kernel_handle;
+typedef int32_t plumed_mpiw_status_code;
+
+plumed_mpiw_status_code plumed_kernel_open_static(
+    plumed_kernel_handle *out, plumed_mpiw_error_fn report, void *context);
+plumed_mpiw_status_code plumed_kernel_open_dlopen(
+    const char *path, int mode, plumed_kernel_handle *out,
+    plumed_mpiw_error_fn report, void *context);
+plumed_mpiw_status_code plumed_kernel_open_selected(
+    plumed_kernel_handle *out, plumed_mpiw_error_fn report, void *context);
+plumed_mpiw_status_code plumed_kernel_inject_mpi(
+    plumed_kernel_handle kernel,
+    const plumed_mpiw_provider_descriptor *provider,
+    plumed_mpiw_error_fn report, void *context);
+plumed_mpiw_status_code plumed_kernel_load_mpi_wrapper(
+    plumed_kernel_handle kernel, const char *provider_path,
+    plumed_mpiw_error_fn report, void *context);
+plumed_mpiw_status_code plumed_kernel_create(
+    plumed_kernel_handle kernel, plumed *out,
+    plumed_mpiw_error_fn report, void *context);
+void plumed_kernel_release(plumed_kernel_handle kernel);
+```
+
+`open_static` uses linked/static kernel binding; `open_dlopen` loads one explicit kernel path; `open_selected` follows existing `PLUMED_KERNEL` selection. `inject_mpi` installs a caller-owned descriptor and is valid only before the first object is created. `load_mpi_wrapper` resolves the documented provider factory from the given library and retains that library in the kernel handle only after successful validation. Both operations fail if any object already exists for that kernel. `create` constructs an object from the exact bound kernel. Kernel handles are reference-counted: an object keeps its kernel and provider library alive after the caller releases its handle; library teardown occurs after both handle owners and all dependent objects are gone. The error callback is optional and cannot throw or unwind through C.
+
+The proposed C++ convenience is `PLMD::Kernel`, with static factories `Kernel::openStatic()`, `Kernel::open(path, mode)`, and `Kernel::openSelected()`, methods `injectMPI(descriptor)`, `loadMPIWrapper(path)`, and `create()`, and an RAII destructor. It throws on failure and owns the corresponding C handle. These names/signatures are proposed public contracts, not implemented declarations.
 
 Static/link-time binding:
 
 ```cpp
-plumed_kernel_handle *kernel = plumed_kernel_open_static();
+plumed_kernel_handle kernel = nullptr;
+if (plumed_kernel_open_static(&kernel, report_error, context) != PLUMED_MPIW_OK) fail();
 plumed_mpiw_provider_descriptor provider = make_mpi_provider_descriptor();
-plumed_kernel_inject_mpi(kernel, &provider, report_error, context);
-plumed object = plumed_create_from_kernel(kernel);
+if (plumed_kernel_inject_mpi(kernel, &provider, report_error, context) != PLUMED_MPIW_OK) fail();
+plumed object;
+if (plumed_kernel_create(kernel, &object, report_error, context) != PLUMED_MPIW_OK) fail();
+/* Use object while provider callbacks and its kernel are retained. */
+plumed_finalize(object);
+plumed_kernel_release(kernel);
 ```
 
 Dynamic kernel and explicit provider library:
 
 ```cpp
-plumed_kernel_handle *kernel = plumed_kernel_open("/absolute/path/libplumedKernel.dylib");
-plumed_mpi_provider_handle *provider = plumed_mpi_provider_open("/absolute/path/libplumed-mpi.dylib");
-plumed_kernel_inject_mpi(kernel, plumed_mpi_provider_descriptor(provider), report_error, context);
-plumed object = plumed_create_from_kernel(kernel);
+plumed_kernel_handle kernel = nullptr;
+if (plumed_kernel_open_dlopen("/absolute/path/libplumedKernel.dylib", mode,
+                              &kernel, report_error, context) != PLUMED_MPIW_OK) fail();
+if (plumed_kernel_load_mpi_wrapper(kernel, "/absolute/path/libplumed-mpi.dylib",
+                                   report_error, context) != PLUMED_MPIW_OK) fail();
+plumed object;
+if (plumed_kernel_create(kernel, &object, report_error, context) != PLUMED_MPIW_OK) fail();
+/* Use object while provider callbacks and its kernel are retained. */
+plumed_finalize(object);
+plumed_kernel_release(kernel);
 ```
 
-The provider library handle must stay open until the kernel handle and every object made from that kernel are finished. The kernel handle owns its loaded kernel reference; object destruction does not unload a kernel shared by other objects. Failed injection must leave the kernel handle usable for retry only if no object has been created and no provider was partially selected. A compiler-path `PLUMED_MPI_WRAPPER` provider follows the same descriptor ABI; it does not change the explicit inject-before-create ordering when injection was supplied directly. Exact API spellings, error return convention, and whether provider handles are retained or transferred are open for the primary review.
+The kernel handle owns its loaded kernel reference; each object keeps the same kernel/provider libraries alive until its finalization. Failed injection leaves the handle retryable only if no object has been created and no partial provider state was published. C++ examples use the same order and RAII releases. Runtime compiler selection and `makempi` are deferred stages; when implemented they use this same descriptor ABI and retained-library lifetime.
 
-## Decisions for review, proposals, and open questions
+## Decisions resolved and remaining review items
 
-Proposals recorded here, not frozen decisions: use `uintptr_t` as default wrapper handle storage; use 128 bytes as default raw status capacity; transport handles/status through wrapper-owned storage; restore generic function-pointer carriers to exact typed callbacks before invocation; freeze function and metadata entry record layouts within an ABI major (no variable entry strides); keep named optional additions layout/version neutral; keep descriptor fields for mandatory representation validation and avoid duplicate metadata; and perform injection before creating the first object on a selected kernel instance.
+The primary agent has resolved routine implementation choices: frozen function/metadata entry layouts per provider ABI major; optional named metadata extensions without fixed-layout changes; no mirrored contradictory facts; `uintptr_t` wrapper storage and 128-byte raw status defaults with one generated configuration used by all sides; transport scalars fixed-width with native sizes and checked conversions; native MPI direct behavior unchanged; kernel-owned/reference-counted provider-library lifetime; C nothrow status/error-callback functions plus throwing C++ convenience methods.
 
-Owner review is still needed for the public load/inject/create API spellings and ownership transfer, exact fixed descriptor fields versus named metadata, capability and reserved array size, status raw capacity and configurable handle type, identity anchors/token rules, and the exact callback set and signature IDs. `plumed_mpiw_status` uses `int32_t` public source/tag/error fields at offsets 0/4/8 and raw storage after `raw_size` at offset 16 in the measured layout; this is a proposal and requires provider conversion rules, not native aliasing. Native C `int` and `MPI_Fint` size/signedness are explicit descriptor fields; their conversion policy remains to be specified.
+The primary agent has accepted these lifecycle names and signatures as the working implementation contract, subject to consistency with existing wrapper naming and tests. C object finalization is explicit with `plumed_finalize(object)`; it releases that object's references, while `plumed_kernel_release(kernel)` releases only the caller's kernel-handle reference. A live object keeps the exact selected kernel and provider library references alive. Releasing the final kernel-handle reference cannot unload callbacks while an object can still call them.
 
-The support matrix now contains the candidate names for the retained MPI-1 C function union, current PLUMED uses, provider-valued constants and opaque types, plus explicit MPI-5-removed rows. Exact MPI-5 prototypes and per-entry provider/export support are not yet all verified. Added function candidate signatures were transcribed from the read-only old draft manifest as a convenience and must be checked against the official MPI-5 C binding before generation. The current-use rows and specific tMPI exceptions have focused signature checks; the full inventory remains a review checkpoint, not a completed stage.
+Injection is a per-kernel-instance state transition and must happen before the first object exists for that loaded kernel, even when the caller holds multiple `plumed_kernel_handle` aliases to it. Handles that identify the same loaded kernel share one object count, provider selection and reference count; no alias may bypass the first-object rule or unload code used through another alias. Atomic validation failure publishes no provider state and leaves the kernel retryable only while no object has been created. Same-provider reinjection compares runtime-native anchors (or the required shared host token) and compatibility facts, never adapter-local slot addresses or descriptor addresses.
+
+Before an internal thread-MPI launch, provider selection does not initialize MPI. The Communicator keeps an explicit local one-rank fallback state and does not query tMPI rank, size, or self-communicator accessors with null native communicator state. Only runtime-active operations materialize a real self communicator. Static `Communicator::StatusIgnore` storage does not select a provider; status-ignore translation occurs at a call boundary after provider selection. These rules preserve early local operations without fabricating a native handle.
+
+The support matrix and companion argument metadata must be the authoritative manifest. Every retained function needs an exact MPI-5 prototype, per-argument direction and type conversion, array lengths and valid-on-return cases, callback ABI/lifetime, provider behavior, fallback prerequisites, and test identifier. Deprecated and removed MPI-1 spellings are retained only in an explicit exclusion inventory. The provider support matrix must distinguish tMPI declarations/macros from linked/semantic verification. Do not feed the earlier draft-transcribed signatures to a generator.
