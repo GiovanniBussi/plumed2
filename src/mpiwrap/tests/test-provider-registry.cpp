@@ -117,31 +117,26 @@ int run() {
   assert(rank == 49);
   assert(registry.bindings().MPI_Comm_rank_pointer == callback);
   const std::uint64_t raw_communicator = UINT64_C(0x12345678);
-  {
-    PLMD::mpiwrap_provider::RegistryScope scope(registry);
-    const PLMD::MPI_Comm imported = PLMD::mpiwrap_Comm_from_native(&raw_communicator);
-    assert(imported.storage == raw_communicator);
-    plumed_mpiw_handle_storage exported = 0;
-    assert(PLMD::mpiwrap_Comm_export_storage(imported, &exported));
-    assert(exported == imported.storage);
-  }
+  const PLMD::MPI_Comm imported = PLMD::mpiwrap_provider::importComm(
+                                    registry, &raw_communicator);
+  assert(imported.storage == raw_communicator);
+  plumed_mpiw_handle_storage exported = 0;
+  assert(PLMD::mpiwrap_provider::exportComm(registry, imported, &exported));
+  assert(exported == imported.storage);
   plumed_mpiw_provider_descriptor mpich_descriptor = descriptor;
   mpich_descriptor.native_comm_size = sizeof(std::uint32_t);
   Registry mpich_registry;
   assert(mpich_registry.install(&mpich_descriptor, error));
   const std::uint32_t mpich_communicator = UINT32_C(0x1234abcd);
-  {
-    PLMD::mpiwrap_provider::RegistryScope outer(registry);
-    assert(&PLMD::mpiwrap_provider::currentRegistry() == &registry);
-    {
-      PLMD::mpiwrap_provider::RegistryScope inner(mpich_registry);
-      assert(&PLMD::mpiwrap_provider::currentRegistry() == &mpich_registry);
-      const PLMD::MPI_Comm imported = PLMD::mpiwrap_Comm_from_native(
-                                        &mpich_communicator);
-      assert(imported.storage == mpich_communicator);
-    }
-    assert(&PLMD::mpiwrap_provider::currentRegistry() == &registry);
-  }
+  const PLMD::MPI_Comm imported_mpich = PLMD::mpiwrap_provider::importComm(
+                                          mpich_registry, &mpich_communicator);
+  assert(imported_mpich.storage == mpich_communicator);
+  PLMD::mpiwrap_provider::Registry *thread_registry = nullptr;
+  std::thread registry_thread([&thread_registry]() {
+    thread_registry = &PLMD::mpiwrap_provider::currentRegistry();
+  });
+  registry_thread.join();
+  assert(thread_registry == &PLMD::mpiwrap_provider::currentRegistry());
   assert(!registry.function<plumed_mpiw_MPI_Comm_rank_fn>(
            "MPI_Comm_rank", UINT32_C(0x4e7672aa), 2));
 
