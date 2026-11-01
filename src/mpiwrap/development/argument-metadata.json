@@ -6397,7 +6397,7 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; injected real-MPI provider may supply a supported entry; internal tMPI unavailable: variadic function is not forwarded through the fixed provider ABI",
+      "provider_behavior": "native MPI direct; injected provider unavailable because arbitrary varargs cannot be safely forwarded; internal tMPI unavailable for the same ABI reason",
       "test_id": "pcontrol-variadic-policy",
       "provider_routes": {
         "native_real_mpi": {
@@ -6408,8 +6408,8 @@
           "reason": "variadic function cannot be transported through fixed provider ABI"
         },
         "injected_real_mpi": {
-          "status": "optional-entry",
-          "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
+          "status": "unavailable",
+          "reason": "variadic arguments cannot be safely forwarded through the fixed provider callback ABI"
         },
         "semantic_test": "pcontrol-variadic-policy"
       }
