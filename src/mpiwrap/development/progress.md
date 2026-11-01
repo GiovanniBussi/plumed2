@@ -138,6 +138,8 @@ Commands/results for this checkpoint:
 
 The loaded kernel's versioned function table is now extended from v4 to v5 by appending one C-compatible `install_mpi_provider` function pointer after the entire old prefix. The core exports a nothrow installer that calls the kernel-owned registry, reports validation/exception errors through the supplied callback, and returns a status code. The wrapper-side duplicate table declaration has the same appended function type and documents that provider descriptor ABI versioning remains independent. A small always-built module translation unit links the existing provider registry into the kernel; it has no MPI header or vendor-library dependency.
 
+Native-MPI kernels reject this provider installer explicitly and retain the direct MPI path.
+
 This is an entry-point checkpoint only, not the complete stage-5 lifecycle API. Public open/inject/create/release handles, old/new wrapper compatibility execution, loaded provider-library retention, injection-before-first-object enforcement across legacy and C++ construction paths, selected-kernel resolution, and full configured PLUMED builds remain outstanding. The legacy `plumed_implementation` structure is unchanged. Native and internal runtime behavior were not changed by the table extension.
 
 Checks after the table extension:

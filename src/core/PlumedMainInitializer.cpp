@@ -509,6 +509,10 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   int (*report)(void*,int,const char*,const char*),
   void*context) {
   std::string error;
+#if defined(__PLUMED_HAS_MPI)
+  (void) descriptor;
+  error="MPI provider injection is disabled in native-MPI kernels";
+#else
   try {
     if(!descriptor) {
       error="null MPI provider descriptor";
@@ -521,6 +525,7 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   } catch(...) {
     error="unknown exception while installing MPI provider";
   }
+#endif
   if(report) {
     try {
       report(context,1,"plumed_kernel_inject_mpi",error.c_str());
