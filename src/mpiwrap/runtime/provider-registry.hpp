@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace PLMD {
 namespace mpiwrap_provider {
@@ -32,11 +33,12 @@ public:
   };
 
   Registry();
+  ~Registry();
   Registry(const Registry &) = delete;
   Registry &operator=(const Registry &) = delete;
 
   bool install(const plumed_mpiw_provider_descriptor *descriptor,
-               std::string &error);
+               std::string &error,void *provider_library=nullptr);
   bool has(const char *name) const;
   bool installed() const noexcept {
     return ready_.load(std::memory_order_acquire);
@@ -93,6 +95,7 @@ private:
   std::uint32_t runtime_kind_;
   std::uint32_t native_comm_size_;
   std::uint64_t compatibility_fingerprint_;
+  std::vector<void *> provider_libraries_;
   bool installed_;
   bool object_created_;
   std::atomic<bool> ready_;
