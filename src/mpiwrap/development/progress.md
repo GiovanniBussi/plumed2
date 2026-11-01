@@ -153,3 +153,25 @@ Checks after the table extension:
 - Internal launch/runtime CTest passed 6/6 at 1, 2, and 4 ranks.
 - Repository astyle reported unchanged for `PlumedMainInitializer.h/.cpp`, `Plumed.h`, and `mpiwrap-registry.cpp`; `git diff --check` passed.
 - `CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-provider-registry.sh` passed after adding the late-injection guard. The `PlumedMain.h` header passes a C++17 syntax check; full source compilation still needs the generated `PlumedMainEnum.inc` build artifact.
+
+## Stage 5 C lifecycle API checkpoint
+
+`Plumed.h` now declares and implements `plumed_kernel_open_static`, `plumed_kernel_open_dlopen`, `plumed_kernel_open_selected`, `plumed_kernel_inject_mpi`, `plumed_kernel_load_mpi_wrapper`, `plumed_kernel_create`, and `plumed_kernel_release`, plus a move-only `PLMD::Kernel` C++ convenience. The loader checks the v5 table version before reading the appended field. Explicit and selected dynamic opens retain a kernel loader reference and record the resolved library path; object creation reopens that path, then checks table-address identity against the injected target. Each object owns its regular `plumed` dlopen reference, so releasing the kernel handle cannot unload the code until object finalization. The legacy `plumed_implementation` layout is unchanged.
+
+The documented provider factory symbol is `plumed_mpiw_provider_factory`; its exact return type is represented by a named descriptor struct in generated `provider-abi.h`, avoiding an incompatible function-pointer invocation. After successful install, the kernel registry atomically retains a provider-library `dlopen` reference with validated provider state and releases it at kernel unload. A caller-supplied descriptor keeps caller-owned callback code lifetime requirements. The first `PlumedMain` member marks object construction in the kernel registry; registry install rejects selection after that point, including creation through legacy C and `PLMD::PlumedHandle` paths. Native-MPI kernels return an explicit unsupported status from the appended installer.
+
+`tests/check-kernel-lifecycle.sh` builds mock v5/v4 kernels and a provider DSO. It passes direct descriptor injection, factory loading, same-target object creation, kernel-handle release while an object remains live, provider DSO lifetime through object finalization, and v4-kernel rejection. This is loader/wrapper contract evidence; it does not validate a complete configured PLUMED kernel build or a real MPI provider. Static and `PLUMED_KERNEL` selection compile but still need integration tests against actual PLUMED libraries. Kernel-handle pointer copying is not an alias API; callers must keep one handle and release it once. C++ RAII covers the kernel handle, while returned `plumed` objects still require `plumed_finalize`.
+
+Commands/results after the lifecycle implementation:
+
+- `CXX=clang++ src/mpiwrap/tests/check-kernel-lifecycle.sh` — passed the mock-DSO sequence and old-kernel version gate.
+- `CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-provider-registry.sh` — passed descriptor validation, late-injection rejection, and exact typed pointer restoration.
+- C11 and C++17 syntax checks passed for `Plumed.h` implementation mode with and without `__PLUMED_HAS_DLOPEN`; `src/wrapper/Plumed.c` and `src/wrapper/PlumedStatic.cpp` passed syntax checks with dlopen enabled.
+- `src/core/PlumedMainInitializer.cpp` passed syntax checks in serial, MPICH, and Open MPI modes. MPI wrapper compilers emitted only their known unused-link-flag warnings in syntax-only mode.
+- `python3 src/mpiwrap/tools/generate.py --check` passed for 22 generated files / 118 function signatures.
+- `MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ sh src/mpiwrap/tests/check-generated.sh /Users/bussi/miniconda3/envs/mpich/bin/mpicxx /Users/bussi/miniconda3/envs/openmpi/bin/mpicxx src/thread_mpi/include` — passed generated provider/native/tMPI declaration and signature compilation for MPICH, Open MPI, and pinned thread-MPI.
+- `sh src/mpiwrap/development/probe-layouts.sh` — passed the C11/C++17 provider descriptor layout probe and reported the installed MPICH/Open MPI layouts already recorded above.
+- `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed all 6 internal launcher/runtime tests at 1, 2, and 4 ranks after registry changes.
+- C11/C++17 wrapper implementation syntax checks passed with dlopen enabled; `src/core/PlumedMainInitializer.cpp` passed serial and native MPICH/Open MPI syntax checks. The MPI wrapper drivers report only unused linker flags in syntax-only mode.
+
+Full PLUMED configure/build and symbol-table old/new integration tests remain required. Provider injection selection via `PLUMED_MPI_WRAPPER`, automatic internal tMPI fallback, native provider adapters, build/config reporting, launcher, `makempi`, and broad regression integration remain later work.

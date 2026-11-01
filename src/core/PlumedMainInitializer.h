@@ -69,7 +69,7 @@ typedef struct {
   /* Available with version>=5. Installs one validated MPI provider before object creation. */
   int (*install_mpi_provider)(const void*descriptor,
                               int (*report)(void*,int,const char*,const char*),
-                              void*context);
+                              void*context,void*provider_library);
 } plumed_symbol_table_type_x;
 
 
@@ -101,7 +101,8 @@ extern "C" void plumed_plumedmain_finalize(void*plumed);
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
   int (*report)(void*,int,const char*,const char*),
-  void*context);
+  void*context,
+  void*provider_library);
 
 /**
   Static symbol table that is accessed by the plumed loader.
