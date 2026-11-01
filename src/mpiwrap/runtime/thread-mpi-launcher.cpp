@@ -1,0 +1,138 @@
+// Explicit launcher for the embedded GROMACS thread-MPI runtime.
+#include "thread-mpi-launcher.hpp"
+#include "provider-registry.hpp"
+
+#include "../generated/provider-abi.h"
+#include <thread_mpi/tmpi.h>
+
+#include <cstdio>
+#include <cstddef>
+#include <cstdlib>
+#include <exception>
+#include <string>
+
+namespace PLMD {
+extern "C" const plumed_mpiw_provider_descriptor *
+plumed_mpiw_thread_mpi_provider(void);
+}
+
+namespace PLMD {
+namespace mpiwrap_provider {
+namespace {
+
+using Callback = int (*)(int, const void *, std::size_t, void *);
+using ErrorReport = int (*)(void *, int, const char *, const char *);
+
+struct LaunchContext {
+  Callback callback;
+  void *callback_context;
+  int process_result;
+};
+
+[[noreturn]] void terminateRank(int rank, const char *message) {
+  std::fprintf(stderr, "PLUMED thread-MPI rank %d failed: %s\n", rank,
+               message ? message : "unknown exception");
+  std::fflush(stderr);
+  std::_Exit(EXIT_FAILURE);
+}
+
+void rankEntry(const void *opaque) {
+  LaunchContext *context = const_cast<LaunchContext *>(
+                             static_cast<const LaunchContext *>(opaque));
+  int rank = -1;
+  if (thread_mpi::tMPI_Comm_rank(thread_mpi::TMPI_COMM_WORLD, &rank) !=
+      thread_mpi::TMPI_SUCCESS) {
+    terminateRank(rank, "could not determine rank");
+  }
+
+  int local_result = 0;
+  try {
+    alignas(std::max_align_t)
+    unsigned char native_world[sizeof(plumed_mpiw_handle_storage)] {};
+    const MPI_Comm world = mpiwrap_COMM_WORLD();
+    const std::size_t native_size = currentRegistry().nativeCommSize();
+    if (!mpiwrap_Comm_export_native(world, native_world,
+                                    sizeof(native_world)) || native_size == 0) {
+      terminateRank(rank, "could not export the native world communicator");
+    }
+    local_result = context->callback(rank, native_world, native_size,
+                                     context->callback_context);
+  } catch (const std::exception &error) {
+    terminateRank(rank, error.what());
+  } catch (...) {
+    terminateRank(rank, "uncaught non-standard exception in rank callback");
+  }
+
+  int process_result = local_result;
+  int size = 0;
+  if (thread_mpi::tMPI_Comm_size(thread_mpi::TMPI_COMM_WORLD, &size) !=
+      thread_mpi::TMPI_SUCCESS) {
+    terminateRank(rank, "could not determine world size");
+  }
+  // The imported upstream Allreduce has a known one-rank defect; the
+  // identity result is already local in that case.
+  if (size > 1 && thread_mpi::tMPI_Allreduce(
+        &local_result, &process_result, 1, thread_mpi::TMPI_INT,
+        thread_mpi::TMPI_MAX, thread_mpi::TMPI_COMM_WORLD) !=
+      thread_mpi::TMPI_SUCCESS) {
+    terminateRank(rank, "could not combine rank return codes");
+  }
+  if (rank == 0) {
+    context->process_result = process_result;
+  }
+}
+
+int reportError(ErrorReport report, void *context, int code,
+                const char *message) noexcept {
+  if (report) {
+    try {
+      report(context, code, "plumed_kernel_launch_internal_threads", message);
+    } catch (...) {
+      // Exceptions cannot cross the C lifecycle API.
+    }
+  }
+  return code;
+}
+
+}  // namespace
+
+int launchInternalThreadMPI(int ranks, Callback callback,
+                            void *callback_context, int *result,
+                            ErrorReport report, void *report_context) {
+  if (ranks < 1 || !callback || !result) {
+    return reportError(report, report_context, 1,
+                       "rank count, callback, and result output are required");
+  }
+
+#if defined(__PLUMED_HAS_MPI)
+  return reportError(report, report_context, 2,
+                     "internal thread-MPI launch is unavailable in a native-MPI kernel");
+#else
+  const plumed_mpiw_provider_descriptor *descriptor =
+    plumed_mpiw_thread_mpi_provider();
+  Registry &registry = currentRegistry();
+  std::string error;
+  if (!registry.install(descriptor, error)) {
+    return reportError(report, report_context, 4, error.c_str());
+  }
+  if (!registry.beginInternalLaunch(descriptor, error)) {
+    return reportError(report, report_context, 4, error.c_str());
+  }
+
+  LaunchContext launch_context{callback, callback_context, 0};
+  const int status = thread_mpi::tMPI_Init_fn(
+                       0, ranks, thread_mpi::TMPI_AFFINITY_NONE,
+                       &rankEntry, &launch_context);
+  if (status != thread_mpi::TMPI_SUCCESS) {
+    std::fprintf(stderr, "PLUMED thread-MPI initialization failed (%d)\n", status);
+    std::fflush(stderr);
+    std::_Exit(EXIT_FAILURE);
+  }
+  registry.finishInternalLaunch();
+  *result = launch_context.process_result;
+  return 0;
+#endif
+}
+
+}  // namespace mpiwrap_provider
+}  // namespace PLMD

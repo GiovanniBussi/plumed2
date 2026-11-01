@@ -202,3 +202,24 @@ Checks after this change:
 - `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed 6/6 launcher/runtime tests at 1, 2, and 4 ranks, including the native-byte communicator round trip.
 - `make -C src/lib -j4` — passed the configured serial PLUMED build, including `Communicator.cpp` and all modified nested C API callers. The first attempt caught use of the two-argument `plumed_massert` macro; these checks now use `plumed_assert` with an export failure message.
 - Repository astyle was applied with `.astyle.options` to every modified C/C++ source/header; `git diff --check` passed.
+
+## Steps 6 and 8 internal-launch integration checkpoint
+
+The pinned GROMACS v2026.4 thread-MPI import is now a normal always-built PLUMED module. Its translation units forward to the preserved, namespaced imported source tree; the module sets the required pthread/platform and `SIZEOF_LONG_LONG_INT` definitions. `mpiwrap` compiles the common provider frontend, native-provider registry, internal tMPI adapter, and launcher into the kernel. Ordinary serial `Communicator` paths use wrapper types while the native-MPI compile path remains direct.
+
+The launcher exposes one coordinated `plumed --tmpi-threads N ...` run. The versioned kernel table is v6 with an appended launcher callback; the callback exports the native `MPI_COMM_WORLD` representation for the lifetime of the rank call, and the CLI installs it on each driver command before construction. Rank callback exceptions print the rank and terminate the process rather than unwinding through tMPI. Repeated/overlapping launches are rejected. `--has-thread-mpi` is a stable capability query; native-MPI builds report false. The guard for `PLUMED ... CHDIR=...` consults provider runtime-kind metadata and rejects an active internal or injected thread-MPI runtime before changing the process directory; a selected but unlaunched provider remains unaffected.
+
+The regtest runner keeps existing `mpiprocs` settings and native MPI behavior. For `type=driver`, a serial executable that answers `--has-thread-mpi` is launched with `--tmpi-threads` and the requested rank count. An explicit `PLUMED_MPIRUN` override and per-test `plumed_thread_mpi=no` disable that fallback; non-driver tests keep the existing unavailable-MPI result. The README documents the selection rule. No existing MPI test input/config was modified.
+
+Validation after this integration:
+
+- `make -C src/lib -j4` — passed the configured serial PLUMED kernel and CLI build with imported thread-MPI linked.
+- `src/lib/plumed-static --has-thread-mpi` — exited 0; the same query on the serial dynamic CLI exited 0. `src/lib/plumed-static help` still lists the existing commands/options.
+- From a temporary directory with a one-line `UNITS` input, `plumed-static --tmpi-threads N driver --noatoms --multi N ...` — passed for N=1, 2, and 4. A deliberate mismatch (one launched rank with `--multi 2`) failed with the expected “invalid number of processes” diagnostic.
+- `cmake --build /private/tmp/mpiw-runtime-build -j4 && ctest --test-dir /private/tmp/mpiw-runtime-build --output-on-failure` — passed 10/10 internal launch/runtime tests, including 1/2/4-rank launcher callbacks and fatal callback-exception handling.
+- `regtest/funnel/rt-fps/../../scripts/run` with a static serial CLI — selected internal thread-MPI with the configured one-rank count, then explicitly skipped because this configured build lacks the `funnel` module. Repeating with `PLUMED_MPIRUN=/bin/false` preserved the override and used the existing “MPI NOT INSTALLED” skip path.
+- `src/mpiwrap/tests/check-thread-mpi-cli.sh src/lib/plumed-static` — passed end-to-end CLI launches at 1/2/4 ranks, driver rank-count mismatch handling, and the two-rank CHDIR rejection/no-directory-change check.
+- `src/mpiwrap/tests/check-regtest-runner.sh` — passed mocked runner selection for internal launch with exact `mpiprocs=3`, native MPI precedence, an old executable without capability, explicit `PLUMED_MPIRUN` override, and the per-test CHDIR skip reason.
+- Ordinary single-process `driver --noatoms` was exercised during CLI bring-up. No native MPI runtime claim is made: installed MPICH/Open MPI launchers remain blocked before wrapper execution by sandbox process-manager restrictions.
+
+The imported upstream one-rank out-of-place tMPI Allreduce defect is still present in the pinned source; the wrapper/runtime path handles its identity result without calling the defective operation at size one. Real MPI multi-process communication, GROMACS-host injection smoke tests, broad native/thread-MPI regtest suites, full per-manifest unified C++ semantic coverage, and steps 7 (makempi and on-demand compiler-path loading) remain incomplete. These are reported as pending rather than tested.

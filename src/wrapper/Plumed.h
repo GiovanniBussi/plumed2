@@ -810,6 +810,8 @@ typedef struct {
 /** Opaque handle for loading a kernel, installing its MPI provider, then creating objects. */
 typedef struct plumed_kernel_handle_impl* plumed_kernel_handle;
 typedef int (*plumed_kernel_error_fn)(void*,int,const char*,const char*);
+typedef int (*plumed_kernel_rank_callback)(int,const void*,
+    __PLUMED_WRAPPER_STD size_t,void*);
 struct plumed_mpiw_provider_descriptor;
 #ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
 #define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
@@ -1280,6 +1282,13 @@ int plumed_kernel_create(plumed_kernel_handle kernel,plumed *out,
                          plumed_kernel_error_fn report,void *context);
 __PLUMED_WRAPPER_C_END
 
+/** Launch the kernel's embedded thread-MPI runtime, once per loaded kernel. */
+__PLUMED_WRAPPER_C_BEGIN
+int plumed_kernel_launch_internal_threads(
+  plumed_kernel_handle kernel,int ranks,plumed_kernel_rank_callback callback,
+  void *callback_context,int *result,plumed_kernel_error_fn report,void *context);
+__PLUMED_WRAPPER_C_END
+
 /** Release this kernel-handle reference. Objects hold their own kernel references. */
 __PLUMED_WRAPPER_C_BEGIN
 void plumed_kernel_release(plumed_kernel_handle kernel);
@@ -1361,6 +1370,14 @@ public:
     plumed object= {nullptr};
     check(plumed_kernel_create(handle_,&object,&report,&error),error);
     return object;
+  }
+  int launchInternalThreads(int ranks,plumed_kernel_rank_callback callback,
+                            void *callback_context) {
+    Error error;
+    int result=0;
+    check(plumed_kernel_launch_internal_threads(handle_,ranks,callback,
+          callback_context,&result,&report,&error),error);
+    return result;
   }
 };
 } // namespace PLMD
@@ -4068,6 +4085,9 @@ typedef struct {
     ABI; this symbol-table version only advertises that the entry is present.
   */
   int (*install_mpi_provider)(const void*,int (*)(void*,int,const char*,const char*),void*,void*);
+  /** Runs one callback on each internal thread-MPI rank; available with version>=6. */
+  int (*launch_internal_threads)(int,plumed_kernel_rank_callback,void*,int*,
+                                 int (*)(void*,int,const char*,const char*),void*);
 } plumed_symbol_table_type;
 
 /* Utility to convert function pointers to pointers, just for the sake of printing them */
@@ -4932,6 +4952,26 @@ int plumed_kernel_create(plumed_kernel_handle handle,plumed *out,
   }
   *out=result;
   return PLUMED_KERNEL_OK;
+}
+__PLUMED_WRAPPER_C_END
+
+__PLUMED_WRAPPER_C_BEGIN
+int plumed_kernel_launch_internal_threads(
+  plumed_kernel_handle handle,int ranks,plumed_kernel_rank_callback callback,
+  void *callback_context,int *result,plumed_kernel_error_fn report,void *context) {
+  plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
+  if(!plumed_kernel_valid(kernel)) {
+    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+                                "plumed_kernel_launch_internal_threads","invalid kernel handle");
+  }
+  if(kernel->table->version<6 || !kernel->table->launch_internal_threads) {
+    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+                                "plumed_kernel_launch_internal_threads","kernel lacks internal launcher support");
+  }
+  return kernel->table->launch_internal_threads(
+           ranks,callback,callback_context,result,
+           __PLUMED_WRAPPER_STATIC_CAST(int (*)(void*,int,const char*,const char*),report),
+           context);
 }
 __PLUMED_WRAPPER_C_END
 

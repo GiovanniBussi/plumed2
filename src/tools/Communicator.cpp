@@ -29,6 +29,18 @@
 
 namespace PLMD {
 
+namespace {
+bool mpiTypeValuesAvailable() {
+#if defined(__PLUMED_HAS_MPI)
+  return true;
+#elif defined(__PLUMED_MPIWRAP)
+  return mpiwrap_provider::currentRegistry().installed();
+#else
+  return false;
+#endif
+}
+}
+
 bool Communicator::plumedHasMPI() {
 #if defined(__PLUMED_HAS_MPI)
   return true;
@@ -485,30 +497,48 @@ void Communicator::Request::wait(Status&s) {
 
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
 template<> MPI_Datatype Communicator::getMPIType<float>() {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_FLOAT;
 }
 template<> MPI_Datatype Communicator::getMPIType<double>() {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_DOUBLE;
 }
 template<> MPI_Datatype Communicator::getMPIType<int>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_INT;
 }
 template<> MPI_Datatype Communicator::getMPIType<char>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_CHAR;
 }
 template<> MPI_Datatype Communicator::getMPIType<unsigned>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_UNSIGNED;
 }
 template<> MPI_Datatype Communicator::getMPIType<AtomNumber>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_UNSIGNED;
 }
 template<> MPI_Datatype Communicator::getMPIType<long unsigned>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_UNSIGNED_LONG;
 }
 template<> MPI_Datatype Communicator::getMPIType<long long unsigned>() {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_UNSIGNED_LONG_LONG;
 }
 template<> MPI_Datatype Communicator::getMPIType<long double>()   {
+  if(!mpiTypeValuesAvailable())
+    return MPI_Datatype{};
   return MPI_LONG_DOUBLE;
 }
 #else

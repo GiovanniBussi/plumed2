@@ -7,6 +7,14 @@ just try the tests with
 To do many tests in parallel, as usual
 > make -j 4
 
+Tests that request `mpiprocs` and have `type=driver` use the configured MPI
+launcher when PLUMED has MPI. On serial kernels they use PLUMED's internal
+thread-MPI launcher when available. A test that cannot run with internal
+threads (for example, one that depends on an unsupported working-directory
+change) can set `plumed_thread_mpi=no` in its `config`; non-driver tests never
+fall back to thread-MPI. Such configs can set `plumed_chdir=yes` as well to
+report the specific unsupported-CHDIR skip reason.
+
 HOW TO ADD A NEW TEST
 
 Add a new directory rtXXX, let's say rt105, and go there:

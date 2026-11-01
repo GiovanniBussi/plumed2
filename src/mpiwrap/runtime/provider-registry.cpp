@@ -324,7 +324,8 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 
 Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullptr),
   host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
-  compatibility_fingerprint_(0), installed_(false), object_created_(false), ready_(false) {}
+  compatibility_fingerprint_(0), installed_(false), object_created_(false),
+  internal_launch_started_(false), internal_launch_active_(false), ready_(false) {}
 
 Registry::~Registry() {
 #if defined(__PLUMED_HAS_DLOPEN)
@@ -360,9 +361,6 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   }
 
   std::lock_guard<std::mutex> lock(mutex_);
-  if (object_created_) {
-    return setError(error, "MPI provider must be installed before the first PLUMED object is created");
-  }
   if (installed_) {
     if (runtime_kind_ == next_runtime_kind &&
         identity_comm_rank_ == next_comm_rank &&
@@ -379,6 +377,9 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
       return true;
     }
     return setError(error, "conflicting MPI provider is already installed");
+  }
+  if (object_created_) {
+    return setError(error, "MPI provider must be installed before the first PLUMED object is created");
   }
   if (provider_library) {
     provider_libraries_.push_back(provider_library);
@@ -404,6 +405,41 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
 void Registry::markObjectCreated() {
   std::lock_guard<std::mutex> lock(mutex_);
   object_created_ = true;
+}
+
+bool Registry::beginInternalLaunch(
+  const plumed_mpiw_provider_descriptor *descriptor, std::string &error) {
+  if (!descriptor) {
+    return setError(error, "missing embedded thread-MPI provider descriptor");
+  }
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!installed_ || runtime_kind_ != PLUMED_MPIW_RUNTIME_THREAD_MPI ||
+      identity_comm_rank_ != descriptor->identity_comm_rank ||
+      identity_initialized_ != descriptor->identity_initialized ||
+      host_runtime_token_ != descriptor->host_runtime_token ||
+      compatibility_fingerprint_ != compatibilityFingerprint(*descriptor)) {
+    return setError(error, "internal launch requires the embedded thread-MPI provider");
+  }
+  if (object_created_) {
+    return setError(error, "thread-MPI launch must precede the first PLUMED object");
+  }
+  if (internal_launch_started_) {
+    return setError(error, "this kernel's thread-MPI runtime has already been launched");
+  }
+  internal_launch_started_ = true;
+  internal_launch_active_ = true;
+  error.clear();
+  return true;
+}
+
+void Registry::finishInternalLaunch() noexcept {
+  std::lock_guard<std::mutex> lock(mutex_);
+  internal_launch_active_ = false;
+}
+
+std::uint32_t Registry::runtimeKind() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return installed_ ? runtime_kind_ : 0;
 }
 
 bool Registry::has(const char *name) const {
