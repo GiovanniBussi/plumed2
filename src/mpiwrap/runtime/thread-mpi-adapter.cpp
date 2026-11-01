@@ -147,7 +147,65 @@ std::int32_t barrier(plumed_mpiw_handle_storage comm) {
   return thread_mpi::tMPI_Barrier(decode_comm(comm));
 }
 
+int32_t get_world(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+    return -1;
+  }
+  plumed_mpiw_handle_storage storage = 0;
+  const thread_mpi::tMPI_Comm value = thread_mpi::TMPI_COMM_WORLD;
+  std::memcpy(&storage, &value, sizeof(value));
+  std::memcpy(output, &storage, sizeof(storage));
+  return 0;
+}
+
+int32_t get_self(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+    return -1;
+  }
+  plumed_mpiw_handle_storage storage = 0;
+  const thread_mpi::tMPI_Comm value = thread_mpi::tMPI_Get_comm_self();
+  std::memcpy(&storage, &value, sizeof(value));
+  std::memcpy(output, &storage, sizeof(storage));
+  return 0;
+}
+
+int32_t get_integer_datatype(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+    return -1;
+  }
+  plumed_mpiw_handle_storage storage = 0;
+  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT;
+  std::memcpy(&storage, &value, sizeof(value));
+  std::memcpy(output, &storage, sizeof(storage));
+  return 0;
+}
+
+int32_t get_sum(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
+    return -1;
+  }
+  plumed_mpiw_handle_storage storage = 0;
+  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_SUM;
+  std::memcpy(&storage, &value, sizeof(value));
+  std::memcpy(output, &storage, sizeof(storage));
+  return 0;
+}
+
+int32_t get_in_place(void *output, uint32_t capacity) {
+  if (!output || capacity != sizeof(void *)) {
+    return -1;
+  }
+  void *value = nullptr;
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
+
 static const char callback_unavailable[] = PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
+static const plumed_mpiw_constant_accessor_fn world_accessor = &get_world;
+static const plumed_mpiw_constant_accessor_fn self_accessor = &get_self;
+static const plumed_mpiw_constant_accessor_fn int_accessor = &get_integer_datatype;
+static const plumed_mpiw_constant_accessor_fn sum_accessor = &get_sum;
+static const plumed_mpiw_constant_accessor_fn in_place_accessor = &get_in_place;
 static const plumed_mpiw_function_entry functions[] = {
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_rank", 0x4e7672aa,
@@ -176,6 +234,26 @@ static const plumed_mpiw_metadata_entry metadata[] = {
     PLUMED_MPIW_METADATA_REQUIRED, 0,
     PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI,
     sizeof(callback_unavailable), callback_unavailable
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_COMM_WORLD", sizeof(world_accessor), &world_accessor
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_COMM_SELF", sizeof(self_accessor), &self_accessor
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_INT", sizeof(int_accessor), &int_accessor
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_SUM", sizeof(sum_accessor), &sum_accessor
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR,
+    0, 0, "value:MPI_IN_PLACE", sizeof(in_place_accessor), &in_place_accessor
   },
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,

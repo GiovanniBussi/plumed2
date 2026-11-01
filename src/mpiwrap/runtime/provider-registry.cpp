@@ -98,6 +98,7 @@ bool setError(std::string &error, const std::string &message) {
 bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
                         std::unordered_map<std::string, Registry::FunctionEntry> &functions,
                         std::unordered_map<std::string, std::string> &metadata,
+                        std::unordered_map<std::string, Registry::ValueEntry> &values,
                         ProviderBindings &bindings,
                         std::string &provider_name, std::string &provider_version,
                         plumed_mpiw_generic_fn &identity_comm_rank,
@@ -220,6 +221,33 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
     if (!names.emplace(entry.name).second) {
       return setError(error, std::string("duplicate MPI provider metadata: ") + entry.name);
     }
+    if (std::strncmp(entry.name, "value:", 6) == 0) {
+      const char *name = entry.name + 6;
+      bool known = false;
+#define PLUMED_MPIW_PROVIDER_CONSTANT(constant_name) \
+      if (std::strcmp(name, #constant_name) == 0) known = true;
+#include "../generated/provider-constant-names.inc"
+#undef PLUMED_MPIW_PROVIDER_CONSTANT
+      if (!known) {
+        if ((entry.flags & PLUMED_MPIW_METADATA_REQUIRED) != 0) {
+          return setError(error, std::string("unknown required MPI constant: ") + name);
+        }
+        continue;
+      }
+      if (entry.value_type != PLUMED_MPIW_VALUE_ACCESSOR ||
+          entry.value_size != sizeof(plumed_mpiw_constant_accessor_fn) ||
+          !entry.value || entry.reserved != 0) {
+        return setError(error, std::string("invalid provider constant metadata: ") + name);
+      }
+      Registry::ValueEntry value{};
+      value.value_type = entry.value_type;
+      std::memcpy(&value.accessor, entry.value, sizeof(value.accessor));
+      if (!value.accessor) {
+        return setError(error, std::string("null provider constant accessor: ") + name);
+      }
+      values.emplace(name, std::move(value));
+      continue;
+    }
     const bool user_callback = std::strcmp(
                                  entry.name, PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI) == 0;
     const bool error_callback = std::strcmp(
@@ -293,12 +321,13 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 
 Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullptr),
   host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
-  compatibility_fingerprint_(0), installed_(false) {}
+  compatibility_fingerprint_(0), installed_(false), ready_(false) {}
 
 bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
                        std::string &error) {
   std::unordered_map<std::string, FunctionEntry> next_functions;
   std::unordered_map<std::string, std::string> next_metadata;
+  std::unordered_map<std::string, ValueEntry> next_values;
   ProviderBindings next_bindings{};
   std::string next_name;
   std::string next_version;
@@ -308,7 +337,8 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   std::uint32_t next_runtime_kind = 0;
   std::uint32_t next_native_comm_size = 0;
   std::uint64_t next_fingerprint = 0;
-  if (!validateDescriptor(descriptor, next_functions, next_metadata, next_bindings,
+  if (!validateDescriptor(descriptor, next_functions, next_metadata, next_values,
+                          next_bindings,
                           next_name, next_version, next_comm_rank,
                           next_initialized, next_token, next_runtime_kind,
                           next_native_comm_size, next_fingerprint,
@@ -324,7 +354,8 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
         host_runtime_token_ == next_token &&
         provider_name_ == next_name && provider_version_ == next_version &&
         compatibility_fingerprint_ == next_fingerprint &&
-        sameFunctions(functions_, next_functions) && metadata_ == next_metadata) {
+        sameFunctions(functions_, next_functions) && metadata_ == next_metadata &&
+        values_ == next_values) {
       error.clear();
       return true;
     }
@@ -332,6 +363,7 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   }
   functions_.swap(next_functions);
   metadata_.swap(next_metadata);
+  values_.swap(next_values);
   bindings_ = next_bindings;
   provider_name_.swap(next_name);
   provider_version_.swap(next_version);
@@ -342,6 +374,7 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   native_comm_size_ = next_native_comm_size;
   compatibility_fingerprint_ = next_fingerprint;
   installed_ = true;
+  ready_.store(true, std::memory_order_release);
   error.clear();
   return true;
 }
@@ -370,6 +403,27 @@ std::uint32_t Registry::nativeCommSize() const {
     throw std::runtime_error("MPI provider is not installed");
   }
   return native_comm_size_;
+}
+
+bool Registry::copyValue(const char *name, void *output, std::size_t size) const {
+  if (!name || !output) {
+    return false;
+  }
+  plumed_mpiw_constant_accessor_fn accessor = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!installed_) {
+      return false;
+    }
+    const auto found = values_.find(name);
+    if (found == values_.end() || found->second.value_type !=
+        PLUMED_MPIW_VALUE_ACCESSOR) {
+      return false;
+    }
+    accessor = found->second.accessor;
+  }
+  return accessor && size <= UINT32_MAX &&
+         accessor(output, static_cast<std::uint32_t>(size)) == 0;
 }
 
 namespace {
