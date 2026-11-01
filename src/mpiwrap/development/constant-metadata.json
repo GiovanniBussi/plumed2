@@ -203,7 +203,7 @@
         "binding": "TMPI_STATUS_IGNORE"
       },
       "semantic_test": "constant:MPI_STATUS_IGNORE",
-      "translation": "recognize before dereference; pass provider native sentinel"
+      "translation": "provider-facing MPI_STATUS_IGNORE is normalized to null; adapter maps null to its native ignore sentinel before the call"
     },
     {
       "class": "provider_handle",
