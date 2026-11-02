@@ -1645,7 +1645,7 @@ static int32_t plumed_mpiw_MPI_Group_excl(plumed_mpiw_handle_storage group, int3
   return (int32_t)native_return_value;
 }
 
-static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[3], plumed_mpiw_handle_storage * newgroup) {
+static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[][3], plumed_mpiw_handle_storage * newgroup) {
   if (n < 0 || n > INT_MAX / 3) {
     return MPI_ERR_COUNT;
   }
@@ -1670,7 +1670,7 @@ static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group
   }
   for (int i = 0; i < ((extent_ranges) / 3); ++i)
     for (int j = 0; j < 3; ++j) {
-      native_ranges[i][j] = (int)ranges[i * 3 + j];
+      native_ranges[i][j] = (int)ranges[i][j];
     }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
@@ -1685,7 +1685,7 @@ static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group
   return (int32_t)native_return_value;
 }
 
-static int32_t plumed_mpiw_MPI_Group_range_excl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[3], plumed_mpiw_handle_storage * newgroup) {
+static int32_t plumed_mpiw_MPI_Group_range_excl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[][3], plumed_mpiw_handle_storage * newgroup) {
   if (n < 0 || n > INT_MAX / 3) {
     return MPI_ERR_COUNT;
   }
@@ -1710,7 +1710,7 @@ static int32_t plumed_mpiw_MPI_Group_range_excl(plumed_mpiw_handle_storage group
   }
   for (int i = 0; i < ((extent_ranges) / 3); ++i)
     for (int j = 0; j < 3; ++j) {
-      native_ranges[i][j] = (int)ranges[i * 3 + j];
+      native_ranges[i][j] = (int)ranges[i][j];
     }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
@@ -2218,6 +2218,210 @@ static int32_t plumed_mpiw_MPI_Comm_set_errhandler(plumed_mpiw_handle_storage co
   int native_return_value = MPI_Comm_set_errhandler(native_comm, native_errhandler);
   return (int32_t)native_return_value;
 }
+static void plumed_mpiw_verify_typed_functions(void) {
+  plumed_mpiw_MPI_Initialized_fn typed_MPI_Initialized = &plumed_mpiw_MPI_Initialized;
+  (void)typed_MPI_Initialized;
+  plumed_mpiw_MPI_Comm_dup_fn typed_MPI_Comm_dup = &plumed_mpiw_MPI_Comm_dup;
+  (void)typed_MPI_Comm_dup;
+  plumed_mpiw_MPI_Comm_free_fn typed_MPI_Comm_free = &plumed_mpiw_MPI_Comm_free;
+  (void)typed_MPI_Comm_free;
+  plumed_mpiw_MPI_Comm_rank_fn typed_MPI_Comm_rank = &plumed_mpiw_MPI_Comm_rank;
+  (void)typed_MPI_Comm_rank;
+  plumed_mpiw_MPI_Comm_size_fn typed_MPI_Comm_size = &plumed_mpiw_MPI_Comm_size;
+  (void)typed_MPI_Comm_size;
+  plumed_mpiw_MPI_Comm_split_fn typed_MPI_Comm_split = &plumed_mpiw_MPI_Comm_split;
+  (void)typed_MPI_Comm_split;
+  plumed_mpiw_MPI_Abort_fn typed_MPI_Abort = &plumed_mpiw_MPI_Abort;
+  (void)typed_MPI_Abort;
+  plumed_mpiw_MPI_Bcast_fn typed_MPI_Bcast = &plumed_mpiw_MPI_Bcast;
+  (void)typed_MPI_Bcast;
+  plumed_mpiw_MPI_Scatter_fn typed_MPI_Scatter = &plumed_mpiw_MPI_Scatter;
+  (void)typed_MPI_Scatter;
+  plumed_mpiw_MPI_Gather_fn typed_MPI_Gather = &plumed_mpiw_MPI_Gather;
+  (void)typed_MPI_Gather;
+  plumed_mpiw_MPI_Allreduce_fn typed_MPI_Allreduce = &plumed_mpiw_MPI_Allreduce;
+  (void)typed_MPI_Allreduce;
+  plumed_mpiw_MPI_Isend_fn typed_MPI_Isend = &plumed_mpiw_MPI_Isend;
+  (void)typed_MPI_Isend;
+  plumed_mpiw_MPI_Wait_fn typed_MPI_Wait = &plumed_mpiw_MPI_Wait;
+  (void)typed_MPI_Wait;
+  plumed_mpiw_MPI_Allgather_fn typed_MPI_Allgather = &plumed_mpiw_MPI_Allgather;
+  (void)typed_MPI_Allgather;
+  plumed_mpiw_MPI_Allgatherv_fn typed_MPI_Allgatherv = &plumed_mpiw_MPI_Allgatherv;
+  (void)typed_MPI_Allgatherv;
+  plumed_mpiw_MPI_Recv_fn typed_MPI_Recv = &plumed_mpiw_MPI_Recv;
+  (void)typed_MPI_Recv;
+  plumed_mpiw_MPI_Barrier_fn typed_MPI_Barrier = &plumed_mpiw_MPI_Barrier;
+  (void)typed_MPI_Barrier;
+  plumed_mpiw_MPI_Get_count_fn typed_MPI_Get_count = &plumed_mpiw_MPI_Get_count;
+  (void)typed_MPI_Get_count;
+  plumed_mpiw_MPI_Sendrecv_fn typed_MPI_Sendrecv = &plumed_mpiw_MPI_Sendrecv;
+  (void)typed_MPI_Sendrecv;
+  plumed_mpiw_MPI_Error_string_fn typed_MPI_Error_string = &plumed_mpiw_MPI_Error_string;
+  (void)typed_MPI_Error_string;
+  plumed_mpiw_MPI_Comm_f2c_fn typed_MPI_Comm_f2c = &plumed_mpiw_MPI_Comm_f2c;
+  (void)typed_MPI_Comm_f2c;
+  plumed_mpiw_MPI_Send_fn typed_MPI_Send = &plumed_mpiw_MPI_Send;
+  (void)typed_MPI_Send;
+  plumed_mpiw_MPI_Bsend_fn typed_MPI_Bsend = &plumed_mpiw_MPI_Bsend;
+  (void)typed_MPI_Bsend;
+  plumed_mpiw_MPI_Ssend_fn typed_MPI_Ssend = &plumed_mpiw_MPI_Ssend;
+  (void)typed_MPI_Ssend;
+  plumed_mpiw_MPI_Rsend_fn typed_MPI_Rsend = &plumed_mpiw_MPI_Rsend;
+  (void)typed_MPI_Rsend;
+  plumed_mpiw_MPI_Buffer_attach_fn typed_MPI_Buffer_attach = &plumed_mpiw_MPI_Buffer_attach;
+  (void)typed_MPI_Buffer_attach;
+  plumed_mpiw_MPI_Buffer_detach_fn typed_MPI_Buffer_detach = &plumed_mpiw_MPI_Buffer_detach;
+  (void)typed_MPI_Buffer_detach;
+  plumed_mpiw_MPI_Ibsend_fn typed_MPI_Ibsend = &plumed_mpiw_MPI_Ibsend;
+  (void)typed_MPI_Ibsend;
+  plumed_mpiw_MPI_Issend_fn typed_MPI_Issend = &plumed_mpiw_MPI_Issend;
+  (void)typed_MPI_Issend;
+  plumed_mpiw_MPI_Irsend_fn typed_MPI_Irsend = &plumed_mpiw_MPI_Irsend;
+  (void)typed_MPI_Irsend;
+  plumed_mpiw_MPI_Irecv_fn typed_MPI_Irecv = &plumed_mpiw_MPI_Irecv;
+  (void)typed_MPI_Irecv;
+  plumed_mpiw_MPI_Test_fn typed_MPI_Test = &plumed_mpiw_MPI_Test;
+  (void)typed_MPI_Test;
+  plumed_mpiw_MPI_Request_free_fn typed_MPI_Request_free = &plumed_mpiw_MPI_Request_free;
+  (void)typed_MPI_Request_free;
+  plumed_mpiw_MPI_Waitany_fn typed_MPI_Waitany = &plumed_mpiw_MPI_Waitany;
+  (void)typed_MPI_Waitany;
+  plumed_mpiw_MPI_Testany_fn typed_MPI_Testany = &plumed_mpiw_MPI_Testany;
+  (void)typed_MPI_Testany;
+  plumed_mpiw_MPI_Waitall_fn typed_MPI_Waitall = &plumed_mpiw_MPI_Waitall;
+  (void)typed_MPI_Waitall;
+  plumed_mpiw_MPI_Testall_fn typed_MPI_Testall = &plumed_mpiw_MPI_Testall;
+  (void)typed_MPI_Testall;
+  plumed_mpiw_MPI_Waitsome_fn typed_MPI_Waitsome = &plumed_mpiw_MPI_Waitsome;
+  (void)typed_MPI_Waitsome;
+  plumed_mpiw_MPI_Testsome_fn typed_MPI_Testsome = &plumed_mpiw_MPI_Testsome;
+  (void)typed_MPI_Testsome;
+  plumed_mpiw_MPI_Iprobe_fn typed_MPI_Iprobe = &plumed_mpiw_MPI_Iprobe;
+  (void)typed_MPI_Iprobe;
+  plumed_mpiw_MPI_Probe_fn typed_MPI_Probe = &plumed_mpiw_MPI_Probe;
+  (void)typed_MPI_Probe;
+  plumed_mpiw_MPI_Cancel_fn typed_MPI_Cancel = &plumed_mpiw_MPI_Cancel;
+  (void)typed_MPI_Cancel;
+  plumed_mpiw_MPI_Test_cancelled_fn typed_MPI_Test_cancelled = &plumed_mpiw_MPI_Test_cancelled;
+  (void)typed_MPI_Test_cancelled;
+  plumed_mpiw_MPI_Send_init_fn typed_MPI_Send_init = &plumed_mpiw_MPI_Send_init;
+  (void)typed_MPI_Send_init;
+  plumed_mpiw_MPI_Bsend_init_fn typed_MPI_Bsend_init = &plumed_mpiw_MPI_Bsend_init;
+  (void)typed_MPI_Bsend_init;
+  plumed_mpiw_MPI_Ssend_init_fn typed_MPI_Ssend_init = &plumed_mpiw_MPI_Ssend_init;
+  (void)typed_MPI_Ssend_init;
+  plumed_mpiw_MPI_Rsend_init_fn typed_MPI_Rsend_init = &plumed_mpiw_MPI_Rsend_init;
+  (void)typed_MPI_Rsend_init;
+  plumed_mpiw_MPI_Recv_init_fn typed_MPI_Recv_init = &plumed_mpiw_MPI_Recv_init;
+  (void)typed_MPI_Recv_init;
+  plumed_mpiw_MPI_Start_fn typed_MPI_Start = &plumed_mpiw_MPI_Start;
+  (void)typed_MPI_Start;
+  plumed_mpiw_MPI_Startall_fn typed_MPI_Startall = &plumed_mpiw_MPI_Startall;
+  (void)typed_MPI_Startall;
+  plumed_mpiw_MPI_Sendrecv_replace_fn typed_MPI_Sendrecv_replace = &plumed_mpiw_MPI_Sendrecv_replace;
+  (void)typed_MPI_Sendrecv_replace;
+  plumed_mpiw_MPI_Type_contiguous_fn typed_MPI_Type_contiguous = &plumed_mpiw_MPI_Type_contiguous;
+  (void)typed_MPI_Type_contiguous;
+  plumed_mpiw_MPI_Type_vector_fn typed_MPI_Type_vector = &plumed_mpiw_MPI_Type_vector;
+  (void)typed_MPI_Type_vector;
+  plumed_mpiw_MPI_Type_indexed_fn typed_MPI_Type_indexed = &plumed_mpiw_MPI_Type_indexed;
+  (void)typed_MPI_Type_indexed;
+  plumed_mpiw_MPI_Type_commit_fn typed_MPI_Type_commit = &plumed_mpiw_MPI_Type_commit;
+  (void)typed_MPI_Type_commit;
+  plumed_mpiw_MPI_Type_free_fn typed_MPI_Type_free = &plumed_mpiw_MPI_Type_free;
+  (void)typed_MPI_Type_free;
+  plumed_mpiw_MPI_Type_size_fn typed_MPI_Type_size = &plumed_mpiw_MPI_Type_size;
+  (void)typed_MPI_Type_size;
+  plumed_mpiw_MPI_Get_elements_fn typed_MPI_Get_elements = &plumed_mpiw_MPI_Get_elements;
+  (void)typed_MPI_Get_elements;
+  plumed_mpiw_MPI_Pack_fn typed_MPI_Pack = &plumed_mpiw_MPI_Pack;
+  (void)typed_MPI_Pack;
+  plumed_mpiw_MPI_Unpack_fn typed_MPI_Unpack = &plumed_mpiw_MPI_Unpack;
+  (void)typed_MPI_Unpack;
+  plumed_mpiw_MPI_Pack_size_fn typed_MPI_Pack_size = &plumed_mpiw_MPI_Pack_size;
+  (void)typed_MPI_Pack_size;
+  plumed_mpiw_MPI_Alltoall_fn typed_MPI_Alltoall = &plumed_mpiw_MPI_Alltoall;
+  (void)typed_MPI_Alltoall;
+  plumed_mpiw_MPI_Reduce_fn typed_MPI_Reduce = &plumed_mpiw_MPI_Reduce;
+  (void)typed_MPI_Reduce;
+  plumed_mpiw_MPI_Op_free_fn typed_MPI_Op_free = &plumed_mpiw_MPI_Op_free;
+  (void)typed_MPI_Op_free;
+  plumed_mpiw_MPI_Scan_fn typed_MPI_Scan = &plumed_mpiw_MPI_Scan;
+  (void)typed_MPI_Scan;
+  plumed_mpiw_MPI_Group_size_fn typed_MPI_Group_size = &plumed_mpiw_MPI_Group_size;
+  (void)typed_MPI_Group_size;
+  plumed_mpiw_MPI_Group_rank_fn typed_MPI_Group_rank = &plumed_mpiw_MPI_Group_rank;
+  (void)typed_MPI_Group_rank;
+  plumed_mpiw_MPI_Group_translate_ranks_fn typed_MPI_Group_translate_ranks = &plumed_mpiw_MPI_Group_translate_ranks;
+  (void)typed_MPI_Group_translate_ranks;
+  plumed_mpiw_MPI_Group_compare_fn typed_MPI_Group_compare = &plumed_mpiw_MPI_Group_compare;
+  (void)typed_MPI_Group_compare;
+  plumed_mpiw_MPI_Comm_group_fn typed_MPI_Comm_group = &plumed_mpiw_MPI_Comm_group;
+  (void)typed_MPI_Comm_group;
+  plumed_mpiw_MPI_Group_union_fn typed_MPI_Group_union = &plumed_mpiw_MPI_Group_union;
+  (void)typed_MPI_Group_union;
+  plumed_mpiw_MPI_Group_intersection_fn typed_MPI_Group_intersection = &plumed_mpiw_MPI_Group_intersection;
+  (void)typed_MPI_Group_intersection;
+  plumed_mpiw_MPI_Group_difference_fn typed_MPI_Group_difference = &plumed_mpiw_MPI_Group_difference;
+  (void)typed_MPI_Group_difference;
+  plumed_mpiw_MPI_Group_incl_fn typed_MPI_Group_incl = &plumed_mpiw_MPI_Group_incl;
+  (void)typed_MPI_Group_incl;
+  plumed_mpiw_MPI_Group_excl_fn typed_MPI_Group_excl = &plumed_mpiw_MPI_Group_excl;
+  (void)typed_MPI_Group_excl;
+  plumed_mpiw_MPI_Group_range_incl_fn typed_MPI_Group_range_incl = &plumed_mpiw_MPI_Group_range_incl;
+  (void)typed_MPI_Group_range_incl;
+  plumed_mpiw_MPI_Group_range_excl_fn typed_MPI_Group_range_excl = &plumed_mpiw_MPI_Group_range_excl;
+  (void)typed_MPI_Group_range_excl;
+  plumed_mpiw_MPI_Group_free_fn typed_MPI_Group_free = &plumed_mpiw_MPI_Group_free;
+  (void)typed_MPI_Group_free;
+  plumed_mpiw_MPI_Comm_compare_fn typed_MPI_Comm_compare = &plumed_mpiw_MPI_Comm_compare;
+  (void)typed_MPI_Comm_compare;
+  plumed_mpiw_MPI_Comm_create_fn typed_MPI_Comm_create = &plumed_mpiw_MPI_Comm_create;
+  (void)typed_MPI_Comm_create;
+  plumed_mpiw_MPI_Comm_test_inter_fn typed_MPI_Comm_test_inter = &plumed_mpiw_MPI_Comm_test_inter;
+  (void)typed_MPI_Comm_test_inter;
+  plumed_mpiw_MPI_Comm_remote_size_fn typed_MPI_Comm_remote_size = &plumed_mpiw_MPI_Comm_remote_size;
+  (void)typed_MPI_Comm_remote_size;
+  plumed_mpiw_MPI_Comm_remote_group_fn typed_MPI_Comm_remote_group = &plumed_mpiw_MPI_Comm_remote_group;
+  (void)typed_MPI_Comm_remote_group;
+  plumed_mpiw_MPI_Intercomm_create_fn typed_MPI_Intercomm_create = &plumed_mpiw_MPI_Intercomm_create;
+  (void)typed_MPI_Intercomm_create;
+  plumed_mpiw_MPI_Intercomm_merge_fn typed_MPI_Intercomm_merge = &plumed_mpiw_MPI_Intercomm_merge;
+  (void)typed_MPI_Intercomm_merge;
+  plumed_mpiw_MPI_Cart_create_fn typed_MPI_Cart_create = &plumed_mpiw_MPI_Cart_create;
+  (void)typed_MPI_Cart_create;
+  plumed_mpiw_MPI_Dims_create_fn typed_MPI_Dims_create = &plumed_mpiw_MPI_Dims_create;
+  (void)typed_MPI_Dims_create;
+  plumed_mpiw_MPI_Topo_test_fn typed_MPI_Topo_test = &plumed_mpiw_MPI_Topo_test;
+  (void)typed_MPI_Topo_test;
+  plumed_mpiw_MPI_Graphdims_get_fn typed_MPI_Graphdims_get = &plumed_mpiw_MPI_Graphdims_get;
+  (void)typed_MPI_Graphdims_get;
+  plumed_mpiw_MPI_Cartdim_get_fn typed_MPI_Cartdim_get = &plumed_mpiw_MPI_Cartdim_get;
+  (void)typed_MPI_Cartdim_get;
+  plumed_mpiw_MPI_Graph_neighbors_count_fn typed_MPI_Graph_neighbors_count = &plumed_mpiw_MPI_Graph_neighbors_count;
+  (void)typed_MPI_Graph_neighbors_count;
+  plumed_mpiw_MPI_Cart_shift_fn typed_MPI_Cart_shift = &plumed_mpiw_MPI_Cart_shift;
+  (void)typed_MPI_Cart_shift;
+  plumed_mpiw_MPI_Cart_map_fn typed_MPI_Cart_map = &plumed_mpiw_MPI_Cart_map;
+  (void)typed_MPI_Cart_map;
+  plumed_mpiw_MPI_Get_processor_name_fn typed_MPI_Get_processor_name = &plumed_mpiw_MPI_Get_processor_name;
+  (void)typed_MPI_Get_processor_name;
+  plumed_mpiw_MPI_Errhandler_free_fn typed_MPI_Errhandler_free = &plumed_mpiw_MPI_Errhandler_free;
+  (void)typed_MPI_Errhandler_free;
+  plumed_mpiw_MPI_Error_class_fn typed_MPI_Error_class = &plumed_mpiw_MPI_Error_class;
+  (void)typed_MPI_Error_class;
+  plumed_mpiw_MPI_Wtime_fn typed_MPI_Wtime = &plumed_mpiw_MPI_Wtime;
+  (void)typed_MPI_Wtime;
+  plumed_mpiw_MPI_Wtick_fn typed_MPI_Wtick = &plumed_mpiw_MPI_Wtick;
+  (void)typed_MPI_Wtick;
+  plumed_mpiw_MPI_Finalized_fn typed_MPI_Finalized = &plumed_mpiw_MPI_Finalized;
+  (void)typed_MPI_Finalized;
+  plumed_mpiw_MPI_Comm_get_errhandler_fn typed_MPI_Comm_get_errhandler = &plumed_mpiw_MPI_Comm_get_errhandler;
+  (void)typed_MPI_Comm_get_errhandler;
+  plumed_mpiw_MPI_Comm_set_errhandler_fn typed_MPI_Comm_set_errhandler = &plumed_mpiw_MPI_Comm_set_errhandler;
+  (void)typed_MPI_Comm_set_errhandler;
+}
 #define PLUMED_MPIW_ENTRY(name, id, version, fn) { (uint32_t)sizeof(plumed_mpiw_function_entry), PLUMED_MPIW_FUNCTION_REQUIRED, #name, id, version, (plumed_mpiw_generic_fn)(fn) }
 static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
   PLUMED_MPIW_ENTRY(MPI_Initialized, 0xd4498369u, 1u, plumed_mpiw_MPI_Initialized),
@@ -2611,5 +2815,6 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 #undef PLUMED_MPIW_VALUE
 #undef PLUMED_MPIW_ENTRY
 static inline const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
+  plumed_mpiw_verify_typed_functions();
   return &plumed_mpiw_descriptor;
 }
