@@ -1,8 +1,8 @@
 #include <thread_mpi_tmpi.h>
 
-#include "../../mpiwrap/mpiwrap.h"
-#include "../../mpiwrap/provider-registry.hpp"
-#include "../../mpiwrap/provider-abi.h"
+#include "mpiwrap.h"
+#include "provider-registry.hpp"
+#include "provider-abi.h"
 
 #include <atomic>
 #include <cstdlib>
