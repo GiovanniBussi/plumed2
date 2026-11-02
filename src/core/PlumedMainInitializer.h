@@ -70,7 +70,7 @@ typedef struct {
   int (*install_mpi_provider)(const void*descriptor,
                               int (*report)(void*,int,const char*,const char*),
                               void*context,void*provider_library);
-  /* Available with version>=6. Launches the embedded thread-MPI runtime. */
+  /* Available with version>=5. Launches the embedded thread-MPI runtime. */
   int (*launch_internal_threads)(int, int (*)(int,const void*,std::size_t,void*), void*, int*,
                                  int (*)(void*,int,const char*,const char*), void*);
 } plumed_symbol_table_type_x;

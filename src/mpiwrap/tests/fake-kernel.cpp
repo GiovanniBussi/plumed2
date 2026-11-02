@@ -1,5 +1,6 @@
 #include <dlfcn.h>
 #include <cstdlib>
+#include <cstddef>
 
 struct Functions {
   void *(*create)();
@@ -16,6 +17,8 @@ struct SymbolTable {
   unsigned (*delete_reference)(void *);
   unsigned (*use_count)(void *);
   int (*install_mpi_provider)(const void *,int (*)(void *,int,const char *,const char *),void *,void *);
+  int (*launch_internal_threads)(int,int (*)(int,const void *,std::size_t,void *),void *,int *,
+                                 int (*)(void *,int,const char *,const char *),void *);
 };
 
 namespace {
@@ -47,12 +50,20 @@ extern "C" int plumed_test_install(const void *descriptor,
   provider_library=library;
   return 0;
 }
+extern "C" int plumed_test_launch(int,int (*)(int,const void *,std::size_t,void *),
+                                  void *,int *result,
+                                  int (*)(void *,int,const char *,const char *),void *) {
+  if(result) {
+    *result=0;
+  }
+  return 0;
+}
 extern "C" SymbolTable plumed_symbol_table= {
   5,
   {plumed_test_create,plumed_test_cmd,plumed_test_finalize},
   nullptr,nullptr,nullptr,plumed_test_create_reference,
   plumed_test_delete_reference,plumed_test_use_count,
-  plumed_test_install
+  plumed_test_install,plumed_test_launch
 };
 __attribute__((destructor)) static void release_provider() {
   if(provider_library) {

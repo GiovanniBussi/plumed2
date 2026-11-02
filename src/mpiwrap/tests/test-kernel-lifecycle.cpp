@@ -26,6 +26,10 @@ bool exists(const char *path) {
   std::ifstream input(path);
   return input.good();
 }
+
+int unusedRankCallback(int,const void *,std::size_t,void *) {
+  return 0;
+}
 }
 
 int main(int argc,char **argv) {
@@ -46,6 +50,12 @@ int main(int argc,char **argv) {
                               &reportError,nullptr)!=PLUMED_KERNEL_OK) {
     plumed_kernel_release(kernel);
     return 4;
+  }
+  int launch_result=-1;
+  if(plumed_kernel_launch_internal_threads(kernel,1,&unusedRankCallback,nullptr,
+      &launch_result,&reportError,nullptr)!=PLUMED_KERNEL_OK || launch_result!=0) {
+    plumed_kernel_release(kernel);
+    return 13;
   }
   plumed object=plumed_create_invalid();
   if(plumed_kernel_create(kernel,&object,&reportError,nullptr)!=PLUMED_KERNEL_OK ||
