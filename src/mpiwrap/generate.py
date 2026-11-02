@@ -127,8 +127,12 @@ def render_header(functions, types, constants):
         lines += [f"inline {native} mpiwrap_import_{suffix}({native} value) {{ return value; }}",
                   f"inline {native} mpiwrap_export_{suffix}({native} value) {{ return value; }}"]
     lines += ["} // namespace PLMD", "#else", '#include "provider-abi.h"',
-              "#include <cstddef>", "#include <cstdint>", "#include <type_traits>",
+              '#include "mpiwrap-pointers.h"',
+              "#include <cstddef>", "#include <cstdint>", "#include <cstring>",
+              "#include <stdexcept>", "#include <string>", "#include <type_traits>",
+              "#include <vector>",
               'static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");',
+              'static_assert(std::is_same<int, std::int32_t>::value, "MPI integer arrays require int32_t to be native int");',
               "using MPI_Fint = std::int32_t;",
               "namespace PLMD {"]
     for native in HANDLES:
@@ -162,6 +166,10 @@ def render_header(functions, types, constants):
         "MPI_Comm mpiwrap_Comm_from_native(const void *native);",
         "bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);",
         "bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);",
+        "void mpiwrap_ensure_provider_selected();",
+        "[[noreturn]] void mpiwrap_unavailable(const char *name);",
+        "plumed_mpiw_status mpiwrap_status_to_transport(const MPI_Status &status);",
+        "void mpiwrap_status_from_transport(const plumed_mpiw_status &value, MPI_Status *status);",
         "using MPI_User_function = void(void *, void *, int *, MPI_Datatype *);",
         "using MPI_Comm_errhandler_function = void(MPI_Comm *, int *, ...);",
     ]
@@ -187,6 +195,17 @@ def render_header(functions, types, constants):
         wrapper_name = function_wrapper_name(name)
         lines.append(f"{wrapper_type(result)} {wrapper_name}({', '.join(rendered)});")
         lines.append(f"bool mpiwrap_has_{name.removeprefix('MPI_')}();")
+    lines += ["// Inline helper bodies and provider dispatch follow all declarations.",
+              "inline plumed_mpiw_status mpiwrap_status_to_transport(const MPI_Status &status) {",
+              "  plumed_mpiw_status value{};",
+              "  value.source = status.MPI_SOURCE; value.tag = status.MPI_TAG; value.error = status.MPI_ERROR;",
+              "  value.raw_size = status.raw_size; std::memcpy(value.raw, status.raw, sizeof(value.raw));",
+              "  return value;", "}",
+              "inline void mpiwrap_status_from_transport(const plumed_mpiw_status &value, MPI_Status *status) {",
+              "  status->MPI_SOURCE = value.source; status->MPI_TAG = value.tag; status->MPI_ERROR = value.error;",
+              "  status->raw_size = value.raw_size; std::memcpy(status->raw, value.raw, sizeof(status->raw));",
+              "}"]
+    lines += render_provider_inline_functions(functions)
     lines += ["} // namespace PLMD", "#if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)"]
     for function in functions:
         name = parse_signature(function["signature"])[1]
@@ -204,6 +223,148 @@ def name_argument(declaration):
     if not match:
         raise ValueError(f"cannot identify argument name in {declaration!r}")
     return match.group(1)
+
+
+def _provider_frontend_supported(function):
+    name = function["name"]
+    if name in {"MPI_Init", "MPI_Finalize", "MPI_Pcontrol"}:
+        return False
+    if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
+        return False
+    allowed = {"scalar_value", "opaque_handle_value", "scalar_ref", "handle_ref",
+               "buffer", "char_buffer", "pointer_storage", "status",
+               "array", "integer_array"}
+    for argument in function["arguments"]:
+        conversion = argument["conversion"]
+        if conversion not in allowed:
+            return False
+        if conversion in {"array", "integer_array"} and not re.search(
+                r"\bint\b", argument["c_type"]):
+            return False
+        if conversion == "scalar_ref" and not re.search(
+                r"\b(?:int|MPI_Fint)\b", argument["c_type"]):
+            return False
+    return True
+
+
+def _frontend_status_guard(function, argument, metadata):
+    valid = metadata.get("valid_on_return", "")
+    error_codes = metadata.get("valid_on_error_codes", [])
+    error_codes = list(error_codes)
+    if "MPI_ERR_IN_STATUS" in valid and "MPI_ERR_IN_STATUS" not in error_codes:
+        error_codes.append("MPI_ERR_IN_STATUS")
+    return_codes = ["native_return_value == 0"]
+    return_codes.extend(
+        f"native_return_value == mpiwrap_{code.removeprefix('MPI_')}()"
+        for code in error_codes)
+    conditions = [return_codes[0] if len(return_codes) == 1 else
+                  "(" + " || ".join(return_codes) + ")"]
+    if argument["name"] == "status" and function["name"] == "MPI_Testany":
+        conditions.append("native_flag != 0")
+        conditions.append("native_indx != mpiwrap_UNDEFINED()")
+    elif "flag != 0" in valid:
+        conditions.append("native_flag != 0")
+    elif "indx != MPI_UNDEFINED" in valid:
+        conditions.append("native_indx != mpiwrap_UNDEFINED()")
+    return " && ".join(conditions)
+
+
+def render_provider_inline_functions(functions):
+    lines = []
+    for function in functions:
+        result, name, raw_args = parse_signature(function["signature"])
+        suffix = name.removeprefix("MPI_")
+        metadata = {argument["name"]: argument for argument in function["arguments"]}
+        arguments = []
+        call_args = []
+        before = []
+        after = []
+        supported = _provider_frontend_supported(function)
+        for raw in raw_args:
+            if raw == "...":
+                arguments.append("...")
+                supported = False
+                continue
+            argname = name_argument(raw)
+            argument = metadata[argname]
+            ctype = argument["c_type"].strip()
+            conversion = argument["conversion"]
+            arguments.append(wrapper_type(raw))
+            if not supported:
+                continue
+            if conversion == "scalar_value":
+                call_args.append(argname)
+            elif conversion == "opaque_handle_value":
+                call_args.append(f"{argname}.storage")
+            elif conversion in {"buffer", "char_buffer", "pointer_storage"}:
+                call_args.append(argname)
+            elif conversion in {"array", "integer_array"}:
+                call_args.append(argname)
+            elif conversion == "scalar_ref":
+                native = f"native_{argname}"
+                before.append(f"  if (!{argname}) throw std::invalid_argument(\"{name} requires {argname}\");")
+                before.append(f"  std::int32_t {native} = 0;")
+                if argument["direction"] in {"in", "inout"}:
+                    before.append(f"  {native} = static_cast<std::int32_t>(*{argname});")
+                call_args.append(f"&{native}")
+                guard = _frontend_status_guard(function, argument, argument)
+                after.append(f"  if ({guard}) *{argname} = static_cast<int>({native});")
+            elif conversion == "handle_ref":
+                native = f"native_{argname}"
+                before.append(f"  if (!{argname}) throw std::invalid_argument(\"{name} requires {argname}\");")
+                before.append(f"  plumed_mpiw_handle_storage {native}{{}};")
+                if argument["direction"] in {"in", "inout"}:
+                    before.append(f"  {native} = {argname}->storage;")
+                call_args.append(f"&{native}")
+                guard = _frontend_status_guard(function, argument, argument)
+                after.append(f"  if ({guard}) {argname}->storage = {native};")
+            elif conversion == "status":
+                native = f"native_{argname}"
+                before.append(f"  plumed_mpiw_status {native}{{}};")
+                if argument["direction"] == "in":
+                    before.append(f"  if (!{argname}) throw std::invalid_argument(\"{name} requires {argname}\");")
+                    before.append(f"  {native} = mpiwrap_status_to_transport(*{argname});")
+                    call_args.append(f"&{native}")
+                else:
+                    call_args.append(f"{argname} ? &{native} : nullptr")
+                    guard = _frontend_status_guard(function, argument, argument)
+                    after.append(f"  if ({guard} && {argname}) mpiwrap_status_from_transport({native}, {argname});")
+            else:
+                supported = False
+        signature = f"inline {wrapper_type(result)} mpiwrap_{suffix}({', '.join(arguments)}) {{"
+        has_signature = f"inline bool mpiwrap_has_{suffix}() {{"
+        if not supported:
+            lines += [signature, f'  mpiwrap_ensure_provider_selected();',
+                      f'  mpiwrap_unavailable("{name}");', "}",
+                      has_signature, "  return false;", "}"]
+            continue
+        lines.append(signature)
+        if name == "MPI_Initialized":
+            lines += ["  if (!pointers::ready.load(std::memory_order_acquire)) {",
+                      "    if (!flag) throw std::invalid_argument(\"MPI_Initialized requires flag\");",
+                      "    *flag = 0;",
+                      "    return 0;",
+                      "  }"]
+        else:
+            lines.append("  mpiwrap_ensure_provider_selected();")
+        lines += before
+        lines.append(f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");")
+        call = f"pointers::{suffix}({', '.join(call_args)})"
+        if result == "void":
+            lines += [f"  {call};", *after, "  return;", "}"]
+        elif result in HANDLES:
+            lines += [f"  plumed_mpiw_handle_storage native_return_value = {call};",
+                      *after, f"  {result} value{{}};", "  value.storage = native_return_value;",
+                      "  return value;", "}"]
+        else:
+            lines += [f"  {provider_result(result)} native_return_value = {call};",
+                      *after, "  return static_cast<" + wrapper_type(result) + ">(native_return_value);", "}"]
+        lines += [has_signature,
+                  (f"  mpiwrap_ensure_provider_selected(); return pointers::{suffix} != nullptr;"
+                   if name != "MPI_Initialized" else
+                   f"  return pointers::ready.load(std::memory_order_acquire) && pointers::{suffix} != nullptr;"),
+                  "}"]
+    return lines
 
 
 
@@ -269,7 +430,20 @@ def render_pointers(functions, constants):
         "#ifndef PLUMED_MPIWRAP_GENERATED_POINTERS_H",
         "#define PLUMED_MPIWRAP_GENERATED_POINTERS_H",
         '#include "provider-callbacks.h"',
+        "#include <atomic>",
         "#include <cstdint>",
+        "namespace PLMD { namespace pointers {",
+        "extern std::atomic<bool> ready;",
+    ]
+    for function in functions:
+        if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
+            continue
+        name = parse_signature(function["signature"])[1]
+        lines.append(f"extern plumed_mpiw_{name}_fn {name.removeprefix('MPI_')};")
+    for constant in constants:
+        name = constant["standard_api_name"]
+        lines.append(f"extern plumed_mpiw_constant_accessor_fn constant_{name.removeprefix('MPI_')};")
+    lines += ["} } // namespace PLMD::pointers",
         "namespace PLMD { namespace mpiwrap_provider {",
         "struct ProviderBindings {",
     ]
@@ -280,18 +454,35 @@ def render_pointers(functions, constants):
         wrapper = function_wrapper_name(name)
         lines += [f"  using {name}_fn = plumed_mpiw_{name}_fn;",
                   f"  {name}_fn {name}_pointer = nullptr;"]
+    lines += ["};", "} } // namespace PLMD::mpiwrap_provider", "#endif"]
+    return "\n".join(lines) + "\n"
+
+
+def render_provider_pointer_definitions(functions, constants):
+    lines = ["// Generated by generate.py; provider pointers are kernel-local.",
+             "namespace PLMD { namespace pointers {", "std::atomic<bool> ready{false};"]
+    for function in functions:
+        if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
+            continue
+        name = parse_signature(function["signature"])[1]
+        lines.append(f"plumed_mpiw_{name}_fn {name.removeprefix('MPI_')} = nullptr;")
     for constant in constants:
         name = constant["standard_api_name"]
-        category = constant["class"]
-        if category == "provider_handle":
-            callback = "std::int32_t (*)(plumed_mpiw_handle_storage *)"
-        elif category in {"provider_integer", "compile_time_integer"}:
-            callback = "std::int32_t (*)(std::int32_t *)"
-        else:
-            callback = "void *(*)()"
-        lines += [f"  using value_{name}_fn = {callback};",
-                  f"  value_{name}_fn value_{name}_pointer = nullptr;"]
-    lines += ["};", "} } // namespace PLMD::mpiwrap_provider", "#endif"]
+        lines.append(f"plumed_mpiw_constant_accessor_fn constant_{name.removeprefix('MPI_')} = nullptr;")
+    lines += ["} } // namespace PLMD::pointers"]
+    return "\n".join(lines) + "\n"
+
+
+def render_provider_pointer_publish(functions, constants):
+    lines = ["// Generated pointer table publication rows."]
+    for function in functions:
+        if function.get("provider_routes", {}).get("injected_real_mpi", {}).get("status") == "unavailable":
+            continue
+        name = parse_signature(function["signature"])[1]
+        lines.append(f"PLUMED_MPIW_PROVIDER_POINTER({name}, {name.removeprefix('MPI_')})")
+    for constant in constants:
+        name = constant["standard_api_name"]
+        lines.append(f"PLUMED_MPIW_PROVIDER_VALUE({name}, constant_{name.removeprefix('MPI_')})")
     return "\n".join(lines) + "\n"
 
 
@@ -396,9 +587,12 @@ def render_provider_constants(constants):
         if category == "provider_handle":
             macro = "HANDLE"
             selection = ""
-        elif category in {"provider_integer", "compile_time_integer"}:
+        elif category == "provider_integer":
             macro = "INTEGER"
-            selection = ", false" if category == "compile_time_integer" else ", true"
+            selection = ""
+        elif category == "compile_time_integer":
+            macro = "COMPILE_TIME_INTEGER"
+            selection = ""
         elif category in {"buffer_sentinel", "status_sentinel"}:
             macro = "POINTER"
             selection = ""
@@ -448,21 +642,7 @@ def render_thread_mpi_constants(constants):
 
 
 def render_provider_unavailable(functions):
-    lines = ["// Generated provider definitions for calls without a runtime dispatch."]
-    for function in functions:
-        name = function["name"]
-        if name in PROVIDER_FRONTEND_IMPLEMENTED:
-            continue
-        result, _, args = parse_signature(function["signature"])
-        rendered = [wrapper_type(arg) for arg in args]
-        wrapper_name = function_wrapper_name(name)
-        lines.append(f"{wrapper_type(result)} {wrapper_name}({', '.join(rendered)}) {{")
-        lines.append(
-            f'  throw std::runtime_error(std::string("MPI function unavailable: {name} (provider ") + '
-            'mpiwrap_provider::currentRegistry().providerName() + ")");')
-        lines.append("}")
-        lines.append(f"bool mpiwrap_has_{name.removeprefix('MPI_')}() {{ return false; }}")
-    return "\n".join(lines) + "\n"
+    return "// All provider function definitions are generated inline in mpiwrap.h.\n"
 
 
 
@@ -983,6 +1163,8 @@ def generate(output, write=True):
     files = {
         "mpiwrap.h": render_header(functions, types_doc["types"], constants),
         "mpiwrap-pointers.h": render_pointers(functions, constants),
+        "provider-pointer-definitions.inc": render_provider_pointer_definitions(functions, constants),
+        "provider-pointer-publish.inc": render_provider_pointer_publish(functions, constants),
         "callback-bridges.h": render_callback_bridges(),
         "provider-abi.h": abi,
         "provider-callbacks.h": render_provider_callbacks(functions),
