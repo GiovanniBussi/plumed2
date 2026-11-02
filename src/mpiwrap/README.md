@@ -72,7 +72,7 @@ C++ users can use the PLMD::Kernel RAII convenience API.
 
 Use `plumed makempi --compiler /absolute/path/to/mpicc --out provider.so`
 (or an MPI C++ compiler driver) to build the shared native adapter. The command
-explicitly selects C++17 even with a C driver and does not link a PLUMED kernel.
+explicitly selects C++98 even with a C driver and does not link a PLUMED kernel.
 Use a `.dylib` output name on macOS. Pass each additional compiler or linker
 argument separately with repeated `--cflag ARG` or `--ldflag ARG` options;
 arguments are never shell-evaluated. The selected compiler must support C++.
@@ -82,7 +82,15 @@ the original source checkout. Failed builds preserve an existing output.
 Load the result into an opened kernel with `plumed_kernel_load_mpi_wrapper`
 or `PLMD::Kernel::loadMPIWrapper` before creating objects. Building a provider
 does not initialize MPI: the host remains responsible for its MPI lifecycle.
-Automatic compilation from `PLUMED_MPI_WRAPPER` is still pending.
+Alternatively, set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
+or an absolute executable MPI compiler path. Explicit pre-creation injection
+takes precedence; otherwise the environment selection precedes the internal
+provider. A loadable library must expose the provider factory. A non-loadable
+executable compiler invokes the same `makempi` command in a private temporary
+directory, with compiler diagnostics inherited by the process. Files with
+shared-library suffixes are never executed as compiler commands. The kernel
+retains the loaded provider library; temporary build files are removed after
+loading. This selection does not initialize the host MPI runtime.
 
 ## Generated interface and runtime files
 
@@ -117,14 +125,10 @@ MPI_Pcontrol remains direct in native mode and unavailable through provider
 forwarding. Custom tMPI error handlers remain excluded as specified by the
 stable provider surface.
 
-The native adapter currently publishes 101 of the 118 retained function
-entries and all 80 constants. The omitted entries are MPI_Init/Finalize
+The native adapter currently publishes 113 of the 118 retained function
+entries and all 81 constants. The omitted entries are MPI_Init/Finalize
 (lifecycle-owned), MPI_Pcontrol (variadic), MPI_Comm_create_errhandler and
-MPI_Op_create (callback bridges), and MPI_Gatherv, MPI_Scatterv,
-MPI_Alltoallv, MPI_Reduce_scatter, MPI_Graph_create, MPI_Graph_get,
-MPI_Cart_get, MPI_Cart_rank, MPI_Cart_coords, MPI_Graph_neighbors,
-MPI_Cart_sub, and MPI_Graph_map (array extents or output lengths need explicit
-conversion metadata).
+MPI_Op_create (callback bridges).
 Their frontend declarations remain available and their inquiries report the
 missing provider capability. The mock-native probes compile against real
 provider headers and exercise call-through without initializing MPI; they are
@@ -134,6 +138,12 @@ socket permissions, so those semantics still need verification outside that
 environment. The pinned thread-MPI source has a one-rank
 out-of-place Allreduce defect; the wrapper handles its size-one identity case
 without relying on that defective operation.
+
+The internal adapter currently advertises 23 entries: 18 direct routes and five
+routes with fixes or emulation (Allreduce, Allgather, Allgatherv, Waitsome,
+Testsome). Upstream Waitsome/Testsome index and status packing is bypassed
+through Waitany/Testany. Testall remains unavailable because the pinned upstream
+implementation modifies requests when its completion flag is false.
 
 ## Verification
 

@@ -4,6 +4,7 @@
 
 #include "provider-abi.h"
 #include <thread_mpi_tmpi.h>
+#include "provider-loader.cpp.inc"
 
 #include <cstdio>
 #include <cstddef>
@@ -129,12 +130,17 @@ void ensureProviderSelected() {
   }
 
   try {
-    const plumed_mpiw_provider_descriptor *descriptor =
-      plumed_mpiw_thread_mpi_provider();
-    std::string error;
-    if (!registry.install(descriptor, error) && !registry.installed()) {
-      throw std::runtime_error(error.empty() ?
-                               "could not select the default MPI provider" : error);
+    const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
+    if (selected && selected[0]) {
+      installEnvironmentProvider(registry, selected);
+    } else {
+      const plumed_mpiw_provider_descriptor *descriptor =
+        plumed_mpiw_thread_mpi_provider();
+      std::string error;
+      if (!registry.install(descriptor, error) && !registry.installed()) {
+        throw std::runtime_error(error.empty() ?
+                                 "could not select the default MPI provider" : error);
+      }
     }
   } catch (...) {
     std::lock_guard<std::mutex> lock(selection_mutex);

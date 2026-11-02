@@ -38,7 +38,7 @@ bash "$ROOT/scripts/makempi.sh" --compiler "$TASK_DIR/compiler dir/mpicc" \
 if [[ $(cat "$output") != 'new provider' ]]; then
   echo 'makempi did not publish the provider' >&2; exit 1
 fi
-for expected in "$literal_flag" '-L/path with spaces' '-std=c++17' \
+for expected in "$literal_flag" '-L/path with spaces' '-std=c++98' \
   "$PLUMED_ROOT/src/mpiwrap/mpiwrap_implementation.cpp"; do
   if ! grep -Fx -- "$expected" "$ARGUMENT_LOG" >/dev/null; then
     echo "makempi changed argument: $expected" >&2; exit 1
