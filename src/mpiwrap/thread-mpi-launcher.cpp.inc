@@ -2,7 +2,7 @@
 #include "thread-mpi-launcher.hpp"
 #include "provider-registry.hpp"
 
-#include "../generated/provider-abi.h"
+#include "provider-abi.h"
 #include <thread_mpi/tmpi.h>
 
 #include <cstdio>

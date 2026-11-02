@@ -27,7 +27,7 @@
 #include "tools/PlumedHandle.h"
 #include "tools/Communicator.h"
 #if defined(__PLUMED_MPIWRAP)
-#include "../mpiwrap/runtime/provider-registry.hpp"
+#include "../mpiwrap/provider-registry.hpp"
 #endif
 #include "core/PlumedMain.h"
 #include <cstring>

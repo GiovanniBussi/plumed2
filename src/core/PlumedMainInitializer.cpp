@@ -24,8 +24,8 @@
 #include "tools/Exception.h"
 #include "lepton/Exception.h"
 #if defined(__PLUMED_MPIWRAP)
-#include "../mpiwrap/runtime/provider-registry.hpp"
-#include "../mpiwrap/runtime/thread-mpi-launcher.hpp"
+#include "../mpiwrap/provider-registry.hpp"
+#include "../mpiwrap/thread-mpi-launcher.hpp"
 #endif
 #include <cstdlib>
 #include <cstring>

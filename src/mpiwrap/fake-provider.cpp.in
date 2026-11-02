@@ -1,4 +1,4 @@
-#include "../generated/provider-abi.h"
+#include "provider-abi.h"
 
 #include <cstdlib>
 #include <fstream>

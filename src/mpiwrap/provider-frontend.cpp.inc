@@ -1,5 +1,5 @@
 // Provider-mode call-through for the first communication slice.
-#include "../generated/mpiwrap.h"
+#include "mpiwrap.h"
 #include "provider-registry.hpp"
 
 #include <cstring>
@@ -73,7 +73,7 @@ void copyStatus(const plumed_mpiw_status &status, MPI_Status *result) {
     } \
     return value; \
   }
-#include "../generated/provider-constant-functions.inc"
+#include "provider-constant-functions.inc"
 #undef PLUMED_MPIW_PROVIDER_POINTER
 #undef PLUMED_MPIW_PROVIDER_INTEGER
 #undef PLUMED_MPIW_PROVIDER_HANDLE
@@ -445,6 +445,6 @@ bool mpiwrap_has_Allgatherv() {
   return mpiwrap_provider::currentRegistry().bindings().MPI_Allgatherv_pointer != nullptr;
 }
 
-#include "../generated/provider-unavailable-functions.inc"
+#include "provider-unavailable-functions.inc"
 
 } // namespace PLMD

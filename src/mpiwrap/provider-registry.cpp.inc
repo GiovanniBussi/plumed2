@@ -1,6 +1,6 @@
 // Runtime validation and typed lookup for one installed MPI provider.
 #include "provider-registry.hpp"
-#include "../generated/mpiwrap.h"
+#include "mpiwrap.h"
 
 #include <cstddef>
 #include <cstring>
@@ -22,7 +22,7 @@ struct Signature {
 
 #define PLUMED_MPIW_NATIVE_FUNCTION(name, id, version) {#name, id, version},
 const Signature signatures[] = {
-#include "../generated/native-adapter-entries.inc"
+#include "native-adapter-entries.inc"
 };
 #undef PLUMED_MPIW_NATIVE_FUNCTION
 
@@ -209,7 +209,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
   if (std::strcmp(entry.name, #func) == 0) { \
     bindings.func##_pointer = reinterpret_cast<ProviderBindings::func##_fn>(entry.function); \
     }
-#include "../generated/native-adapter-entries.inc"
+#include "native-adapter-entries.inc"
 #undef PLUMED_MPIW_NATIVE_FUNCTION
   }
 
@@ -229,7 +229,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
       bool known = false;
 #define PLUMED_MPIW_PROVIDER_CONSTANT(constant_name) \
       if (std::strcmp(name, #constant_name) == 0) known = true;
-#include "../generated/provider-constant-names.inc"
+#include "provider-constant-names.inc"
 #undef PLUMED_MPIW_PROVIDER_CONSTANT
       if (!known) {
         if ((entry.flags & PLUMED_MPIW_METADATA_REQUIRED) != 0) {

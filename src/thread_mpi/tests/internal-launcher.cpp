@@ -1,7 +1,7 @@
 #include "../include/thread_mpi/tmpi.h"
-#include "../../mpiwrap/runtime/thread-mpi-launcher.hpp"
-#include "../../mpiwrap/runtime/provider-registry.hpp"
-#include "../../mpiwrap/generated/mpiwrap.h"
+#include "../../mpiwrap/thread-mpi-launcher.hpp"
+#include "../../mpiwrap/provider-registry.hpp"
+#include "../../mpiwrap/mpiwrap.h"
 
 #include <cstdlib>
 #include <cstring>
