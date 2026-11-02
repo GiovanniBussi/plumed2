@@ -1,13 +1,21 @@
 /* Native process-MPI adapter body. C-compatible implementation. */
 
-#if defined(__cplusplus)
-#define PLUMED_MPIW_STATIC_ASSERT(c, m) static_assert((c), m)
-#else
-#define PLUMED_MPIW_STATIC_ASSERT(c, m) _Static_assert((c), m)
-#endif
+#define PLUMED_MPIW_JOIN_INNER(a, b) a##b
+#define PLUMED_MPIW_JOIN(a, b) PLUMED_MPIW_JOIN_INNER(a, b)
+#define PLUMED_MPIW_STATIC_ASSERT(c, m) \
+  typedef char PLUMED_MPIW_JOIN(plumed_mpiw_static_assert_, __LINE__)[(c) ? 1 : -1]
 
 PLUMED_MPIW_STATIC_ASSERT(sizeof(int) == sizeof(int32_t), "MPI C int transport requires int32_t");
 PLUMED_MPIW_STATIC_ASSERT(((int)-1) < 0, "MPI C int transport requires signed int");
+#if defined(__cplusplus)
+extern "C" {
+#endif
+/* These compatible redeclarations enforce int32_t == int without a helper call. */
+void plumed_mpiw_verify_native_int(int *value);
+void plumed_mpiw_verify_native_int(int32_t *value);
+#if defined(__cplusplus)
+}
+#endif
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Comm), "Comm storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Datatype), "Datatype storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Request), "Request storage too small");

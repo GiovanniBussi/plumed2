@@ -1,13 +1,21 @@
 /* Native process-MPI adapter body. C-compatible implementation. */
 
-#if defined(__cplusplus)
-#define PLUMED_MPIW_STATIC_ASSERT(c, m) static_assert((c), m)
-#else
-#define PLUMED_MPIW_STATIC_ASSERT(c, m) _Static_assert((c), m)
-#endif
+#define PLUMED_MPIW_JOIN_INNER(a, b) a##b
+#define PLUMED_MPIW_JOIN(a, b) PLUMED_MPIW_JOIN_INNER(a, b)
+#define PLUMED_MPIW_STATIC_ASSERT(c, m) \
+  typedef char PLUMED_MPIW_JOIN(plumed_mpiw_static_assert_, __LINE__)[(c) ? 1 : -1]
 
 PLUMED_MPIW_STATIC_ASSERT(sizeof(int) == sizeof(int32_t), "MPI C int transport requires int32_t");
 PLUMED_MPIW_STATIC_ASSERT(((int)-1) < 0, "MPI C int transport requires signed int");
+#if defined(__cplusplus)
+extern "C" {
+#endif
+/* These compatible redeclarations enforce int32_t == int without a helper call. */
+void plumed_mpiw_verify_native_int(int *value);
+void plumed_mpiw_verify_native_int(int32_t *value);
+#if defined(__cplusplus)
+}
+#endif
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Comm), "Comm storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Datatype), "Datatype storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Request), "Request storage too small");
@@ -342,9 +350,8 @@ static int32_t plumed_mpiw_MPI_Ibsend(const void * buf, int32_t count, plumed_mp
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Ibsend((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -364,9 +371,8 @@ static int32_t plumed_mpiw_MPI_Issend(const void * buf, int32_t count, plumed_mp
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Issend((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -386,9 +392,8 @@ static int32_t plumed_mpiw_MPI_Irsend(const void * buf, int32_t count, plumed_mp
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Irsend((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -408,9 +413,8 @@ static int32_t plumed_mpiw_MPI_Irecv(void * buf, int32_t count, plumed_mpiw_hand
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Irecv(buf, native_count, native_datatype, native_source, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -616,7 +620,7 @@ static int32_t plumed_mpiw_MPI_Waitall(int32_t count, plumed_mpiw_handle_storage
       array_of_requests[i] = plumed_mpiw_export_bytes(&native_array_of_requests[i], sizeof(native_array_of_requests[i]));
     }
   free(native_array_of_requests);
-  if (array_of_statuses && native_return_value == MPI_SUCCESS)
+  if (array_of_statuses && (native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS))
     for (int i = 0; i < extent_array_of_statuses; ++i) {
       plumed_mpiw_export_status(&native_array_of_statuses[i], &array_of_statuses[i]);
     }
@@ -702,16 +706,6 @@ static int32_t plumed_mpiw_MPI_Waitsome(int32_t incount, plumed_mpiw_handle_stor
   if (incount < 0) {
     return MPI_ERR_COUNT;
   }
-  int extent_array_of_indices = (int)incount * 1;
-  if (extent_array_of_indices > 0 && !array_of_indices) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_array_of_indices > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (incount < 0) {
-    return MPI_ERR_COUNT;
-  }
   int extent_array_of_statuses = (int)incount * 1;
   if ((size_t)extent_array_of_statuses > SIZE_MAX / sizeof(MPI_Status)) {
     return MPI_ERR_COUNT;
@@ -731,24 +725,15 @@ static int32_t plumed_mpiw_MPI_Waitsome(int32_t incount, plumed_mpiw_handle_stor
   if (!outcount) {
     return MPI_ERR_ARG;
   }
-  int *native_array_of_indices = NULL;
-  if (extent_array_of_indices > 0) {
-    native_array_of_indices = (int *)calloc((size_t)extent_array_of_indices, sizeof(*native_array_of_indices));
-    if (!native_array_of_indices) {
-      free(native_array_of_requests);
-      return MPI_ERR_NO_MEM;
-    }
-  }
   MPI_Status *native_array_of_statuses = NULL;
   if (extent_array_of_statuses > 0 && array_of_statuses) {
     native_array_of_statuses = (MPI_Status *)calloc((size_t)extent_array_of_statuses, sizeof(*native_array_of_statuses));
     if (!native_array_of_statuses) {
       free(native_array_of_requests);
-      free(native_array_of_indices);
       return MPI_ERR_NO_MEM;
     }
   }
-  int native_return_value = MPI_Waitsome(native_incount, native_array_of_requests, &native_outcount, native_array_of_indices, array_of_statuses ? native_array_of_statuses : MPI_STATUSES_IGNORE);
+  int native_return_value = MPI_Waitsome(native_incount, native_array_of_requests, &native_outcount, array_of_indices, array_of_statuses ? native_array_of_statuses : MPI_STATUSES_IGNORE);
   if (1)
     for (int i = 0; i < extent_array_of_requests; ++i) {
       array_of_requests[i] = plumed_mpiw_export_bytes(&native_array_of_requests[i], sizeof(native_array_of_requests[i]));
@@ -757,12 +742,7 @@ static int32_t plumed_mpiw_MPI_Waitsome(int32_t incount, plumed_mpiw_handle_stor
   if ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS)) {
     *outcount = (int32_t)native_outcount;
   }
-  if ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS))
-    for (int i = 0; i < (native_outcount > 0 ? native_outcount : 0); ++i) {
-      array_of_indices[i] = (int32_t)native_array_of_indices[i];
-    }
-  free(native_array_of_indices);
-  if (array_of_statuses && ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS) && native_outcount > 0))
+  if (array_of_statuses && ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS) && native_outcount > 0 && native_outcount != MPI_UNDEFINED))
     for (int i = 0; i < native_outcount; ++i) {
       plumed_mpiw_export_status(&native_array_of_statuses[i], &array_of_statuses[i]);
     }
@@ -787,16 +767,6 @@ static int32_t plumed_mpiw_MPI_Testsome(int32_t incount, plumed_mpiw_handle_stor
   if (incount < 0) {
     return MPI_ERR_COUNT;
   }
-  int extent_array_of_indices = (int)incount * 1;
-  if (extent_array_of_indices > 0 && !array_of_indices) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_array_of_indices > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (incount < 0) {
-    return MPI_ERR_COUNT;
-  }
   int extent_array_of_statuses = (int)incount * 1;
   if ((size_t)extent_array_of_statuses > SIZE_MAX / sizeof(MPI_Status)) {
     return MPI_ERR_COUNT;
@@ -816,24 +786,15 @@ static int32_t plumed_mpiw_MPI_Testsome(int32_t incount, plumed_mpiw_handle_stor
   if (!outcount) {
     return MPI_ERR_ARG;
   }
-  int *native_array_of_indices = NULL;
-  if (extent_array_of_indices > 0) {
-    native_array_of_indices = (int *)calloc((size_t)extent_array_of_indices, sizeof(*native_array_of_indices));
-    if (!native_array_of_indices) {
-      free(native_array_of_requests);
-      return MPI_ERR_NO_MEM;
-    }
-  }
   MPI_Status *native_array_of_statuses = NULL;
   if (extent_array_of_statuses > 0 && array_of_statuses) {
     native_array_of_statuses = (MPI_Status *)calloc((size_t)extent_array_of_statuses, sizeof(*native_array_of_statuses));
     if (!native_array_of_statuses) {
       free(native_array_of_requests);
-      free(native_array_of_indices);
       return MPI_ERR_NO_MEM;
     }
   }
-  int native_return_value = MPI_Testsome(native_incount, native_array_of_requests, &native_outcount, native_array_of_indices, array_of_statuses ? native_array_of_statuses : MPI_STATUSES_IGNORE);
+  int native_return_value = MPI_Testsome(native_incount, native_array_of_requests, &native_outcount, array_of_indices, array_of_statuses ? native_array_of_statuses : MPI_STATUSES_IGNORE);
   if (1)
     for (int i = 0; i < extent_array_of_requests; ++i) {
       array_of_requests[i] = plumed_mpiw_export_bytes(&native_array_of_requests[i], sizeof(native_array_of_requests[i]));
@@ -842,12 +803,7 @@ static int32_t plumed_mpiw_MPI_Testsome(int32_t incount, plumed_mpiw_handle_stor
   if ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS)) {
     *outcount = (int32_t)native_outcount;
   }
-  if ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS))
-    for (int i = 0; i < (native_outcount > 0 ? native_outcount : 0); ++i) {
-      array_of_indices[i] = (int32_t)native_array_of_indices[i];
-    }
-  free(native_array_of_indices);
-  if (array_of_statuses && ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS) && native_outcount > 0))
+  if (array_of_statuses && ((native_return_value == MPI_SUCCESS || native_return_value == MPI_ERR_IN_STATUS) && native_outcount > 0 && native_outcount != MPI_UNDEFINED))
     for (int i = 0; i < native_outcount; ++i) {
       plumed_mpiw_export_status(&native_array_of_statuses[i], &array_of_statuses[i]);
     }
@@ -954,9 +910,8 @@ static int32_t plumed_mpiw_MPI_Send_init(const void * buf, int32_t count, plumed
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Send_init((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -976,9 +931,8 @@ static int32_t plumed_mpiw_MPI_Bsend_init(const void * buf, int32_t count, plume
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Bsend_init((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -998,9 +952,8 @@ static int32_t plumed_mpiw_MPI_Ssend_init(const void * buf, int32_t count, plume
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Ssend_init((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -1020,9 +973,8 @@ static int32_t plumed_mpiw_MPI_Rsend_init(const void * buf, int32_t count, plume
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Rsend_init((void *)buf, native_count, native_datatype, native_dest, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -1042,9 +994,8 @@ static int32_t plumed_mpiw_MPI_Recv_init(void * buf, int32_t count, plumed_mpiw_
   if (!request) {
     return MPI_ERR_ARG;
   }
-  native_request = plumed_mpiw_import_request(*request);
   int native_return_value = MPI_Recv_init(buf, native_count, native_datatype, native_source, native_tag, native_comm, &native_request);
-  if (1) {
+  if (native_return_value == MPI_SUCCESS) {
     *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
   }
   return (int32_t)native_return_value;
@@ -1156,60 +1107,17 @@ static int32_t plumed_mpiw_MPI_Type_vector(int32_t count, int32_t blocklength, i
 }
 
 static int32_t plumed_mpiw_MPI_Type_indexed(int32_t count, const int32_t array_of_blocklengths[], const int32_t array_of_displacements[], plumed_mpiw_handle_storage oldtype, plumed_mpiw_handle_storage * newtype) {
-  if (count < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_array_of_blocklengths = (int)count * 1;
-  if (extent_array_of_blocklengths > 0 && !array_of_blocklengths) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_array_of_blocklengths > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (count < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_array_of_displacements = (int)count * 1;
-  if (extent_array_of_displacements > 0 && !array_of_displacements) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_array_of_displacements > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newtype) {
     return MPI_ERR_ARG;
   }
   int native_count = (int)count;
-  int *native_array_of_blocklengths = NULL;
-  if (extent_array_of_blocklengths > 0) {
-    native_array_of_blocklengths = (int *)malloc(sizeof(*native_array_of_blocklengths) * (size_t)extent_array_of_blocklengths);
-    if (!native_array_of_blocklengths) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_array_of_blocklengths; ++i) {
-    native_array_of_blocklengths[i] = (int)array_of_blocklengths[i];
-  }
-  int *native_array_of_displacements = NULL;
-  if (extent_array_of_displacements > 0) {
-    native_array_of_displacements = (int *)malloc(sizeof(*native_array_of_displacements) * (size_t)extent_array_of_displacements);
-    if (!native_array_of_displacements) {
-      free(native_array_of_blocklengths);
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_array_of_displacements; ++i) {
-    native_array_of_displacements[i] = (int)array_of_displacements[i];
-  }
   MPI_Datatype native_oldtype = plumed_mpiw_import_datatype(oldtype);
   MPI_Datatype native_newtype;
   memset(&native_newtype, 0, sizeof(native_newtype));
   if (!newtype) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Type_indexed(native_count, native_array_of_blocklengths, native_array_of_displacements, native_oldtype, &native_newtype);
-  free(native_array_of_blocklengths);
-  free(native_array_of_displacements);
+  int native_return_value = MPI_Type_indexed(native_count, array_of_blocklengths, array_of_displacements, native_oldtype, &native_newtype);
   if (native_return_value == MPI_SUCCESS) {
     *newtype = plumed_mpiw_export_bytes(&native_newtype, sizeof(native_newtype));
   }
@@ -1349,6 +1257,26 @@ static int32_t plumed_mpiw_MPI_Pack_size(int32_t incount, plumed_mpiw_handle_sto
   return (int32_t)native_return_value;
 }
 
+static int32_t plumed_mpiw_MPI_Gatherv(const void * sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void * recvbuf, const int32_t recvcounts[], const int32_t displs[], plumed_mpiw_handle_storage recvtype, int32_t root, plumed_mpiw_handle_storage comm) {
+  int native_sendcount = (int)sendcount;
+  MPI_Datatype native_sendtype = plumed_mpiw_import_datatype(sendtype);
+  MPI_Datatype native_recvtype = plumed_mpiw_import_datatype(recvtype);
+  int native_root = (int)root;
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_return_value = MPI_Gatherv((void *)sendbuf, native_sendcount, native_sendtype, recvbuf, recvcounts, displs, native_recvtype, native_root, native_comm);
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Scatterv(const void * sendbuf, const int32_t sendcounts[], const int32_t displs[], plumed_mpiw_handle_storage sendtype, void * recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, int32_t root, plumed_mpiw_handle_storage comm) {
+  MPI_Datatype native_sendtype = plumed_mpiw_import_datatype(sendtype);
+  int native_recvcount = (int)recvcount;
+  MPI_Datatype native_recvtype = plumed_mpiw_import_datatype(recvtype);
+  int native_root = (int)root;
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_return_value = MPI_Scatterv((void *)sendbuf, sendcounts, displs, native_sendtype, recvbuf, native_recvcount, native_recvtype, native_root, native_comm);
+  return (int32_t)native_return_value;
+}
+
 static int32_t plumed_mpiw_MPI_Alltoall(const void * sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void * recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm) {
   int native_sendcount = (int)sendcount;
   MPI_Datatype native_sendtype = plumed_mpiw_import_datatype(sendtype);
@@ -1356,6 +1284,14 @@ static int32_t plumed_mpiw_MPI_Alltoall(const void * sendbuf, int32_t sendcount,
   MPI_Datatype native_recvtype = plumed_mpiw_import_datatype(recvtype);
   MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
   int native_return_value = MPI_Alltoall((void *)sendbuf, native_sendcount, native_sendtype, recvbuf, native_recvcount, native_recvtype, native_comm);
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Alltoallv(const void * sendbuf, const int32_t sendcounts[], const int32_t sdispls[], plumed_mpiw_handle_storage sendtype, void * recvbuf, const int32_t recvcounts[], const int32_t rdispls[], plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm) {
+  MPI_Datatype native_sendtype = plumed_mpiw_import_datatype(sendtype);
+  MPI_Datatype native_recvtype = plumed_mpiw_import_datatype(recvtype);
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_return_value = MPI_Alltoallv((void *)sendbuf, sendcounts, sdispls, native_sendtype, recvbuf, recvcounts, rdispls, native_recvtype, native_comm);
   return (int32_t)native_return_value;
 }
 
@@ -1383,6 +1319,14 @@ static int32_t plumed_mpiw_MPI_Op_free(plumed_mpiw_handle_storage * op) {
   if (1) {
     *op = plumed_mpiw_export_bytes(&native_op, sizeof(native_op));
   }
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Reduce_scatter(const void * sendbuf, void * recvbuf, const int32_t recvcounts[], plumed_mpiw_handle_storage datatype, plumed_mpiw_handle_storage op, plumed_mpiw_handle_storage comm) {
+  MPI_Datatype native_datatype = plumed_mpiw_import_datatype(datatype);
+  MPI_Op native_op = plumed_mpiw_import_op(op);
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_return_value = MPI_Reduce_scatter((void *)sendbuf, recvbuf, recvcounts, native_datatype, native_op, native_comm);
   return (int32_t)native_return_value;
 }
 
@@ -1428,54 +1372,10 @@ static int32_t plumed_mpiw_MPI_Group_rank(plumed_mpiw_handle_storage group, int3
 }
 
 static int32_t plumed_mpiw_MPI_Group_translate_ranks(plumed_mpiw_handle_storage group1, int32_t n, const int32_t ranks1[], plumed_mpiw_handle_storage group2, int32_t ranks2[]) {
-  if (n < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranks1 = (int)n * 1;
-  if (extent_ranks1 > 0 && !ranks1) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranks1 > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (n < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranks2 = (int)n * 1;
-  if (extent_ranks2 > 0 && !ranks2) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranks2 > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   MPI_Group native_group1 = plumed_mpiw_import_group(group1);
   int native_n = (int)n;
-  int *native_ranks1 = NULL;
-  if (extent_ranks1 > 0) {
-    native_ranks1 = (int *)malloc(sizeof(*native_ranks1) * (size_t)extent_ranks1);
-    if (!native_ranks1) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_ranks1; ++i) {
-    native_ranks1[i] = (int)ranks1[i];
-  }
   MPI_Group native_group2 = plumed_mpiw_import_group(group2);
-  int *native_ranks2 = NULL;
-  if (extent_ranks2 > 0) {
-    native_ranks2 = (int *)calloc((size_t)extent_ranks2, sizeof(*native_ranks2));
-    if (!native_ranks2) {
-      free(native_ranks1);
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  int native_return_value = MPI_Group_translate_ranks(native_group1, native_n, native_ranks1, native_group2, native_ranks2);
-  free(native_ranks1);
-  if (native_return_value == MPI_SUCCESS)
-    for (int i = 0; i < extent_ranks2; ++i) {
-      ranks2[i] = (int32_t)native_ranks2[i];
-    }
-  free(native_ranks2);
+  int native_return_value = MPI_Group_translate_ranks(native_group1, native_n, ranks1, native_group2, ranks2);
   return (int32_t)native_return_value;
 }
 
@@ -1568,38 +1468,17 @@ static int32_t plumed_mpiw_MPI_Group_difference(plumed_mpiw_handle_storage group
 }
 
 static int32_t plumed_mpiw_MPI_Group_incl(plumed_mpiw_handle_storage group, int32_t n, const int32_t ranks[], plumed_mpiw_handle_storage * newgroup) {
-  if (n < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranks = (int)n * 1;
-  if (extent_ranks > 0 && !ranks) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranks > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
   MPI_Group native_group = plumed_mpiw_import_group(group);
   int native_n = (int)n;
-  int *native_ranks = NULL;
-  if (extent_ranks > 0) {
-    native_ranks = (int *)malloc(sizeof(*native_ranks) * (size_t)extent_ranks);
-    if (!native_ranks) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_ranks; ++i) {
-    native_ranks[i] = (int)ranks[i];
-  }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Group_incl(native_group, native_n, native_ranks, &native_newgroup);
-  free(native_ranks);
+  int native_return_value = MPI_Group_incl(native_group, native_n, ranks, &native_newgroup);
   if (native_return_value == MPI_SUCCESS) {
     *newgroup = plumed_mpiw_export_bytes(&native_newgroup, sizeof(native_newgroup));
   }
@@ -1607,38 +1486,17 @@ static int32_t plumed_mpiw_MPI_Group_incl(plumed_mpiw_handle_storage group, int3
 }
 
 static int32_t plumed_mpiw_MPI_Group_excl(plumed_mpiw_handle_storage group, int32_t n, const int32_t ranks[], plumed_mpiw_handle_storage * newgroup) {
-  if (n < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranks = (int)n * 1;
-  if (extent_ranks > 0 && !ranks) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranks > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
   MPI_Group native_group = plumed_mpiw_import_group(group);
   int native_n = (int)n;
-  int *native_ranks = NULL;
-  if (extent_ranks > 0) {
-    native_ranks = (int *)malloc(sizeof(*native_ranks) * (size_t)extent_ranks);
-    if (!native_ranks) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_ranks; ++i) {
-    native_ranks[i] = (int)ranks[i];
-  }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Group_excl(native_group, native_n, native_ranks, &native_newgroup);
-  free(native_ranks);
+  int native_return_value = MPI_Group_excl(native_group, native_n, ranks, &native_newgroup);
   if (native_return_value == MPI_SUCCESS) {
     *newgroup = plumed_mpiw_export_bytes(&native_newgroup, sizeof(native_newgroup));
   }
@@ -1646,39 +1504,17 @@ static int32_t plumed_mpiw_MPI_Group_excl(plumed_mpiw_handle_storage group, int3
 }
 
 static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[][3], plumed_mpiw_handle_storage * newgroup) {
-  if (n < 0 || n > INT_MAX / 3) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranges = (int)n * 3;
-  if (extent_ranges > 0 && !ranges) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranges > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
   MPI_Group native_group = plumed_mpiw_import_group(group);
   int native_n = (int)n;
-  int (*native_ranges)[3] = NULL;
-  if (extent_ranges > 0) {
-    native_ranges = (int (*)[3])malloc(sizeof(*native_ranges) * (size_t)(extent_ranges / 3));
-    if (!native_ranges) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < ((extent_ranges) / 3); ++i)
-    for (int j = 0; j < 3; ++j) {
-      native_ranges[i][j] = (int)ranges[i][j];
-    }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Group_range_incl(native_group, native_n, native_ranges, &native_newgroup);
-  free(native_ranges);
+  int native_return_value = MPI_Group_range_incl(native_group, native_n, ranges, &native_newgroup);
   if (native_return_value == MPI_SUCCESS) {
     *newgroup = plumed_mpiw_export_bytes(&native_newgroup, sizeof(native_newgroup));
   }
@@ -1686,39 +1522,17 @@ static int32_t plumed_mpiw_MPI_Group_range_incl(plumed_mpiw_handle_storage group
 }
 
 static int32_t plumed_mpiw_MPI_Group_range_excl(plumed_mpiw_handle_storage group, int32_t n, int32_t ranges[][3], plumed_mpiw_handle_storage * newgroup) {
-  if (n < 0 || n > INT_MAX / 3) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_ranges = (int)n * 3;
-  if (extent_ranges > 0 && !ranges) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_ranges > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
   MPI_Group native_group = plumed_mpiw_import_group(group);
   int native_n = (int)n;
-  int (*native_ranges)[3] = NULL;
-  if (extent_ranges > 0) {
-    native_ranges = (int (*)[3])malloc(sizeof(*native_ranges) * (size_t)(extent_ranges / 3));
-    if (!native_ranges) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < ((extent_ranges) / 3); ++i)
-    for (int j = 0; j < 3; ++j) {
-      native_ranges[i][j] = (int)ranges[i][j];
-    }
   MPI_Group native_newgroup;
   memset(&native_newgroup, 0, sizeof(native_newgroup));
   if (!newgroup) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Group_range_excl(native_group, native_n, native_ranges, &native_newgroup);
-  free(native_ranges);
+  int native_return_value = MPI_Group_range_excl(native_group, native_n, ranges, &native_newgroup);
   if (native_return_value == MPI_SUCCESS) {
     *newgroup = plumed_mpiw_export_bytes(&native_newgroup, sizeof(native_newgroup));
   }
@@ -1866,61 +1680,18 @@ static int32_t plumed_mpiw_MPI_Intercomm_merge(plumed_mpiw_handle_storage interc
 }
 
 static int32_t plumed_mpiw_MPI_Cart_create(plumed_mpiw_handle_storage comm_old, int32_t ndims, const int32_t dims[], const int32_t periods[], int32_t reorder, plumed_mpiw_handle_storage * comm_cart) {
-  if (ndims < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_dims = (int)ndims * 1;
-  if (extent_dims > 0 && !dims) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_dims > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (ndims < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_periods = (int)ndims * 1;
-  if (extent_periods > 0 && !periods) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_periods > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!comm_cart) {
     return MPI_ERR_ARG;
   }
   MPI_Comm native_comm_old = plumed_mpiw_import_comm(comm_old);
   int native_ndims = (int)ndims;
-  int *native_dims = NULL;
-  if (extent_dims > 0) {
-    native_dims = (int *)malloc(sizeof(*native_dims) * (size_t)extent_dims);
-    if (!native_dims) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_dims; ++i) {
-    native_dims[i] = (int)dims[i];
-  }
-  int *native_periods = NULL;
-  if (extent_periods > 0) {
-    native_periods = (int *)malloc(sizeof(*native_periods) * (size_t)extent_periods);
-    if (!native_periods) {
-      free(native_dims);
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_periods; ++i) {
-    native_periods[i] = (int)periods[i];
-  }
   int native_reorder = (int)reorder;
   MPI_Comm native_comm_cart;
   memset(&native_comm_cart, 0, sizeof(native_comm_cart));
   if (!comm_cart) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Cart_create(native_comm_old, native_ndims, native_dims, native_periods, native_reorder, &native_comm_cart);
-  free(native_dims);
-  free(native_periods);
+  int native_return_value = MPI_Cart_create(native_comm_old, native_ndims, dims, periods, native_reorder, &native_comm_cart);
   if (native_return_value == MPI_SUCCESS) {
     *comm_cart = plumed_mpiw_export_bytes(&native_comm_cart, sizeof(native_comm_cart));
   }
@@ -1928,34 +1699,28 @@ static int32_t plumed_mpiw_MPI_Cart_create(plumed_mpiw_handle_storage comm_old, 
 }
 
 static int32_t plumed_mpiw_MPI_Dims_create(int32_t nnodes, int32_t ndims, int32_t dims[]) {
-  if (ndims < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_dims = (int)ndims * 1;
-  if (extent_dims > 0 && !dims) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_dims > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   int native_nnodes = (int)nnodes;
   int native_ndims = (int)ndims;
-  int *native_dims = NULL;
-  if (extent_dims > 0) {
-    native_dims = (int *)malloc(sizeof(*native_dims) * (size_t)extent_dims);
-    if (!native_dims) {
-      return MPI_ERR_NO_MEM;
-    }
+  int native_return_value = MPI_Dims_create(native_nnodes, native_ndims, dims);
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Graph_create(plumed_mpiw_handle_storage comm_old, int32_t nnodes, const int32_t indx[], const int32_t edges[], int32_t reorder, plumed_mpiw_handle_storage * comm_graph) {
+  if (!comm_graph) {
+    return MPI_ERR_ARG;
   }
-  for (int i = 0; i < extent_dims; ++i) {
-    native_dims[i] = (int)dims[i];
+  MPI_Comm native_comm_old = plumed_mpiw_import_comm(comm_old);
+  int native_nnodes = (int)nnodes;
+  int native_reorder = (int)reorder;
+  MPI_Comm native_comm_graph;
+  memset(&native_comm_graph, 0, sizeof(native_comm_graph));
+  if (!comm_graph) {
+    return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Dims_create(native_nnodes, native_ndims, native_dims);
-  if (1)
-    for (int i = 0; i < extent_dims; ++i) {
-      dims[i] = (int32_t)native_dims[i];
-    }
-  free(native_dims);
+  int native_return_value = MPI_Graph_create(native_comm_old, native_nnodes, indx, edges, native_reorder, &native_comm_graph);
+  if (native_return_value == MPI_SUCCESS) {
+    *comm_graph = plumed_mpiw_export_bytes(&native_comm_graph, sizeof(native_comm_graph));
+  }
   return (int32_t)native_return_value;
 }
 
@@ -2001,6 +1766,14 @@ static int32_t plumed_mpiw_MPI_Graphdims_get(plumed_mpiw_handle_storage comm, in
   return (int32_t)native_return_value;
 }
 
+static int32_t plumed_mpiw_MPI_Graph_get(plumed_mpiw_handle_storage comm, int32_t maxindex, int32_t maxedges, int32_t indx[], int32_t edges[]) {
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_maxindex = (int)maxindex;
+  int native_maxedges = (int)maxedges;
+  int native_return_value = MPI_Graph_get(native_comm, native_maxindex, native_maxedges, indx, edges);
+  return (int32_t)native_return_value;
+}
+
 static int32_t plumed_mpiw_MPI_Cartdim_get(plumed_mpiw_handle_storage comm, int32_t * ndims) {
   if (!ndims) {
     return MPI_ERR_ARG;
@@ -2014,6 +1787,37 @@ static int32_t plumed_mpiw_MPI_Cartdim_get(plumed_mpiw_handle_storage comm, int3
   if (native_return_value == MPI_SUCCESS) {
     *ndims = (int32_t)native_ndims;
   }
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Cart_get(plumed_mpiw_handle_storage comm, int32_t maxdims, int32_t dims[], int32_t periods[], int32_t coords[]) {
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_maxdims = (int)maxdims;
+  int native_return_value = MPI_Cart_get(native_comm, native_maxdims, dims, periods, coords);
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Cart_rank(plumed_mpiw_handle_storage comm, const int32_t coords[], int32_t * rank) {
+  if (!rank) {
+    return MPI_ERR_ARG;
+  }
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_rank = 0;
+  if (!rank) {
+    return MPI_ERR_ARG;
+  }
+  int native_return_value = MPI_Cart_rank(native_comm, coords, &native_rank);
+  if (native_return_value == MPI_SUCCESS) {
+    *rank = (int32_t)native_rank;
+  }
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Cart_coords(plumed_mpiw_handle_storage comm, int32_t rank, int32_t maxdims, int32_t coords[]) {
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_rank = (int)rank;
+  int native_maxdims = (int)maxdims;
+  int native_return_value = MPI_Cart_coords(native_comm, native_rank, native_maxdims, coords);
   return (int32_t)native_return_value;
 }
 
@@ -2031,6 +1835,14 @@ static int32_t plumed_mpiw_MPI_Graph_neighbors_count(plumed_mpiw_handle_storage 
   if (native_return_value == MPI_SUCCESS) {
     *nneighbors = (int32_t)native_nneighbors;
   }
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Graph_neighbors(plumed_mpiw_handle_storage comm, int32_t rank, int32_t maxneighbors, int32_t neighbors[]) {
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_rank = (int)rank;
+  int native_maxneighbors = (int)maxneighbors;
+  int native_return_value = MPI_Graph_neighbors(native_comm, native_rank, native_maxneighbors, neighbors);
   return (int32_t)native_return_value;
 }
 
@@ -2062,60 +1874,51 @@ static int32_t plumed_mpiw_MPI_Cart_shift(plumed_mpiw_handle_storage comm, int32
   return (int32_t)native_return_value;
 }
 
+static int32_t plumed_mpiw_MPI_Cart_sub(plumed_mpiw_handle_storage comm, const int32_t remain_dims[], plumed_mpiw_handle_storage * newcomm) {
+  if (!newcomm) {
+    return MPI_ERR_ARG;
+  }
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  MPI_Comm native_newcomm;
+  memset(&native_newcomm, 0, sizeof(native_newcomm));
+  if (!newcomm) {
+    return MPI_ERR_ARG;
+  }
+  int native_return_value = MPI_Cart_sub(native_comm, remain_dims, &native_newcomm);
+  if (native_return_value == MPI_SUCCESS) {
+    *newcomm = plumed_mpiw_export_bytes(&native_newcomm, sizeof(native_newcomm));
+  }
+  return (int32_t)native_return_value;
+}
+
 static int32_t plumed_mpiw_MPI_Cart_map(plumed_mpiw_handle_storage comm, int32_t ndims, const int32_t dims[], const int32_t periods[], int32_t * newrank) {
-  if (ndims < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_dims = (int)ndims * 1;
-  if (extent_dims > 0 && !dims) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_dims > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
-  if (ndims < 0) {
-    return MPI_ERR_COUNT;
-  }
-  int extent_periods = (int)ndims * 1;
-  if (extent_periods > 0 && !periods) {
-    return MPI_ERR_ARG;
-  }
-  if ((size_t)extent_periods > SIZE_MAX / sizeof(int)) {
-    return MPI_ERR_COUNT;
-  }
   if (!newrank) {
     return MPI_ERR_ARG;
   }
   MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
   int native_ndims = (int)ndims;
-  int *native_dims = NULL;
-  if (extent_dims > 0) {
-    native_dims = (int *)malloc(sizeof(*native_dims) * (size_t)extent_dims);
-    if (!native_dims) {
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_dims; ++i) {
-    native_dims[i] = (int)dims[i];
-  }
-  int *native_periods = NULL;
-  if (extent_periods > 0) {
-    native_periods = (int *)malloc(sizeof(*native_periods) * (size_t)extent_periods);
-    if (!native_periods) {
-      free(native_dims);
-      return MPI_ERR_NO_MEM;
-    }
-  }
-  for (int i = 0; i < extent_periods; ++i) {
-    native_periods[i] = (int)periods[i];
-  }
   int native_newrank = 0;
   if (!newrank) {
     return MPI_ERR_ARG;
   }
-  int native_return_value = MPI_Cart_map(native_comm, native_ndims, native_dims, native_periods, &native_newrank);
-  free(native_dims);
-  free(native_periods);
+  int native_return_value = MPI_Cart_map(native_comm, native_ndims, dims, periods, &native_newrank);
+  if (native_return_value == MPI_SUCCESS) {
+    *newrank = (int32_t)native_newrank;
+  }
+  return (int32_t)native_return_value;
+}
+
+static int32_t plumed_mpiw_MPI_Graph_map(plumed_mpiw_handle_storage comm, int32_t nnodes, const int32_t indx[], const int32_t edges[], int32_t * newrank) {
+  if (!newrank) {
+    return MPI_ERR_ARG;
+  }
+  MPI_Comm native_comm = plumed_mpiw_import_comm(comm);
+  int native_nnodes = (int)nnodes;
+  int native_newrank = 0;
+  if (!newrank) {
+    return MPI_ERR_ARG;
+  }
+  int native_return_value = MPI_Graph_map(native_comm, native_nnodes, indx, edges, &native_newrank);
   if (native_return_value == MPI_SUCCESS) {
     *newrank = (int32_t)native_newrank;
   }
@@ -2341,12 +2144,20 @@ static void plumed_mpiw_verify_typed_functions(void) {
   (void)typed_MPI_Unpack;
   plumed_mpiw_MPI_Pack_size_fn typed_MPI_Pack_size = &plumed_mpiw_MPI_Pack_size;
   (void)typed_MPI_Pack_size;
+  plumed_mpiw_MPI_Gatherv_fn typed_MPI_Gatherv = &plumed_mpiw_MPI_Gatherv;
+  (void)typed_MPI_Gatherv;
+  plumed_mpiw_MPI_Scatterv_fn typed_MPI_Scatterv = &plumed_mpiw_MPI_Scatterv;
+  (void)typed_MPI_Scatterv;
   plumed_mpiw_MPI_Alltoall_fn typed_MPI_Alltoall = &plumed_mpiw_MPI_Alltoall;
   (void)typed_MPI_Alltoall;
+  plumed_mpiw_MPI_Alltoallv_fn typed_MPI_Alltoallv = &plumed_mpiw_MPI_Alltoallv;
+  (void)typed_MPI_Alltoallv;
   plumed_mpiw_MPI_Reduce_fn typed_MPI_Reduce = &plumed_mpiw_MPI_Reduce;
   (void)typed_MPI_Reduce;
   plumed_mpiw_MPI_Op_free_fn typed_MPI_Op_free = &plumed_mpiw_MPI_Op_free;
   (void)typed_MPI_Op_free;
+  plumed_mpiw_MPI_Reduce_scatter_fn typed_MPI_Reduce_scatter = &plumed_mpiw_MPI_Reduce_scatter;
+  (void)typed_MPI_Reduce_scatter;
   plumed_mpiw_MPI_Scan_fn typed_MPI_Scan = &plumed_mpiw_MPI_Scan;
   (void)typed_MPI_Scan;
   plumed_mpiw_MPI_Group_size_fn typed_MPI_Group_size = &plumed_mpiw_MPI_Group_size;
@@ -2393,18 +2204,34 @@ static void plumed_mpiw_verify_typed_functions(void) {
   (void)typed_MPI_Cart_create;
   plumed_mpiw_MPI_Dims_create_fn typed_MPI_Dims_create = &plumed_mpiw_MPI_Dims_create;
   (void)typed_MPI_Dims_create;
+  plumed_mpiw_MPI_Graph_create_fn typed_MPI_Graph_create = &plumed_mpiw_MPI_Graph_create;
+  (void)typed_MPI_Graph_create;
   plumed_mpiw_MPI_Topo_test_fn typed_MPI_Topo_test = &plumed_mpiw_MPI_Topo_test;
   (void)typed_MPI_Topo_test;
   plumed_mpiw_MPI_Graphdims_get_fn typed_MPI_Graphdims_get = &plumed_mpiw_MPI_Graphdims_get;
   (void)typed_MPI_Graphdims_get;
+  plumed_mpiw_MPI_Graph_get_fn typed_MPI_Graph_get = &plumed_mpiw_MPI_Graph_get;
+  (void)typed_MPI_Graph_get;
   plumed_mpiw_MPI_Cartdim_get_fn typed_MPI_Cartdim_get = &plumed_mpiw_MPI_Cartdim_get;
   (void)typed_MPI_Cartdim_get;
+  plumed_mpiw_MPI_Cart_get_fn typed_MPI_Cart_get = &plumed_mpiw_MPI_Cart_get;
+  (void)typed_MPI_Cart_get;
+  plumed_mpiw_MPI_Cart_rank_fn typed_MPI_Cart_rank = &plumed_mpiw_MPI_Cart_rank;
+  (void)typed_MPI_Cart_rank;
+  plumed_mpiw_MPI_Cart_coords_fn typed_MPI_Cart_coords = &plumed_mpiw_MPI_Cart_coords;
+  (void)typed_MPI_Cart_coords;
   plumed_mpiw_MPI_Graph_neighbors_count_fn typed_MPI_Graph_neighbors_count = &plumed_mpiw_MPI_Graph_neighbors_count;
   (void)typed_MPI_Graph_neighbors_count;
+  plumed_mpiw_MPI_Graph_neighbors_fn typed_MPI_Graph_neighbors = &plumed_mpiw_MPI_Graph_neighbors;
+  (void)typed_MPI_Graph_neighbors;
   plumed_mpiw_MPI_Cart_shift_fn typed_MPI_Cart_shift = &plumed_mpiw_MPI_Cart_shift;
   (void)typed_MPI_Cart_shift;
+  plumed_mpiw_MPI_Cart_sub_fn typed_MPI_Cart_sub = &plumed_mpiw_MPI_Cart_sub;
+  (void)typed_MPI_Cart_sub;
   plumed_mpiw_MPI_Cart_map_fn typed_MPI_Cart_map = &plumed_mpiw_MPI_Cart_map;
   (void)typed_MPI_Cart_map;
+  plumed_mpiw_MPI_Graph_map_fn typed_MPI_Graph_map = &plumed_mpiw_MPI_Graph_map;
+  (void)typed_MPI_Graph_map;
   plumed_mpiw_MPI_Get_processor_name_fn typed_MPI_Get_processor_name = &plumed_mpiw_MPI_Get_processor_name;
   (void)typed_MPI_Get_processor_name;
   plumed_mpiw_MPI_Errhandler_free_fn typed_MPI_Errhandler_free = &plumed_mpiw_MPI_Errhandler_free;
@@ -2485,9 +2312,13 @@ static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
   PLUMED_MPIW_ENTRY(MPI_Pack, 0x5649ba7au, 1u, plumed_mpiw_MPI_Pack),
   PLUMED_MPIW_ENTRY(MPI_Unpack, 0x49901f8bu, 1u, plumed_mpiw_MPI_Unpack),
   PLUMED_MPIW_ENTRY(MPI_Pack_size, 0x24de0131u, 1u, plumed_mpiw_MPI_Pack_size),
+  PLUMED_MPIW_ENTRY(MPI_Gatherv, 0xc90455c9u, 1u, plumed_mpiw_MPI_Gatherv),
+  PLUMED_MPIW_ENTRY(MPI_Scatterv, 0x765eb673u, 1u, plumed_mpiw_MPI_Scatterv),
   PLUMED_MPIW_ENTRY(MPI_Alltoall, 0xcfe270aeu, 1u, plumed_mpiw_MPI_Alltoall),
+  PLUMED_MPIW_ENTRY(MPI_Alltoallv, 0xa4d99ed0u, 1u, plumed_mpiw_MPI_Alltoallv),
   PLUMED_MPIW_ENTRY(MPI_Reduce, 0x3a815604u, 1u, plumed_mpiw_MPI_Reduce),
   PLUMED_MPIW_ENTRY(MPI_Op_free, 0x94fea4e6u, 1u, plumed_mpiw_MPI_Op_free),
+  PLUMED_MPIW_ENTRY(MPI_Reduce_scatter, 0x2f70a384u, 1u, plumed_mpiw_MPI_Reduce_scatter),
   PLUMED_MPIW_ENTRY(MPI_Scan, 0x64e2ee54u, 1u, plumed_mpiw_MPI_Scan),
   PLUMED_MPIW_ENTRY(MPI_Group_size, 0x7de536d5u, 1u, plumed_mpiw_MPI_Group_size),
   PLUMED_MPIW_ENTRY(MPI_Group_rank, 0x668fab96u, 1u, plumed_mpiw_MPI_Group_rank),
@@ -2511,12 +2342,20 @@ static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
   PLUMED_MPIW_ENTRY(MPI_Intercomm_merge, 0x1f6a920au, 1u, plumed_mpiw_MPI_Intercomm_merge),
   PLUMED_MPIW_ENTRY(MPI_Cart_create, 0xfd363844u, 1u, plumed_mpiw_MPI_Cart_create),
   PLUMED_MPIW_ENTRY(MPI_Dims_create, 0xfb2dd1cdu, 1u, plumed_mpiw_MPI_Dims_create),
+  PLUMED_MPIW_ENTRY(MPI_Graph_create, 0x00eb0f02u, 1u, plumed_mpiw_MPI_Graph_create),
   PLUMED_MPIW_ENTRY(MPI_Topo_test, 0x09cbe810u, 1u, plumed_mpiw_MPI_Topo_test),
   PLUMED_MPIW_ENTRY(MPI_Graphdims_get, 0xc56e163bu, 1u, plumed_mpiw_MPI_Graphdims_get),
+  PLUMED_MPIW_ENTRY(MPI_Graph_get, 0x12829ea5u, 1u, plumed_mpiw_MPI_Graph_get),
   PLUMED_MPIW_ENTRY(MPI_Cartdim_get, 0xa979e88cu, 1u, plumed_mpiw_MPI_Cartdim_get),
+  PLUMED_MPIW_ENTRY(MPI_Cart_get, 0x0a3d9750u, 1u, plumed_mpiw_MPI_Cart_get),
+  PLUMED_MPIW_ENTRY(MPI_Cart_rank, 0xf899fe26u, 1u, plumed_mpiw_MPI_Cart_rank),
+  PLUMED_MPIW_ENTRY(MPI_Cart_coords, 0xf0bdc30cu, 1u, plumed_mpiw_MPI_Cart_coords),
   PLUMED_MPIW_ENTRY(MPI_Graph_neighbors_count, 0x5a79d6b6u, 1u, plumed_mpiw_MPI_Graph_neighbors_count),
+  PLUMED_MPIW_ENTRY(MPI_Graph_neighbors, 0x567d4ff6u, 1u, plumed_mpiw_MPI_Graph_neighbors),
   PLUMED_MPIW_ENTRY(MPI_Cart_shift, 0x4d227e7cu, 1u, plumed_mpiw_MPI_Cart_shift),
+  PLUMED_MPIW_ENTRY(MPI_Cart_sub, 0x1e9d3861u, 1u, plumed_mpiw_MPI_Cart_sub),
   PLUMED_MPIW_ENTRY(MPI_Cart_map, 0xba5a7b4cu, 1u, plumed_mpiw_MPI_Cart_map),
+  PLUMED_MPIW_ENTRY(MPI_Graph_map, 0xefd795ebu, 1u, plumed_mpiw_MPI_Graph_map),
   PLUMED_MPIW_ENTRY(MPI_Get_processor_name, 0xf8e4ccc3u, 1u, plumed_mpiw_MPI_Get_processor_name),
   PLUMED_MPIW_ENTRY(MPI_Errhandler_free, 0xf03f8309u, 1u, plumed_mpiw_MPI_Errhandler_free),
   PLUMED_MPIW_ENTRY(MPI_Error_class, 0x3b9188a6u, 1u, plumed_mpiw_MPI_Error_class),
@@ -2625,6 +2464,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_OTHER)
 PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_INTERN)
 PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_PENDING)
 PLUMED_MPIW_POINTER_CONSTANT(MPI_BOTTOM)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_IN_STATUS)
 #undef PLUMED_MPIW_HANDLE_CONSTANT
 #undef PLUMED_MPIW_INTEGER_CONSTANT
 #undef PLUMED_MPIW_POINTER_CONSTANT
@@ -2709,6 +2549,7 @@ static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_OTHER
 static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_INTERN = &plumed_mpiw_value_MPI_ERR_INTERN;
 static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_PENDING = &plumed_mpiw_value_MPI_ERR_PENDING;
 static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BOTTOM = &plumed_mpiw_value_MPI_BOTTOM;
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_IN_STATUS = &plumed_mpiw_value_MPI_ERR_IN_STATUS;
 #define PLUMED_MPIW_VALUE(name) \
   { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0u, 0u, "value:" #name, sizeof(plumed_mpiw_constant_accessor_fn), (const void *)&plumed_mpiw_accessor_##name }
 static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
@@ -2791,7 +2632,8 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
   PLUMED_MPIW_VALUE(MPI_ERR_OTHER),
   PLUMED_MPIW_VALUE(MPI_ERR_INTERN),
   PLUMED_MPIW_VALUE(MPI_ERR_PENDING),
-  PLUMED_MPIW_VALUE(MPI_BOTTOM)
+  PLUMED_MPIW_VALUE(MPI_BOTTOM),
+  PLUMED_MPIW_VALUE(MPI_ERR_IN_STATUS)
 };
 
 typedef struct {

@@ -51,3 +51,4 @@
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, 0, "value:MPI_ERR_GROUP", sizeof(plumed_mpiw_constant_accessor_fn), &constant_accessor_MPI_ERR_GROUP },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, 0, "value:MPI_ERR_DIMS", sizeof(plumed_mpiw_constant_accessor_fn), &constant_accessor_MPI_ERR_DIMS },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, 0, "value:MPI_ERR_UNKNOWN", sizeof(plumed_mpiw_constant_accessor_fn), &constant_accessor_MPI_ERR_UNKNOWN },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, 0, "value:MPI_ERR_IN_STATUS", sizeof(plumed_mpiw_constant_accessor_fn), &constant_accessor_MPI_ERR_IN_STATUS },

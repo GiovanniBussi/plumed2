@@ -707,10 +707,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -1793,10 +1793,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -1870,10 +1870,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -1947,10 +1947,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -2024,10 +2024,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -2293,7 +2293,10 @@
           "sentinels": [
             "MPI_STATUSES_IGNORE"
           ],
-          "valid_on_return": "count statuses defined on success; MPI_ERR_IN_STATUS defines per-request errors"
+          "valid_on_return": "count statuses defined on success; MPI_ERR_IN_STATUS defines per-request errors",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         }
       ],
       "callbacks": [],
@@ -2356,23 +2359,22 @@
           "sentinels": [
             "MPI_STATUSES_IGNORE"
           ],
-          "valid_on_return": "first outcount statuses defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0; Testall defines statuses for completed requests",
+          "valid_on_return": "all statuses are defined on successful return with flag true; completed and pending request statuses are defined on MPI_ERR_IN_STATUS",
           "valid_on_error_codes": [
             "MPI_ERR_IN_STATUS"
           ]
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "Native MPI direct. Pinned tMPI Testall releases individually completed requests even when flag is false, contrary to MPI_Testall all-or-none request-array semantics; internal tMPI route is deliberately unavailable.",
       "test_id": "mpi-api:MPI_Testall",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Testall",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "unavailable",
+          "reason": "Pinned GROMACS v2026.4 tMPI_Testall deallocates completed entries when other requests are incomplete, violating MPI_Testall request preservation when flag is false."
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -2440,16 +2442,19 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "Native MPI direct. Stable tMPI tMPI_Waitsome has incorrect index and compact-status handling, so the internal adapter uses repeated MPI_Waitany/MPI_Testany operations with typed request and status arrays.",
       "test_id": "mpi-api:MPI_Waitsome",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Waitsome",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "narrow-collective-emulation",
+          "prerequisites": [
+            "stable tMPI MPI_Waitany and MPI_Testany entries",
+            "request array elements are valid tMPI requests or MPI_REQUEST_NULL"
+          ],
+          "failure": "preserve tMPI error code; report completed indices and compact statuses only for requests reported complete; allocation failure returns tMPI out-of-memory error"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -2517,16 +2522,19 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "Native MPI direct. Stable tMPI tMPI_Testsome has incorrect index and compact-status handling, so the internal adapter uses repeated MPI_Waitany/MPI_Testany operations with typed request and status arrays.",
       "test_id": "mpi-api:MPI_Testsome",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Testsome",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "narrow-collective-emulation",
+          "prerequisites": [
+            "stable tMPI MPI_Waitany and MPI_Testany entries",
+            "request array elements are valid tMPI requests or MPI_REQUEST_NULL"
+          ],
+          "failure": "preserve tMPI error code; report completed indices and compact statuses only for requests reported complete; allocation failure returns tMPI out-of-memory error"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -2787,10 +2795,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -2864,10 +2872,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -2941,10 +2949,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -3018,10 +3026,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -3095,10 +3103,10 @@
         {
           "name": "request",
           "c_type": "MPI_Request *",
-          "direction": "inout",
+          "direction": "out",
           "conversion": "handle_ref",
           "extent": "one",
-          "valid_on_return": "preserves input or in/out semantics"
+          "valid_on_return": "defined on successful return; native adapter output is not read before call"
         }
       ],
       "callbacks": [],
@@ -3918,7 +3926,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Scatterv",
@@ -4010,7 +4019,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Alltoall",
@@ -4181,7 +4191,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Reduce",
@@ -4420,7 +4431,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Scan",
@@ -5636,7 +5648,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Topo_test",
@@ -5786,7 +5799,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cartdim_get",
@@ -5890,7 +5904,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_rank",
@@ -5938,7 +5953,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_coords",
@@ -5992,7 +6008,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graph_neighbors_count",
@@ -6092,7 +6109,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_shift",
@@ -6202,7 +6220,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_map",
@@ -6328,7 +6347,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Get_processor_name",

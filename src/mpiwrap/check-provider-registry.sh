@@ -8,6 +8,8 @@ trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -pthread \
   -I"$repo_root/src/mpiwrap" \
+  -include "$repo_root/src/mpiwrap/mpiwrap-pointers.h" \
+  -x c++ "$repo_root/src/mpiwrap/provider-pointer-definitions.inc" \
   -x c++ "$repo_root/src/mpiwrap/provider-registry.cpp.inc" \
   -x c++ "$repo_root/src/mpiwrap/test-provider-registry.cpp.in" \
   -o "$tmpdir/test-provider-registry"

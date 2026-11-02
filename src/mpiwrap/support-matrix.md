@@ -203,6 +203,7 @@ Provider status is a declaration/mapping classification, not a claim of tested r
 | Constant | `MPI_ERR_INTERN` | selected | `constant:MPI_ERR_INTERN` |
 | Constant | `MPI_ERR_PENDING` | selected | `constant:MPI_ERR_PENDING` |
 | Constant | `MPI_BOTTOM` | selected | `constant:MPI_BOTTOM` |
+| Constant | `MPI_ERR_IN_STATUS` | selected | `constant:MPI_ERR_IN_STATUS` |
 | Type | `MPI_Comm_errhandler_function` | selected | `thread-mpi-error-handler-unavailable` |
 | Type | `MPI_Comm` | selected | `comm-roundtrip` |
 | Type | `MPI_Group` | selected | `group-roundtrip` |

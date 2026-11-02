@@ -10,12 +10,12 @@
 static int allocation_calls;
 static int allocations_to_fail;
 static int freed_scratch_arrays;
-static void *test_malloc(size_t size) {
+static void *test_calloc(size_t count, size_t size) {
   ++allocation_calls;
   if (allocations_to_fail == allocation_calls) {
     return NULL;
   }
-  return malloc(size);
+  return calloc(count, size);
 }
 static void test_free(void *ptr) {
   if (ptr) {
@@ -23,16 +23,25 @@ static void test_free(void *ptr) {
   }
   free(ptr);
 }
-#define malloc test_malloc
+#define calloc test_calloc
 #define free test_free
 #include "mpiwrap_implementation.cpp.inc"
-#undef malloc
+#undef calloc
 #undef free
 
 static int saw_status_ignore;
 static int saw_status_raw;
 static int called_type_indexed;
 static int waitsome_result;
+static int waitall_result;
+static int testall_result;
+
+static void assert_request_null(plumed_mpiw_handle_storage storage) {
+  plumed_mpiw_handle_storage expected = 0;
+  MPI_Request request = MPI_REQUEST_NULL;
+  memcpy(&expected, &request, sizeof(request));
+  assert(storage == expected);
+}
 
 int MPI_Comm_rank(MPI_Comm comm, int *rank) {
   (void)comm;
@@ -92,6 +101,64 @@ int MPI_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, in
   array_of_statuses[0].MPI_TAG = 29;
   return waitsome_result;
 }
+int MPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status array_of_statuses[]) {
+  assert(count == 2);
+  array_of_requests[0] = MPI_REQUEST_NULL;
+  array_of_requests[1] = MPI_REQUEST_NULL;
+  if (array_of_statuses != MPI_STATUSES_IGNORE) {
+    memset(&array_of_statuses[0], 0, sizeof(array_of_statuses[0]));
+    array_of_statuses[0].MPI_SOURCE = 12;
+    array_of_statuses[0].MPI_TAG = 34;
+    array_of_statuses[1].MPI_ERROR = MPI_ERR_PENDING;
+  }
+  return waitall_result;
+}
+int MPI_Testall(int count, MPI_Request array_of_requests[], int *flag, MPI_Status array_of_statuses[]) {
+  assert(count == 2);
+  *flag = 0;
+  array_of_requests[0] = MPI_REQUEST_NULL;
+  array_of_requests[1] = MPI_REQUEST_NULL;
+  if (array_of_statuses != MPI_STATUSES_IGNORE) {
+    memset(&array_of_statuses[0], 0, sizeof(array_of_statuses[0]));
+    array_of_statuses[0].MPI_SOURCE = 56;
+    array_of_statuses[0].MPI_TAG = 78;
+    array_of_statuses[1].MPI_ERROR = MPI_ERR_PENDING;
+  }
+  return testall_result;
+}
+int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int coords[]) {
+  (void)comm;
+  assert(rank == 9 && maxdims == 2);
+  coords[0] = 4;
+  coords[1] = 7;
+  return MPI_SUCCESS;
+}
+int MPI_Graph_neighbors(MPI_Comm comm, int rank, int maxneighbors, int neighbors[]) {
+  (void)comm;
+  assert(rank == 5 && maxneighbors == 3);
+  neighbors[0] = 2;
+  neighbors[1] = 4;
+  neighbors[2] = 6;
+  return MPI_SUCCESS;
+}
+int MPI_Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+  (void)datatype;
+  (void)op;
+  (void)comm;
+  assert(recvcounts[0] == 1 && recvcounts[1] == 2);
+  *(int *)recvbuf = ((const int *)sendbuf)[1];
+  return MPI_SUCCESS;
+}
+int MPI_Alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[], MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
+  (void)sendtype;
+  (void)recvtype;
+  (void)comm;
+  assert(sendcounts[0] == 2 && sdispls[0] == 1);
+  assert(recvcounts[0] == 2 && rdispls[0] == 0);
+  ((int *)recvbuf)[0] = ((const int *)sendbuf)[1];
+  ((int *)recvbuf)[1] = ((const int *)sendbuf)[2];
+  return MPI_SUCCESS;
+}
 int MPI_Testany(int count, MPI_Request array_of_requests[], int *indx, int *flag, MPI_Status *status) {
   (void)array_of_requests;
   (void)status;
@@ -111,24 +178,32 @@ int main(void) {
   MPI_Comm world = MPI_COMM_WORLD;
   MPI_Request request = MPI_REQUEST_NULL;
   MPI_Datatype datatype = MPI_INT;
+  MPI_Op sum_op = MPI_SUM;
   MPI_Comm duplicate = MPI_COMM_NULL;
   plumed_mpiw_constant_accessor_fn status_ignore_accessor = NULL;
   void *status_ignore = (void *)1;
   plumed_mpiw_handle_storage request_array[3] = {0, 0, 0};
   plumed_mpiw_status statuses[3];
+  plumed_mpiw_status two_statuses[2];
   int32_t indices[3] = {-7, -7, -7};
   int32_t outcount = -1;
   int32_t flag = -1;
+  int32_t coords[2] = {-1, -1};
+  int32_t neighbors[3] = {-1, -1, -1};
+  int32_t recvcounts[2] = {1, 2};
+  int32_t sendcounts[1] = {2};
+  int32_t sdisplacements[1] = {1};
+  int32_t receivecounts[1] = {2};
+  int32_t rdisplacements[1] = {0};
+  int send_values[3] = {10, 21, 22};
+  int received_values[2] = {-1, -1};
+  int reduced_value = -1;
   plumed_mpiw_status ignored_status;
   plumed_mpiw_status ignored_status_before;
-  plumed_mpiw_handle_storage datatype_storage;
   MPI_Group group = MPI_GROUP_EMPTY;
   plumed_mpiw_handle_storage group_storage;
   plumed_mpiw_handle_storage newgroup_storage = 0;
   int32_t ranges[2][3] = {{0, 6, 2}, {3, 9, -1}};
-  int32_t blocklengths[2] = {1, 2};
-  int32_t displacements[2] = {0, 1};
-  plumed_mpiw_handle_storage newtype = 0;
   memset(&status, 0xa5, sizeof(status));
   memcpy(&comm_storage, &world, sizeof(world));
   assert(plumed_mpiw_MPI_Comm_rank(comm_storage, &rank) == MPI_SUCCESS);
@@ -189,18 +264,65 @@ int main(void) {
   assert(statuses[1].raw_size == UINT32_C(0x5a5a5a5a));
   waitsome_result = MPI_SUCCESS;
 
+  request_array[0] = request_array[1] = 0;
+  memset(two_statuses, 0xa5, sizeof(two_statuses));
+  assert(plumed_mpiw_MPI_Waitall(2, request_array, two_statuses) == waitall_result);
+  assert_request_null(request_array[0]);
+  assert_request_null(request_array[1]);
+  assert(two_statuses[0].source == 12 && two_statuses[0].tag == 34);
+  assert(two_statuses[1].raw_size == sizeof(MPI_Status));
+
+  waitall_result = MPI_ERR_IN_STATUS;
+  request_array[0] = request_array[1] = 0;
+  memset(two_statuses, 0, sizeof(two_statuses));
+  assert(plumed_mpiw_MPI_Waitall(2, request_array, two_statuses) == MPI_ERR_IN_STATUS);
+  assert(two_statuses[0].source == 12 && two_statuses[0].tag == 34);
+  waitall_result = MPI_SUCCESS;
+
+  request_array[0] = request_array[1] = 0;
+  memset(two_statuses, 0x5a, sizeof(two_statuses));
+  assert(plumed_mpiw_MPI_Testall(2, request_array, &flag, two_statuses) == MPI_SUCCESS);
+  assert(flag == 0);
+  assert_request_null(request_array[0]);
+  assert_request_null(request_array[1]);
+  assert(two_statuses[0].raw_size == UINT32_C(0x5a5a5a5a));
+
+  testall_result = MPI_ERR_IN_STATUS;
+  request_array[0] = request_array[1] = 0;
+  memset(two_statuses, 0, sizeof(two_statuses));
+  flag = -1;
+  assert(plumed_mpiw_MPI_Testall(2, request_array, &flag, two_statuses) == MPI_ERR_IN_STATUS);
+  assert(flag == 0 && two_statuses[0].source == 56 && two_statuses[0].tag == 78);
+  assert(two_statuses[1].error == MPI_ERR_PENDING);
+  testall_result = MPI_SUCCESS;
+
+  assert(plumed_mpiw_MPI_Cart_coords(comm_storage, 9, 2, coords) == MPI_SUCCESS);
+  assert(coords[0] == 4 && coords[1] == 7);
+  assert(plumed_mpiw_MPI_Graph_neighbors(comm_storage, 5, 3, neighbors) == MPI_SUCCESS);
+  assert(neighbors[0] == 2 && neighbors[1] == 4 && neighbors[2] == 6);
+  assert(plumed_mpiw_MPI_Reduce_scatter(send_values, &reduced_value, recvcounts,
+                                        plumed_mpiw_export_bytes(&datatype, sizeof(datatype)),
+                                        plumed_mpiw_export_bytes(&sum_op, sizeof(sum_op)),
+                                        comm_storage) == MPI_SUCCESS);
+  assert(reduced_value == 21);
+  assert(plumed_mpiw_MPI_Alltoallv(send_values, sendcounts, sdisplacements,
+                                   plumed_mpiw_export_bytes(&datatype, sizeof(datatype)),
+                                   received_values, receivecounts, rdisplacements,
+                                   plumed_mpiw_export_bytes(&datatype, sizeof(datatype)),
+                                   comm_storage) == MPI_SUCCESS);
+  assert(received_values[0] == 21 && received_values[1] == 22);
+
   memset(&ignored_status, 0x5a, sizeof(ignored_status));
   ignored_status_before = ignored_status;
   assert(plumed_mpiw_MPI_Testany(1, request_array, &count, &flag, &ignored_status) == MPI_SUCCESS);
   assert(flag == 0 && count == MPI_UNDEFINED);
   assert(memcmp(&ignored_status, &ignored_status_before, sizeof(ignored_status)) == 0);
 
-  memcpy(&datatype_storage, &datatype, sizeof(datatype));
   allocation_calls = 0;
   allocations_to_fail = 2;
   freed_scratch_arrays = 0;
-  assert(plumed_mpiw_MPI_Type_indexed(2, blocklengths, displacements, datatype_storage, &newtype) == MPI_ERR_NO_MEM);
-  assert(!called_type_indexed && freed_scratch_arrays == 1);
+  assert(plumed_mpiw_MPI_Waitsome(3, request_array, &outcount, indices, statuses) == MPI_ERR_NO_MEM);
+  assert(freed_scratch_arrays == 1);
   allocations_to_fail = 0;
   assert(plumed_mpiw_get_descriptor()->native_status_size == sizeof(MPI_Status));
   assert(plumed_mpiw_get_descriptor()->native_comm_size == sizeof(MPI_Comm));

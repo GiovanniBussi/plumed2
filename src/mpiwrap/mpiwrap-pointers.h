@@ -204,6 +204,7 @@ extern plumed_mpiw_constant_accessor_fn constant_ERR_OTHER;
 extern plumed_mpiw_constant_accessor_fn constant_ERR_INTERN;
 extern plumed_mpiw_constant_accessor_fn constant_ERR_PENDING;
 extern plumed_mpiw_constant_accessor_fn constant_BOTTOM;
+extern plumed_mpiw_constant_accessor_fn constant_ERR_IN_STATUS;
 }
 } // namespace PLMD::pointers
 namespace PLMD {

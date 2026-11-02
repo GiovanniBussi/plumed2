@@ -18,9 +18,11 @@ for provider in mpich openmpi; do
   esac
   extra_cflags=
   if [ "$provider" = mpich ]; then extra_cflags=-DPLUMED_MPIW_EXPECT_NONNULL_STATUS_IGNORE=1; fi
-  "$cc" -std=c11 -Wall -Wextra -Werror $extra_cflags -I"$module_dir" -x c \
+  "$cc" -std=c99 -Wall -Wextra -Werror $extra_cflags -I"$module_dir" -x c \
     "$module_dir/test-native-adapter.c.in" -o "$tmp/test-$provider-c"
   "$tmp/test-$provider-c"
-  "$cxx" -std=c++17 -Wall -Wextra -Werror -DPLUMED_MPIW_NATIVE_ADAPTER=1 -I"$module_dir" -c \
-    "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider.o"
+  "$cc" -x c -std=c99 -Wall -Wextra -Werror -DPLUMED_MPIW_NATIVE_ADAPTER=1 -I"$module_dir" -c \
+    "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-c99.o"
+  "$cxx" -std=c++98 -Wall -Wextra -Werror -DPLUMED_MPIW_NATIVE_ADAPTER=1 -I"$module_dir" -c \
+    "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-cxx98.o"
 done
