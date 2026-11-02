@@ -6,7 +6,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 CXX=${CXX:-c++}
 CC=${CC:-cc}
 
-"$CC" -std=c11 -D__PLUMED_HAS_DLOPEN -fsyntax-only "$ROOT/src/wrapper/Plumed.c"
+"$CC" -std=c99 -D__PLUMED_HAS_DLOPEN -fsyntax-only "$ROOT/src/wrapper/Plumed.c"
 for standard in c++98 c++11 c++17; do
   for external in 0 1; do
     "$CXX" -std="$standard" -D__PLUMED_HAS_DLOPEN \
@@ -14,4 +14,4 @@ for standard in c++98 c++11 c++17; do
       -x c++ -fsyntax-only "$ROOT/src/wrapper/Plumed.h"
   done
 done
-echo "standalone wrapper C11 and C++98/11/17 compatibility passed"
+echo "standalone wrapper C99 and C++98/11/17 compatibility passed"
