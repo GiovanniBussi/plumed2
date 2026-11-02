@@ -18,19 +18,26 @@
 namespace PLMD {
 namespace mpiwrap_provider {
 
+/* Internal API values. The v3 provider descriptor carries only the boolean
+   ranks_are_threads, not these kernel-side policy labels. */
+#define PLUMED_MPIW_RUNTIME_PROCESS_MPI 1
+#define PLUMED_MPIW_RUNTIME_THREAD_MPI 2
+
 class Registry {
 public:
   struct FunctionEntry {
     std::uint32_t signature_id;
     std::uint32_t signature_version;
-    std::uint32_t flags;
+    std::uint32_t argument_count;
     plumed_mpiw_generic_fn function;
   };
   struct ValueEntry {
     std::uint32_t value_type;
+    std::uint32_t native_size;
     plumed_mpiw_constant_accessor_fn accessor;
     bool operator==(const ValueEntry &other) const {
-      return value_type == other.value_type;
+      return value_type == other.value_type && native_size == other.native_size &&
+             accessor == other.accessor;
     }
   };
 
@@ -42,12 +49,16 @@ public:
   bool install(const plumed_mpiw_provider_descriptor *descriptor,
                std::string &error,void *provider_library=nullptr);
   bool has(const char *name) const;
+  plumed_mpiw_generic_fn dispatch(const char *name,
+                                  std::uint32_t signature_id,
+                                  std::uint32_t signature_version,
+                                  std::uint32_t argument_count) const;
   bool installed() const noexcept {
     return ready_.load(std::memory_order_acquire);
   }
   /* Immutable, owned copy for injection into a nested compatible kernel. */
   const plumed_mpiw_provider_descriptor *descriptorSnapshot() const noexcept;
-  void markObjectCreated();
+  void markProviderValueUsed();
   bool beginInternalLaunch(const plumed_mpiw_provider_descriptor *descriptor,
                            std::string &error);
   void finishInternalLaunch() noexcept;
@@ -59,35 +70,16 @@ public:
     return bindings_;
   }
   std::uint32_t nativeCommSize() const;
+  std::uint32_t nativeHandleSize(const char *kind) const;
+  std::uint32_t nativeStatusSize() const;
+  std::uint32_t nativeStatusOffset(const char *field) const;
+  std::uint32_t nativeFintSize() const;
+  std::uint32_t nativeConstantSize(const char *name) const;
+  bool copyNativeValue(const char *name, void *output, std::size_t size) const;
+  bool ranksAreThreads() const;
   bool copyValue(const char *name, void *output, std::size_t size) const;
 
-  template<class Function>
-  Function function(const char *name, std::uint32_t signature_id,
-                    std::uint32_t signature_version) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto found = functions_.find(name);
-    if (found == functions_.end() || found->second.signature_id != signature_id ||
-        found->second.signature_version != signature_version) {
-      return nullptr;
-    }
-    // The provider's generic function pointer is converted back to the exact
-    // generated function type only after descriptor validation checked its ID.
-    return reinterpret_cast<Function>(found->second.function);
-  }
-
-  template<class Function>
-  Function require(const char *name, std::uint32_t signature_id,
-                   std::uint32_t signature_version) const {
-    Function result = function<Function>(name, signature_id, signature_version);
-    if (!result) {
-      throw std::runtime_error(std::string("MPI function unavailable: ") + name +
-                               " (provider " + providerName() + ")");
-    }
-    return result;
-  }
-
   std::string providerName() const;
-  std::string providerVersion() const;
 
 private:
   struct DescriptorSnapshot;
@@ -97,29 +89,31 @@ private:
   std::unordered_map<std::string, ValueEntry> values_;
   ProviderBindings bindings_;
   std::string provider_name_;
-  std::string provider_version_;
-  plumed_mpiw_generic_fn identity_comm_rank_;
-  plumed_mpiw_generic_fn identity_initialized_;
-  const void *host_runtime_token_;
+  std::vector<unsigned char> runtime_identity_;
+  plumed_mpiw_generic_fn descriptor_function_comm_rank_;
+  plumed_mpiw_generic_fn descriptor_function_initialized_;
   std::uint32_t runtime_kind_;
   std::uint32_t native_comm_size_;
+  std::uint32_t native_handle_sizes_[6];
+  std::uint32_t native_status_size_;
+  std::uint32_t native_status_offsets_[3];
+  std::uint32_t native_fint_size_;
   std::uint64_t compatibility_fingerprint_;
   std::vector<void *> provider_libraries_;
   std::unique_ptr<DescriptorSnapshot> descriptor_snapshot_;
   bool installed_;
-  bool object_created_;
+  bool provider_value_used_;
   bool internal_launch_started_;
   bool internal_launch_active_;
   std::atomic<bool> ready_;
 };
 
 // The loaded kernel owns one immutable provider registry shared by all its
-// rank threads. Injection mutates it only before object construction.
+// rank threads. Provider-dependent use fixes its selection for the kernel.
 Registry &currentRegistry();
 // Selects the embedded thread-MPI provider on first provider-dependent use.
 // Explicit provider installation before that point takes precedence.
 void ensureProviderSelected();
-void noteKernelObjectCreated();
 MPI_Comm importComm(Registry &registry, const void *native);
 bool exportComm(Registry &registry, MPI_Comm value,
                 plumed_mpiw_handle_storage *storage);

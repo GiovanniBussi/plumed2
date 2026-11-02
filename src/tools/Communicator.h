@@ -24,6 +24,7 @@
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
 #include "../mpiwrap/mpiwrap.h"
 #endif
+#include "../mpiwrap/mpi.h"
 #include <cstdlib>
 #include "Exception.h"
 #include "TypesafePtr.h"

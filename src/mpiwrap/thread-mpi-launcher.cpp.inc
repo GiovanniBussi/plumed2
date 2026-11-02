@@ -26,6 +26,7 @@ namespace mpiwrap_provider {
 namespace {
 
 using Callback = int (*)(int, const void *, std::size_t, void *);
+
 struct LaunchContext {
   Callback callback;
   void *callback_context;
@@ -89,6 +90,9 @@ void rankEntry(const void *opaque) {
 
 #if !defined(__PLUMED_HAS_MPI)
 void ensureProviderSelected() {
+  if (forceEnvironmentProvider()) {
+    return;
+  }
   static std::mutex selection_mutex;
   static std::condition_variable selection_changed;
   static bool selecting = false;
@@ -144,10 +148,6 @@ void ensureProviderSelected() {
   selection_changed.notify_all();
 }
 
-void noteKernelObjectCreated() {
-  ensureProviderSelected();
-  currentRegistry().markObjectCreated();
-}
 #endif
 
 int launchInternalThreadMPI(int ranks, Callback callback,
@@ -159,6 +159,7 @@ int launchInternalThreadMPI(int ranks, Callback callback,
 #if defined(__PLUMED_HAS_MPI)
   throw ExceptionError("internal thread-MPI launch is unavailable in a native-MPI kernel");
 #else
+  forceEnvironmentProvider();
   const plumed_mpiw_provider_descriptor *descriptor =
     plumed_mpiw_thread_mpi_provider();
   Registry &registry = currentRegistry();

@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -20,6 +21,13 @@ namespace mpiwrap_runtime_test {
 
 std::atomic<int> failures{0};
 std::atomic<int> ranks_seen{0};
+std::mutex failure_output_mutex;
+
+void record_failure(int rank, int line) {
+  failures.fetch_add(1);
+  std::lock_guard<std::mutex> lock(failure_output_mutex);
+  std::cerr << "rank " << rank << " runtime assertion failed at line " << line << '\n';
+}
 
 std::int32_t mock_test_incomplete(plumed_mpiw_handle_storage *,
                                   std::int32_t *flag,
@@ -54,7 +62,7 @@ void rank_work(const void *) {
   if (mpiwrap_Comm_rank(world, &rank) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Comm_size(world, &size) != thread_mpi::TMPI_SUCCESS ||
       size < 1 || rank < 0 || rank >= size) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
     return;
   }
   const MPI_Comm imported_world = mpiwrap_Comm_from_native(&thread_mpi::TMPI_COMM_WORLD);
@@ -63,7 +71,7 @@ void rank_work(const void *) {
   if (mpiwrap_Comm_rank(imported_world, &imported_rank) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Comm_size(imported_world, &imported_size) != thread_mpi::TMPI_SUCCESS ||
       imported_rank != rank || imported_size != size) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
   if (mpiwrap_handle_storage_is_zero(float_type.storage) ||
       mpiwrap_handle_storage_is_zero(double_type.storage) ||
@@ -89,11 +97,11 @@ void rank_work(const void *) {
               << static_cast<unsigned>(minimum.storage.bytes[0])
               << " any-source=" << mpiwrap_ANY_SOURCE()
               << " any-tag=" << mpiwrap_ANY_TAG() << '\n';
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
   int initialized = 0;
   if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS || !initialized) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   MPI_Request incomplete_request{};
@@ -112,11 +120,11 @@ void rank_work(const void *) {
       untouched_test_status.MPI_ERROR != 159 ||
       untouched_test_status.raw_size != 7 ||
       untouched_test_status.raw[0] != 0x11) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   if (mpiwrap_has_Op_create()) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     bool unavailable_threw = false;
     try {
@@ -126,12 +134,12 @@ void rank_work(const void *) {
     }
     if (!unavailable_threw) {
       std::cerr << "rank " << rank << " unavailable Op_create did not throw\n";
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
   }
 
   if (mpiwrap_has_Iprobe()) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     bool unavailable_threw = false;
     try {
@@ -142,7 +150,7 @@ void rank_work(const void *) {
       unavailable_threw = true;
     }
     if (!unavailable_threw) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
   }
 
@@ -151,13 +159,13 @@ void rank_work(const void *) {
   if (!mpiwrap_has_Allreduce() ||
       mpiwrap_Allreduce(&input, &output, 1, integer, sum, world) !=
       thread_mpi::TMPI_SUCCESS || output != size * (size + 1) / 2) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int in_place = rank + 1;
   if (mpiwrap_Allreduce(MPI_IN_PLACE, &in_place, 1, integer, sum, world) !=
       thread_mpi::TMPI_SUCCESS || in_place != size * (size + 1) / 2) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   auto check_sum = [&](auto value, MPI_Datatype datatype, const char *label) {
@@ -167,7 +175,7 @@ void rank_work(const void *) {
         thread_mpi::TMPI_SUCCESS || reduced != static_cast<Value>(size * (size + 1) / 2)) {
       std::cerr << "rank " << rank << " reduction failed: " << label
                 << " result=" << reduced << '\n';
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
   };
   check_sum(static_cast<float>(rank + 1), float_type, "float");
@@ -181,7 +189,7 @@ void rank_work(const void *) {
   if (mpiwrap_Bcast(&broadcast_value, 1, integer, 0, world) !=
       thread_mpi::TMPI_SUCCESS || broadcast_value != 91 ||
       mpiwrap_Barrier(world) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   MPI_Comm duplicate{};
@@ -192,7 +200,7 @@ void rank_work(const void *) {
       mpiwrap_Comm_size(duplicate, &duplicate_size) != thread_mpi::TMPI_SUCCESS ||
       duplicate_rank != rank || duplicate_size != size ||
       mpiwrap_Comm_free(&duplicate) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   MPI_Comm split{};
@@ -203,7 +211,7 @@ void rank_work(const void *) {
       mpiwrap_Comm_size(split, &split_size) != thread_mpi::TMPI_SUCCESS ||
       split_size != (size + 1 - (rank % 2)) / 2 || split_rank < 0 ||
       mpiwrap_Comm_free(&split) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int gathered_value = rank + 11;
@@ -211,11 +219,11 @@ void rank_work(const void *) {
   if (mpiwrap_Gather(&gathered_value, 1, integer,
                      rank == 0 ? gathered.data() : nullptr, 1, integer, 0,
                      world) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else if (rank == 0) {
     for (int i = 0; i < size; ++i) {
       if (gathered[static_cast<std::size_t>(i)] != i + 11) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
       }
     }
   }
@@ -228,18 +236,18 @@ void rank_work(const void *) {
   if (mpiwrap_Scatter(rank == 0 ? scattered.data() : nullptr, 1, integer,
                       &scatter_result, 1, integer, 0, world) !=
       thread_mpi::TMPI_SUCCESS || scatter_result != rank + 101) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int allgather_input = rank + 21;
   std::vector<int> allgather_output(static_cast<std::size_t>(size), -1);
   if (mpiwrap_Allgather(&allgather_input, 1, integer, allgather_output.data(),
                         1, integer, world) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     for (int i = 0; i < size; ++i) {
       if (allgather_output[static_cast<std::size_t>(i)] != i + 21) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
       }
     }
   }
@@ -258,12 +266,12 @@ void rank_work(const void *) {
                          variable_output.data(), recvcounts.data(),
                          displacements.data(), integer, world) !=
       thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     for (int i = 0; i < size; ++i) {
       for (int j = 0; j < i + 1; ++j) {
         if (variable_output[static_cast<std::size_t>(displacements[static_cast<std::size_t>(i)] + j)] != i + 31) {
-          failures.fetch_add(1);
+          record_failure(rank, __LINE__);
         }
       }
       const int next_displacement = i + 1 < size ?
@@ -272,7 +280,7 @@ void rank_work(const void *) {
       for (int gap = displacements[static_cast<std::size_t>(i)] + i + 1;
            gap < next_displacement; ++gap) {
         if (variable_output[static_cast<std::size_t>(gap)] != -99) {
-          failures.fetch_add(1);
+          record_failure(rank, __LINE__);
         }
       }
     }
@@ -285,12 +293,12 @@ void rank_work(const void *) {
   if (mpiwrap_Allgatherv(MPI_IN_PLACE, -7, integer, inplace_output.data(),
                          recvcounts.data(), displacements.data(), integer,
                          world) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     for (int i = 0; i < size; ++i) {
       for (int j = 0; j < i + 1; ++j) {
         if (inplace_output[static_cast<std::size_t>(displacements[static_cast<std::size_t>(i)] + j)] != i + 51) {
-          failures.fetch_add(1);
+          record_failure(rank, __LINE__);
         }
       }
       const int next_displacement = i + 1 < size ?
@@ -299,7 +307,7 @@ void rank_work(const void *) {
       for (int gap = displacements[static_cast<std::size_t>(i)] + i + 1;
            gap < next_displacement; ++gap) {
         if (inplace_output[static_cast<std::size_t>(gap)] != -99) {
-          failures.fetch_add(1);
+          record_failure(rank, __LINE__);
         }
       }
     }
@@ -319,14 +327,14 @@ void rank_work(const void *) {
                     &send_request) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Wait(&receive_request, &receive_status) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Wait(&send_request, MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     int received_count = -1;
     if (ring_value != previous + 1 || receive_status.MPI_SOURCE != previous ||
         receive_status.MPI_TAG != 73 ||
         mpiwrap_Get_count(&receive_status, integer, &received_count) !=
         thread_mpi::TMPI_SUCCESS || received_count != 1) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
   }
 
@@ -338,7 +346,7 @@ void rank_work(const void *) {
                        &sendrecv_status) != thread_mpi::TMPI_SUCCESS ||
       sendrecv_result != previous + 1 || sendrecv_status.MPI_SOURCE != previous ||
       sendrecv_status.MPI_TAG != 74) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int blocking_input = rank + 61;
@@ -352,7 +360,7 @@ void rank_work(const void *) {
       mpiwrap_Wait(&blocking_send, MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS ||
       blocking_output != previous + 61 || blocking_status.MPI_SOURCE != previous ||
       blocking_status.MPI_TAG != 75) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   // Ready sends are valid here because every rank posts its matching receive
@@ -389,7 +397,7 @@ void rank_work(const void *) {
               << ready_status.MPI_SOURCE << ':' << ready_status.MPI_TAG
               << " request=" << static_cast<unsigned>(ready_receive.storage.bytes[0])
               << '\n';
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   // The nonblocking ready send also follows a posted matching receive. Wait
@@ -434,7 +442,7 @@ void rank_work(const void *) {
               << " requests="
               << static_cast<unsigned>(iready_receive.storage.bytes[0]) << ','
               << static_cast<unsigned>(iready_send.storage.bytes[0]) << '\n';
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int waitall_recv0 = -1;
@@ -471,7 +479,7 @@ void rank_work(const void *) {
               << " statuses=" << waitall_statuses[0].MPI_SOURCE << ':'
               << waitall_statuses[0].MPI_TAG << ',' << waitall_statuses[1].MPI_SOURCE
               << ':' << waitall_statuses[1].MPI_TAG << '\n';
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   }
 
   int some_received0 = -1;
@@ -490,9 +498,10 @@ void rank_work(const void *) {
                    MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Recv(&some_received1, 1, integer, previous, 80, world,
                    MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
   } else {
     bool seen_some_requests[2] = {false, false};
+    bool seen_some_statuses[2] = {false, false};
     int total_some_completed = 0;
     int some_attempts = 0;
     while ((!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
@@ -500,7 +509,7 @@ void rank_work(const void *) {
            some_attempts++ < 100000) {
       if (mpiwrap_Testsome(2, some_requests, &some_outcount, some_indices,
                            some_statuses) != thread_mpi::TMPI_SUCCESS) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
         break;
       }
       if (some_outcount == 0) {
@@ -508,33 +517,34 @@ void rank_work(const void *) {
         continue;
       }
       if (some_outcount < 0 || some_outcount > 2) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
         break;
       }
       for (int i = 0; i < some_outcount; ++i) {
         const int index = some_indices[i];
         if (index < 0 || index > 1 || seen_some_requests[index] ||
             some_statuses[i].raw_size == 0) {
-          failures.fetch_add(1);
+          record_failure(rank, __LINE__);
           continue;
         }
         seen_some_requests[index] = true;
+        seen_some_statuses[index] = some_statuses[i].raw_size != 0;
         ++total_some_completed;
       }
     }
     if (total_some_completed != 2 || !seen_some_requests[0] ||
         !seen_some_requests[1]) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
       std::cerr << "rank " << rank << " Testsome did not complete both requests: "
                 << total_some_completed << '\n';
     }
     if (some_received0 != previous + 101 || some_received1 != previous + 102) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
     if (!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
         !mpiwrap_handle_storage_is_zero(some_requests[1].storage) ||
-        some_statuses[0].raw_size == 0 || some_statuses[1].raw_size == 0) {
-      failures.fetch_add(1);
+        !seen_some_statuses[0] || !seen_some_statuses[1]) {
+      record_failure(rank, __LINE__);
     }
   }
 
@@ -551,7 +561,7 @@ void rank_work(const void *) {
       mpiwrap_Waitsome(2, wait_some_requests, &wait_some_outcount,
                        wait_some_indices, wait_some_statuses) !=
       thread_mpi::TMPI_SUCCESS || wait_some_outcount < 1 || wait_some_outcount > 2) {
-    failures.fetch_add(1);
+    record_failure(rank, __LINE__);
     std::cerr << "rank " << rank << " Waitsome failed: outcount=" << wait_some_outcount
               << " requests="
               << static_cast<unsigned>(wait_some_requests[0].storage.bytes[0]) << ','
@@ -566,11 +576,11 @@ void rank_work(const void *) {
         receive_status_valid = wait_some_statuses[i].MPI_SOURCE == previous &&
                                wait_some_statuses[i].MPI_TAG == 79;
       } else if (wait_some_indices[i] != 1) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
       }
     }
     if (receive_completed_by_some && !receive_status_valid) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
       std::cerr << "rank " << rank << " Waitsome receive status invalid outcount="
                 << wait_some_outcount << " indices=" << wait_some_indices[0] << ','
                 << wait_some_indices[1] << " statuses="
@@ -583,15 +593,15 @@ void rank_work(const void *) {
       MPI_Status remaining_statuses[2] {};
       if (mpiwrap_Waitall(2, wait_some_requests, remaining_statuses) !=
           thread_mpi::TMPI_SUCCESS) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
       } else if (!receive_completed_by_some &&
                  (remaining_statuses[0].MPI_SOURCE != previous ||
                   remaining_statuses[0].MPI_TAG != 79)) {
-        failures.fetch_add(1);
+        record_failure(rank, __LINE__);
       }
     }
     if (wait_some_recv != previous + 111) {
-      failures.fetch_add(1);
+      record_failure(rank, __LINE__);
     }
   }
   ranks_seen.fetch_add(1);
@@ -699,9 +709,9 @@ int run(int ranks) {
     std::cerr << "unimplemented tMPI call did not throw\n";
     return 1;
   } catch (const std::runtime_error &error) {
+    const char *description = plumed_mpiw_thread_mpi_provider()->description;
     if (std::string(error.what()).find("MPI_Init") == std::string::npos ||
-        std::string(error.what()).find("PLUMED embedded thread-MPI") ==
-        std::string::npos) {
+        (description && std::string(error.what()).find(description) == std::string::npos)) {
       std::cerr << "unavailable diagnostic omitted function/provider identity: "
                 << error.what() << '\n';
       return 1;

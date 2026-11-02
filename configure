@@ -7339,8 +7339,10 @@ fi
 
 if test "$thread_mpi_found" = ok; then
   $as_echo "#define __PLUMED_HAS_THREAD_MPI 1" >>confdefs.h
-  $as_echo "#define __PLUMED_MPIWRAP 1" >>confdefs.h
 fi
+# The provider frontend also supplies runtime-selected serial fallbacks.
+# Compiling it does not select or initialize an MPI implementation.
+$as_echo "#define __PLUMED_MPIWRAP 1" >>confdefs.h
 
 # search for openmp is automatically disabled by autoconf
 # when configuring with --disable-openmp
