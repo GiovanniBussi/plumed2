@@ -17,6 +17,11 @@ cp "$provider" "$TASK_DIR/paths with spaces/provider.so"
 PLUMED_MPI_WRAPPER="$TASK_DIR/paths with spaces/provider.so" \
   "$program" --no-mpi info > "$TASK_DIR/library.log" 2>&1
 
+# Exercise the actual driver too: a Mach-O executable can be accepted by
+# dlopen on macOS even though it is a compiler rather than a provider DSO.
+PLUMED_MPI_WRAPPER="$compiler" \
+  "$program" --no-mpi info > "$TASK_DIR/direct-compiler.log" 2>&1
+
 export MPI_TEST_COMPILER="$compiler"
 export MPI_TEST_COMPILER_MARKER="$TASK_DIR/compiler-ran"
 # This filename would expand if it were accidentally used as shell source.

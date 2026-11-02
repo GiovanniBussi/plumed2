@@ -4,7 +4,7 @@ set -euo pipefail
 
 MANUAL='Build an MPI provider for a serial-built PLUMED kernel.
 
-Usage: plumed makempi --compiler /absolute/path/to/mpicc --out provider.so
+Usage: plumed mkmpi --compiler /absolute/path/to/mpicc --out provider.so
 
 Options:
   --compiler PATH        Absolute path to an MPI C or C++ compiler driver
@@ -13,8 +13,9 @@ Options:
   --ldflag ARG           Add one linker argument; may be repeated
   -h, --help             Show this help
 
-The driver must support C++98. C compiler drivers are explicitly invoked in
-C++ mode. Flags are passed as individual arguments without shell evaluation.
+The adapter is C++98-compatible. The .cpp suffix selects the language; no
+standard or language-selection flags are added. Configured shared-library
+flags are reused. Extra flags are individual arguments without shell evaluation.
 The generated provider uses the selected MPI runtime and no PLUMED library.'
 
 compiler=
@@ -29,7 +30,7 @@ while (($#)); do
     --compiler|-o|--out|--cflag|--ldflag)
       option=$1
       if (($# < 2)); then
-        echo "makempi: $option requires an argument" >&2
+        echo "mkmpi: $option requires an argument" >&2
         exit 1
       fi
       case "$option" in
@@ -39,42 +40,52 @@ while (($#)); do
         --ldflag) ldflags+=("$2") ;;
       esac
       shift 2 ;;
-    *) echo "makempi: unknown option $1 (see --help)" >&2; exit 1 ;;
+    *) echo "mkmpi: unknown option $1 (see --help)" >&2; exit 1 ;;
   esac
 done
 if [[ "$compiler" != /* || ! -f "$compiler" || ! -x "$compiler" ]]; then
-  echo 'makempi: --compiler must name an absolute executable MPI compiler path' >&2
+  echo 'mkmpi: --compiler must name an absolute executable MPI compiler path' >&2
   exit 1
 fi
 if [[ -z "$output" ]]; then
-  echo 'makempi: --out is required' >&2
+  echo 'mkmpi: --out is required' >&2
   exit 1
 fi
 plumed_mpi_root=${PLUMED_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 adapter_dir="$plumed_mpi_root/src/mpiwrap"
 for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h provider-callbacks.h; do
   if [[ ! -r "$adapter_dir/$source" ]]; then
-    echo "makempi: missing installed adapter source $adapter_dir/$source" >&2
+    echo "mkmpi: missing installed adapter source $adapter_dir/$source" >&2
     exit 1
   fi
 done
-case "$(uname -s)" in
-  Darwin) shared_flags=(-dynamiclib) ;;
-  *) shared_flags=(-shared) ;;
-esac
+# Reuse only flags checked by configure, as the mklib command does. The
+# selected MPI driver replaces the configured compiler, not its MPI runtime.
+options_file="$plumed_mpi_root/src/config/compile_options.sh"
+if [[ ! -r "$options_file" ]]; then
+  echo "mkmpi: missing configured build options $options_file" >&2
+  exit 1
+fi
+source "$options_file"
+if [[ -z "${mpi_provider_link_flags:-}" ]]; then
+  echo 'mkmpi: shared-library compiler flags are unavailable; reconfigure PLUMED' >&2
+  exit 1
+fi
+read -r -a configured_compile_flags <<< "${mpi_provider_compile_flags:-}"
+read -r -a configured_link_flags <<< "$mpi_provider_link_flags"
 # Use the destination filesystem so the final rename is atomic. Keeping the
 # output basename also preserves the default library identity on macOS.
-build_dir=$(mktemp -d "$(dirname "$output")/.plumed-makempi.XXXXXX")
+build_dir=$(mktemp -d "$(dirname "$output")/.plumed-mkmpi.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
 temporary_output="$build_dir/$(basename "$output")"
-"$compiler" -x c++ -std=c++98 -fPIC -DPLUMED_MPIW_NATIVE_ADAPTER \
-  -I"$adapter_dir" ${cflags[@]+"${cflags[@]}"} "$adapter_dir/mpiwrap_implementation.cpp" \
-  "${shared_flags[@]}" ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
-    echo "makempi: MPI adapter compilation/link failed with $compiler" >&2
+"$compiler" ${configured_compile_flags[@]+"${configured_compile_flags[@]}"} -DPLUMED_MPIW_NATIVE_ADAPTER \
+  ${cflags[@]+"${cflags[@]}"} "$adapter_dir/mpiwrap_implementation.cpp" \
+  "${configured_link_flags[@]}" ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
+    echo "mkmpi: MPI adapter compilation/link failed with $compiler" >&2
     exit 1
   }
 if [[ ! -s "$temporary_output" ]]; then
-  echo 'makempi: compiler did not produce a provider library' >&2
+  echo 'mkmpi: compiler did not produce a provider library' >&2
   exit 1
 fi
 mv -f "$temporary_output" "$output"

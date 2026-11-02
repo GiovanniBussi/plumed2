@@ -97,9 +97,11 @@ clear runtime error.
 
 ## Build a native provider
 
-Use `plumed makempi --compiler /absolute/path/to/mpicc --out provider.so`
+Use `plumed mkmpi --compiler /absolute/path/to/mpicc --out provider.so`
 (or an MPI C++ compiler driver) to build the shared native adapter. The command
-explicitly selects C++98 even with a C driver and does not link a PLUMED kernel.
+reuses configure-tested compiler/shared-library flags, relies on the `.cpp`
+suffix for language selection, and adds no language-standard flag. The adapter
+is C++98-compatible and does not link a PLUMED kernel.
 Use a `.dylib` output name on macOS. Pass each additional compiler or linker
 argument separately with repeated `--cflag ARG` or `--ldflag ARG` options;
 arguments are never shell-evaluated. The selected compiler must support C++.
@@ -113,7 +115,7 @@ Alternatively, set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
 or an absolute executable MPI compiler path. Explicit pre-creation injection
 takes precedence; otherwise the environment selection precedes the internal
 provider. A loadable library must expose the provider factory. A non-loadable
-executable compiler invokes the same `makempi` command in a private temporary
+executable compiler invokes the same `mkmpi` command in a private temporary
 directory, with compiler diagnostics inherited by the process. Files with
 shared-library suffixes are never executed as compiler commands. The kernel
 retains the loaded provider library; temporary build files are removed after

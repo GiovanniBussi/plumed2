@@ -2,13 +2,14 @@
 # Exercise argument boundaries, installation independence, and failed publication.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-makempi-test.XXXXXX")
+TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mkmpi-test.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 export PLUMED_ROOT="$TASK_DIR/installed tree"
-mkdir -p "$PLUMED_ROOT/src/mpiwrap" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
+mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/src/mpiwrap" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
 for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h provider-callbacks.h; do
   cp "$ROOT/src/mpiwrap/$source" "$PLUMED_ROOT/src/mpiwrap/"
 done
+printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\n" > "$PLUMED_ROOT/src/config/compile_options.sh"
 export ARGUMENT_LOG="$TASK_DIR/arguments"
 cat > "$TASK_DIR/compiler dir/mpicc" <<'COMPILER'
 #!/usr/bin/env bash
@@ -25,34 +26,37 @@ COMPILER
 chmod +x "$TASK_DIR/compiler dir/mpicc"
 output="$TASK_DIR/output dir/provider.so"
 printf 'previous provider\n' > "$output"
-if FAIL_COMPILE=yes "$ROOT/scripts/makempi.sh" \
+if FAIL_COMPILE=yes "$ROOT/scripts/mkmpi.sh" \
   --compiler "$TASK_DIR/compiler dir/mpicc" --out "$output" 2>/dev/null; then
-  echo 'makempi accepted a failed compiler' >&2; exit 1
+  echo 'mkmpi accepted a failed compiler' >&2; exit 1
 fi
 if [[ $(cat "$output") != 'previous provider' ]]; then
-  echo 'makempi damaged the previous provider on failure' >&2; exit 1
+  echo 'mkmpi damaged the previous provider on failure' >&2; exit 1
 fi
 literal_flag='-DVALUE=$(never-run-this)'
-"$ROOT/scripts/makempi.sh" --compiler "$TASK_DIR/compiler dir/mpicc" \
+"$ROOT/scripts/mkmpi.sh" --compiler "$TASK_DIR/compiler dir/mpicc" \
   --out "$output" --cflag "$literal_flag" --ldflag '-L/path with spaces'
 if [[ $(cat "$output") != 'new provider' ]]; then
-  echo 'makempi did not publish the provider' >&2; exit 1
+  echo 'mkmpi did not publish the provider' >&2; exit 1
 fi
-for expected in "$literal_flag" '-L/path with spaces' '-std=c++98' \
+for expected in "$literal_flag" '-L/path with spaces' '-shared' \
   "$PLUMED_ROOT/src/mpiwrap/mpiwrap_implementation.cpp"; do
   if ! grep -Fx -- "$expected" "$ARGUMENT_LOG" >/dev/null; then
-    echo "makempi changed argument: $expected" >&2; exit 1
+    echo "mkmpi changed argument: $expected" >&2; exit 1
   fi
 done
-if "$ROOT/scripts/makempi.sh" --compiler relative/mpicc --out "$output" 2>/dev/null; then
-  echo 'makempi accepted a relative compiler path' >&2; exit 1
+if "$ROOT/scripts/mkmpi.sh" --compiler relative/mpicc --out "$output" 2>/dev/null; then
+  echo 'mkmpi accepted a relative compiler path' >&2; exit 1
 fi
-if "$ROOT/scripts/makempi.sh" --compiler 2>/dev/null; then
-  echo 'makempi accepted a missing option argument' >&2; exit 1
+if "$ROOT/scripts/mkmpi.sh" --compiler 2>/dev/null; then
+  echo 'mkmpi accepted a missing option argument' >&2; exit 1
+fi
+if grep -E -- '^-std=|^-x$' "$ARGUMENT_LOG" >/dev/null; then
+  echo 'mkmpi added unconfigured language flags' >&2; exit 1
 fi
 shopt -s nullglob
-temporary=("$TASK_DIR/output dir"/.plumed-makempi.*)
+temporary=("$TASK_DIR/output dir"/.plumed-mkmpi.*)
 if ((${#temporary[@]})); then
-  echo 'makempi left temporary build directories behind' >&2; exit 1
+  echo 'mkmpi left temporary build directories behind' >&2; exit 1
 fi
-echo 'makempi arguments, installed sources, cleanup, and publication passed'
+echo 'mkmpi arguments, installed sources, cleanup, and publication passed'
