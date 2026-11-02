@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <new>
 #include <type_traits>
+#include <vector>
 
 namespace PLMD {
 namespace thread_mpi_adapter {
@@ -444,6 +446,160 @@ std::int32_t wait(plumed_mpiw_handle_storage *request,
   return result;
 }
 
+std::int32_t waitall(std::int32_t count,
+                     plumed_mpiw_handle_storage array_of_requests[],
+                     plumed_mpiw_status array_of_statuses[]) {
+  if (count < 0 || (count > 0 && !array_of_requests)) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  try {
+    std::vector<thread_mpi::tMPI_Request> requests(static_cast<std::size_t>(count));
+    std::vector<thread_mpi::tMPI_Status> statuses;
+    if (array_of_statuses) {
+      statuses.resize(static_cast<std::size_t>(count));
+    }
+    for (int i = 0; i < count; ++i) {
+      requests[static_cast<std::size_t>(i)] = decode_request(array_of_requests[i]);
+    }
+    const int result = thread_mpi::tMPI_Waitall(
+                         count, count ? requests.data() : nullptr,
+                         array_of_statuses && count ? statuses.data() : nullptr);
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i] = encode_request(requests[static_cast<std::size_t>(i)]);
+    }
+    if (array_of_statuses &&
+        (result == thread_mpi::TMPI_SUCCESS || result == thread_mpi::TMPI_ERR_IN_STATUS)) {
+      for (int i = 0; i < count; ++i) {
+        export_status(statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+      }
+    }
+    return result;
+  } catch (const std::bad_alloc &) {
+    return thread_mpi::TMPI_ERR_NO_MEM;
+  }
+}
+
+std::int32_t waitsome(std::int32_t incount,
+                      plumed_mpiw_handle_storage array_of_requests[],
+                      std::int32_t *outcount, std::int32_t array_of_indices[],
+                      plumed_mpiw_status array_of_statuses[]) {
+  if (incount < 0 || (incount > 0 && !array_of_requests) || !outcount ||
+      (incount > 0 && !array_of_indices)) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  try {
+    std::vector<thread_mpi::tMPI_Request> requests(static_cast<std::size_t>(incount));
+    std::vector<thread_mpi::tMPI_Status> statuses;
+    if (array_of_statuses) {
+      statuses.resize(static_cast<std::size_t>(incount));
+    }
+    for (int i = 0; i < incount; ++i) {
+      requests[static_cast<std::size_t>(i)] = decode_request(array_of_requests[i]);
+    }
+    int completed = 0;
+    int result = thread_mpi::TMPI_SUCCESS;
+    if (incount > 0) {
+      int index = TMPI_UNDEFINED;
+      thread_mpi::tMPI_Status status{};
+      result = thread_mpi::tMPI_Waitany(incount, requests.data(), &index, &status);
+      if (index != TMPI_UNDEFINED) {
+        array_of_indices[completed] = index;
+        if (array_of_statuses) {
+          statuses[static_cast<std::size_t>(completed)] = status;
+        }
+        ++completed;
+        for (;;) {
+          int next_index = TMPI_UNDEFINED;
+          int flag = 0;
+          thread_mpi::tMPI_Status next_status{};
+          const int next_result = thread_mpi::tMPI_Testany(
+                                    incount, requests.data(), &next_index, &flag,
+                                    &next_status);
+          if (next_result != thread_mpi::TMPI_SUCCESS) {
+            result = next_result;
+          }
+          if (!flag || next_index == TMPI_UNDEFINED) {
+            break;
+          }
+          array_of_indices[completed] = next_index;
+          if (array_of_statuses) {
+            statuses[static_cast<std::size_t>(completed)] = next_status;
+          }
+          ++completed;
+        }
+      }
+    }
+    *outcount = completed ? completed : TMPI_UNDEFINED;
+    for (int i = 0; i < incount; ++i) {
+      array_of_requests[i] = encode_request(requests[static_cast<std::size_t>(i)]);
+    }
+    if (array_of_statuses && completed > 0) {
+      for (int i = 0; i < completed; ++i) {
+        export_status(statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+      }
+    }
+    return result;
+  } catch (const std::bad_alloc &) {
+    return thread_mpi::TMPI_ERR_NO_MEM;
+  }
+}
+
+std::int32_t testsome(std::int32_t incount,
+                      plumed_mpiw_handle_storage array_of_requests[],
+                      std::int32_t *outcount, std::int32_t array_of_indices[],
+                      plumed_mpiw_status array_of_statuses[]) {
+  if (incount < 0 || (incount > 0 && !array_of_requests) || !outcount ||
+      (incount > 0 && !array_of_indices)) {
+    return thread_mpi::TMPI_ERR_REQUESTS;
+  }
+  try {
+    std::vector<thread_mpi::tMPI_Request> requests(static_cast<std::size_t>(incount));
+    std::vector<thread_mpi::tMPI_Status> statuses;
+    if (array_of_statuses) {
+      statuses.resize(static_cast<std::size_t>(incount));
+    }
+    bool any_active = false;
+    for (int i = 0; i < incount; ++i) {
+      requests[static_cast<std::size_t>(i)] = decode_request(array_of_requests[i]);
+      any_active = any_active || requests[static_cast<std::size_t>(i)] != nullptr;
+    }
+    int completed = 0;
+    int result = thread_mpi::TMPI_SUCCESS;
+    if (any_active) {
+      for (;;) {
+        int index = TMPI_UNDEFINED;
+        int flag = 0;
+        thread_mpi::tMPI_Status status{};
+        const int next_result = thread_mpi::tMPI_Testany(
+                                  incount, requests.data(), &index, &flag, &status);
+        if (next_result != thread_mpi::TMPI_SUCCESS) {
+          result = next_result;
+        }
+        if (!flag || index == TMPI_UNDEFINED) {
+          break;
+        }
+        array_of_indices[completed] = index;
+        if (array_of_statuses) {
+          statuses[static_cast<std::size_t>(completed)] = status;
+        }
+        ++completed;
+      }
+    }
+    *outcount = any_active ? completed : TMPI_UNDEFINED;
+    for (int i = 0; i < incount; ++i) {
+      array_of_requests[i] = encode_request(requests[static_cast<std::size_t>(i)]);
+    }
+    if (array_of_statuses && completed > 0) {
+      for (int i = 0; i < completed; ++i) {
+        export_status(statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+      }
+    }
+    return result;
+  } catch (const std::bad_alloc &) {
+    return thread_mpi::TMPI_ERR_NO_MEM;
+  }
+}
+
 std::int32_t get_count(const plumed_mpiw_status *status,
                        plumed_mpiw_handle_storage datatype,
                        std::int32_t *count) {
@@ -576,6 +732,18 @@ static const plumed_mpiw_function_entry functions[] = {
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Wait", 0x4b15813d,
     1, reinterpret_cast<plumed_mpiw_generic_fn>(&wait)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Waitall", 0x7a57ae23,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&waitall)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Waitsome", 0xb6562e1a,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&waitsome)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Testsome", 0x5a87d17b,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&testsome)
   },
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Get_count", 0x71967a66,

@@ -280,6 +280,7 @@ std::int32_t mpiwrap_ERR_OTHER();
 std::int32_t mpiwrap_ERR_INTERN();
 std::int32_t mpiwrap_ERR_PENDING();
 void * mpiwrap_BOTTOM();
+std::int32_t mpiwrap_ERR_IN_STATUS();
 int mpiwrap_Init(int *argc, char ***argv);
 bool mpiwrap_has_Init();
 int mpiwrap_Finalize();
@@ -534,6 +535,8 @@ inline void mpiwrap_status_from_transport(const plumed_mpiw_status &value, MPI_S
   std::memcpy(status->raw, value.raw, sizeof(status->raw));
 }
 inline int mpiwrap_Init(int *argc, char ***argv) {
+  (void)argc;
+  (void)argv;
   mpiwrap_ensure_provider_selected();
   mpiwrap_unavailable("MPI_Init");
 }
@@ -601,7 +604,7 @@ inline int mpiwrap_Comm_free(MPI_Comm *comm) {
     mpiwrap_unavailable("MPI_Comm_free");
   }
   int32_t native_return_value = pointers::Comm_free(&native_comm);
-  if (native_return_value == 0) {
+  if (true) {
     comm->storage = native_comm;
   }
   return static_cast<int>(native_return_value);
@@ -733,7 +736,6 @@ inline int mpiwrap_Isend(const void *buf, int count, MPI_Datatype datatype, int 
     throw std::invalid_argument("MPI_Isend requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Isend) {
     mpiwrap_unavailable("MPI_Isend");
   }
@@ -759,7 +761,7 @@ inline int mpiwrap_Wait(MPI_Request *request, MPI_Status *status) {
     mpiwrap_unavailable("MPI_Wait");
   }
   int32_t native_return_value = pointers::Wait(&native_request, status ? &native_status : nullptr);
-  if (native_return_value == 0) {
+  if (true) {
     request->storage = native_request;
   }
   if (native_return_value == 0 && status) {
@@ -883,6 +885,8 @@ inline bool mpiwrap_has_Error_string() {
   return pointers::Error_string != nullptr;
 }
 inline int mpiwrap_Comm_create_errhandler(MPI_Comm_errhandler_function *comm_errhandler_fn, MPI_Errhandler *errhandler) {
+  (void)comm_errhandler_fn;
+  (void)errhandler;
   mpiwrap_ensure_provider_selected();
   mpiwrap_unavailable("MPI_Comm_create_errhandler");
 }
@@ -988,7 +992,6 @@ inline int mpiwrap_Ibsend(const void *buf, int count, MPI_Datatype datatype, int
     throw std::invalid_argument("MPI_Ibsend requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Ibsend) {
     mpiwrap_unavailable("MPI_Ibsend");
   }
@@ -1008,7 +1011,6 @@ inline int mpiwrap_Issend(const void *buf, int count, MPI_Datatype datatype, int
     throw std::invalid_argument("MPI_Issend requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Issend) {
     mpiwrap_unavailable("MPI_Issend");
   }
@@ -1028,7 +1030,6 @@ inline int mpiwrap_Irsend(const void *buf, int count, MPI_Datatype datatype, int
     throw std::invalid_argument("MPI_Irsend requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Irsend) {
     mpiwrap_unavailable("MPI_Irsend");
   }
@@ -1048,7 +1049,6 @@ inline int mpiwrap_Irecv(void *buf, int count, MPI_Datatype datatype, int source
     throw std::invalid_argument("MPI_Irecv requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Irecv) {
     mpiwrap_unavailable("MPI_Irecv");
   }
@@ -1078,7 +1078,7 @@ inline int mpiwrap_Test(MPI_Request *request, int *flag, MPI_Status *status) {
     mpiwrap_unavailable("MPI_Test");
   }
   int32_t native_return_value = pointers::Test(&native_request, &native_flag, status ? &native_status : nullptr);
-  if (native_return_value == 0) {
+  if (true) {
     request->storage = native_request;
   }
   if (native_return_value == 0) {
@@ -1104,7 +1104,7 @@ inline int mpiwrap_Request_free(MPI_Request *request) {
     mpiwrap_unavailable("MPI_Request_free");
   }
   int32_t native_return_value = pointers::Request_free(&native_request);
-  if (native_return_value == 0) {
+  if (true) {
     request->storage = native_request;
   }
   return static_cast<int>(native_return_value);
@@ -1115,45 +1115,253 @@ inline bool mpiwrap_has_Request_free() {
 }
 inline int mpiwrap_Waitany(int count, MPI_Request array_of_requests[], int *indx, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Waitany");
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Waitany requires nonnegative count");
+  }
+  if (count > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Waitany requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!indx) {
+    throw std::invalid_argument("MPI_Waitany requires indx");
+  }
+  std::int32_t native_indx = 0;
+  plumed_mpiw_status native_status{};
+  if (!pointers::Waitany) {
+    mpiwrap_unavailable("MPI_Waitany");
+  }
+  int32_t native_return_value = pointers::Waitany(count, (count > 0 ? native_array_of_requests.data() : nullptr), &native_indx, status ? &native_status : nullptr);
+  if (array_of_requests)
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if (native_return_value == 0) {
+    *indx = static_cast<int>(native_indx);
+  }
+  if (native_return_value == 0 && status) {
+    mpiwrap_status_from_transport(native_status, status);
+  }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitany() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Waitany != nullptr;
 }
 inline int mpiwrap_Testany(int count, MPI_Request array_of_requests[], int *indx, int *flag, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Testany");
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Testany requires nonnegative count");
+  }
+  if (count > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Testany requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!indx) {
+    throw std::invalid_argument("MPI_Testany requires indx");
+  }
+  std::int32_t native_indx = 0;
+  if (!flag) {
+    throw std::invalid_argument("MPI_Testany requires flag");
+  }
+  std::int32_t native_flag = 0;
+  plumed_mpiw_status native_status{};
+  if (!pointers::Testany) {
+    mpiwrap_unavailable("MPI_Testany");
+  }
+  int32_t native_return_value = pointers::Testany(count, (count > 0 ? native_array_of_requests.data() : nullptr), &native_indx, &native_flag, status ? &native_status : nullptr);
+  if (array_of_requests)
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if (native_return_value == 0) {
+    *indx = static_cast<int>(native_indx);
+  }
+  if (native_return_value == 0) {
+    *flag = static_cast<int>(native_flag);
+  }
+  if (native_return_value == 0 && native_flag != 0 && native_indx != mpiwrap_UNDEFINED() && status) {
+    mpiwrap_status_from_transport(native_status, status);
+  }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testany() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Testany != nullptr;
 }
 inline int mpiwrap_Waitall(int count, MPI_Request array_of_requests[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Waitall");
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Waitall requires nonnegative count");
+  }
+  if (count > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Waitall requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Waitall requires nonnegative count");
+  }
+  std::vector<plumed_mpiw_status> native_array_of_statuses;
+  if (array_of_statuses && count > 0) {
+    native_array_of_statuses.resize(static_cast<std::size_t>(count));
+  }
+  if (!pointers::Waitall) {
+    mpiwrap_unavailable("MPI_Waitall");
+  }
+  int32_t native_return_value = pointers::Waitall(count, (count > 0 ? native_array_of_requests.data() : nullptr), (array_of_statuses && count > 0 ? native_array_of_statuses.data() : nullptr));
+  if (array_of_requests)
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if (array_of_statuses && ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS())))
+    for (int i = 0; i < count; ++i) {
+      mpiwrap_status_from_transport(native_array_of_statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+    }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitall() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Waitall != nullptr;
 }
 inline int mpiwrap_Testall(int count, MPI_Request array_of_requests[], int *flag, MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Testall");
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Testall requires nonnegative count");
+  }
+  if (count > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Testall requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!flag) {
+    throw std::invalid_argument("MPI_Testall requires flag");
+  }
+  std::int32_t native_flag = 0;
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Testall requires nonnegative count");
+  }
+  std::vector<plumed_mpiw_status> native_array_of_statuses;
+  if (array_of_statuses && count > 0) {
+    native_array_of_statuses.resize(static_cast<std::size_t>(count));
+  }
+  if (!pointers::Testall) {
+    mpiwrap_unavailable("MPI_Testall");
+  }
+  int32_t native_return_value = pointers::Testall(count, (count > 0 ? native_array_of_requests.data() : nullptr), &native_flag, (array_of_statuses && count > 0 ? native_array_of_statuses.data() : nullptr));
+  if (array_of_requests)
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS())) {
+    *flag = static_cast<int>(native_flag);
+  }
+  if (array_of_statuses && ((native_return_value == mpiwrap_ERR_IN_STATUS() || (native_return_value == 0 && native_flag != 0))))
+    for (int i = 0; i < count; ++i) {
+      mpiwrap_status_from_transport(native_array_of_statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+    }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testall() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Testall != nullptr;
 }
 inline int mpiwrap_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Waitsome");
+  if (incount < 0) {
+    throw std::invalid_argument("MPI_Waitsome requires nonnegative incount");
+  }
+  if (incount > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Waitsome requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(incount));
+  for (int i = 0; i < incount; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!outcount) {
+    throw std::invalid_argument("MPI_Waitsome requires outcount");
+  }
+  std::int32_t native_outcount = 0;
+  if (incount < 0) {
+    throw std::invalid_argument("MPI_Waitsome requires nonnegative incount");
+  }
+  std::vector<plumed_mpiw_status> native_array_of_statuses;
+  if (array_of_statuses && incount > 0) {
+    native_array_of_statuses.resize(static_cast<std::size_t>(incount));
+  }
+  if (!pointers::Waitsome) {
+    mpiwrap_unavailable("MPI_Waitsome");
+  }
+  int32_t native_return_value = pointers::Waitsome(incount, (incount > 0 ? native_array_of_requests.data() : nullptr), &native_outcount, array_of_indices, (array_of_statuses && incount > 0 ? native_array_of_statuses.data() : nullptr));
+  if (array_of_requests)
+    for (int i = 0; i < incount; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS())) {
+    *outcount = static_cast<int>(native_outcount);
+  }
+  if (array_of_statuses && ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS()) && native_outcount > 0 && native_outcount != mpiwrap_UNDEFINED()))
+    for (int i = 0; i < native_outcount; ++i) {
+      mpiwrap_status_from_transport(native_array_of_statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+    }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitsome() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Waitsome != nullptr;
 }
 inline int mpiwrap_Testsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Testsome");
+  if (incount < 0) {
+    throw std::invalid_argument("MPI_Testsome requires nonnegative incount");
+  }
+  if (incount > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Testsome requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(incount));
+  for (int i = 0; i < incount; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!outcount) {
+    throw std::invalid_argument("MPI_Testsome requires outcount");
+  }
+  std::int32_t native_outcount = 0;
+  if (incount < 0) {
+    throw std::invalid_argument("MPI_Testsome requires nonnegative incount");
+  }
+  std::vector<plumed_mpiw_status> native_array_of_statuses;
+  if (array_of_statuses && incount > 0) {
+    native_array_of_statuses.resize(static_cast<std::size_t>(incount));
+  }
+  if (!pointers::Testsome) {
+    mpiwrap_unavailable("MPI_Testsome");
+  }
+  int32_t native_return_value = pointers::Testsome(incount, (incount > 0 ? native_array_of_requests.data() : nullptr), &native_outcount, array_of_indices, (array_of_statuses && incount > 0 ? native_array_of_statuses.data() : nullptr));
+  if (array_of_requests)
+    for (int i = 0; i < incount; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  if ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS())) {
+    *outcount = static_cast<int>(native_outcount);
+  }
+  if (array_of_statuses && ((native_return_value == 0 || native_return_value == mpiwrap_ERR_IN_STATUS()) && native_outcount > 0 && native_outcount != mpiwrap_UNDEFINED()))
+    for (int i = 0; i < native_outcount; ++i) {
+      mpiwrap_status_from_transport(native_array_of_statuses[static_cast<std::size_t>(i)], &array_of_statuses[i]);
+    }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testsome() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Testsome != nullptr;
 }
 inline int mpiwrap_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1205,7 +1413,7 @@ inline int mpiwrap_Cancel(MPI_Request *request) {
     mpiwrap_unavailable("MPI_Cancel");
   }
   int32_t native_return_value = pointers::Cancel(&native_request);
-  if (native_return_value == 0) {
+  if (true) {
     request->storage = native_request;
   }
   return static_cast<int>(native_return_value);
@@ -1244,7 +1452,6 @@ inline int mpiwrap_Send_init(const void *buf, int count, MPI_Datatype datatype, 
     throw std::invalid_argument("MPI_Send_init requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Send_init) {
     mpiwrap_unavailable("MPI_Send_init");
   }
@@ -1264,7 +1471,6 @@ inline int mpiwrap_Bsend_init(const void *buf, int count, MPI_Datatype datatype,
     throw std::invalid_argument("MPI_Bsend_init requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Bsend_init) {
     mpiwrap_unavailable("MPI_Bsend_init");
   }
@@ -1284,7 +1490,6 @@ inline int mpiwrap_Ssend_init(const void *buf, int count, MPI_Datatype datatype,
     throw std::invalid_argument("MPI_Ssend_init requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Ssend_init) {
     mpiwrap_unavailable("MPI_Ssend_init");
   }
@@ -1304,7 +1509,6 @@ inline int mpiwrap_Rsend_init(const void *buf, int count, MPI_Datatype datatype,
     throw std::invalid_argument("MPI_Rsend_init requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Rsend_init) {
     mpiwrap_unavailable("MPI_Rsend_init");
   }
@@ -1324,7 +1528,6 @@ inline int mpiwrap_Recv_init(void *buf, int count, MPI_Datatype datatype, int so
     throw std::invalid_argument("MPI_Recv_init requires request");
   }
   plumed_mpiw_handle_storage native_request{};
-  native_request = request->storage;
   if (!pointers::Recv_init) {
     mpiwrap_unavailable("MPI_Recv_init");
   }
@@ -1349,7 +1552,7 @@ inline int mpiwrap_Start(MPI_Request *request) {
     mpiwrap_unavailable("MPI_Start");
   }
   int32_t native_return_value = pointers::Start(&native_request);
-  if (native_return_value == 0) {
+  if (true) {
     request->storage = native_request;
   }
   return static_cast<int>(native_return_value);
@@ -1360,10 +1563,29 @@ inline bool mpiwrap_has_Start() {
 }
 inline int mpiwrap_Startall(int count, MPI_Request array_of_requests[]) {
   mpiwrap_ensure_provider_selected();
-  mpiwrap_unavailable("MPI_Startall");
+  if (count < 0) {
+    throw std::invalid_argument("MPI_Startall requires nonnegative count");
+  }
+  if (count > 0 && !array_of_requests) {
+    throw std::invalid_argument("MPI_Startall requires array_of_requests");
+  }
+  std::vector<plumed_mpiw_handle_storage> native_array_of_requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    native_array_of_requests[static_cast<std::size_t>(i)] = array_of_requests[i].storage;
+  }
+  if (!pointers::Startall) {
+    mpiwrap_unavailable("MPI_Startall");
+  }
+  int32_t native_return_value = pointers::Startall(count, (count > 0 ? native_array_of_requests.data() : nullptr));
+  if (array_of_requests)
+    for (int i = 0; i < count; ++i) {
+      array_of_requests[i].storage = native_array_of_requests[static_cast<std::size_t>(i)];
+    }
+  return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Startall() {
-  return false;
+  mpiwrap_ensure_provider_selected();
+  return pointers::Startall != nullptr;
 }
 inline int mpiwrap_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, int sendtag, int source, int recvtag, MPI_Comm comm, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1449,7 +1671,7 @@ inline int mpiwrap_Type_commit(MPI_Datatype *datatype) {
     mpiwrap_unavailable("MPI_Type_commit");
   }
   int32_t native_return_value = pointers::Type_commit(&native_datatype);
-  if (native_return_value == 0) {
+  if (true) {
     datatype->storage = native_datatype;
   }
   return static_cast<int>(native_return_value);
@@ -1469,7 +1691,7 @@ inline int mpiwrap_Type_free(MPI_Datatype *datatype) {
     mpiwrap_unavailable("MPI_Type_free");
   }
   int32_t native_return_value = pointers::Type_free(&native_datatype);
-  if (native_return_value == 0) {
+  if (true) {
     datatype->storage = native_datatype;
   }
   return static_cast<int>(native_return_value);
@@ -1532,7 +1754,7 @@ inline int mpiwrap_Pack(const void *inbuf, int incount, MPI_Datatype datatype, v
     mpiwrap_unavailable("MPI_Pack");
   }
   int32_t native_return_value = pointers::Pack(inbuf, incount, datatype.storage, outbuf, outsize, &native_position, comm.storage);
-  if (native_return_value == 0) {
+  if (true) {
     *position = static_cast<int>(native_position);
   }
   return static_cast<int>(native_return_value);
@@ -1552,7 +1774,7 @@ inline int mpiwrap_Unpack(const void *inbuf, int insize, int *position, void *ou
     mpiwrap_unavailable("MPI_Unpack");
   }
   int32_t native_return_value = pointers::Unpack(inbuf, insize, &native_position, outbuf, outcount, datatype.storage, comm.storage);
-  if (native_return_value == 0) {
+  if (true) {
     *position = static_cast<int>(native_position);
   }
   return static_cast<int>(native_return_value);
@@ -1641,6 +1863,9 @@ inline bool mpiwrap_has_Reduce() {
   return pointers::Reduce != nullptr;
 }
 inline int mpiwrap_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op) {
+  (void)user_fn;
+  (void)commute;
+  (void)op;
   mpiwrap_ensure_provider_selected();
   mpiwrap_unavailable("MPI_Op_create");
 }
@@ -1658,7 +1883,7 @@ inline int mpiwrap_Op_free(MPI_Op *op) {
     mpiwrap_unavailable("MPI_Op_free");
   }
   int32_t native_return_value = pointers::Op_free(&native_op);
-  if (native_return_value == 0) {
+  if (true) {
     op->storage = native_op;
   }
   return static_cast<int>(native_return_value);
@@ -1923,7 +2148,7 @@ inline int mpiwrap_Group_free(MPI_Group *group) {
     mpiwrap_unavailable("MPI_Group_free");
   }
   int32_t native_return_value = pointers::Group_free(&native_group);
-  if (native_return_value == 0) {
+  if (true) {
     group->storage = native_group;
   }
   return static_cast<int>(native_return_value);
@@ -2378,7 +2603,7 @@ inline int mpiwrap_Errhandler_free(MPI_Errhandler *errhandler) {
     mpiwrap_unavailable("MPI_Errhandler_free");
   }
   int32_t native_return_value = pointers::Errhandler_free(&native_errhandler);
-  if (native_return_value == 0) {
+  if (true) {
     errhandler->storage = native_errhandler;
   }
   return static_cast<int>(native_return_value);
@@ -2431,6 +2656,7 @@ inline bool mpiwrap_has_Wtick() {
   return pointers::Wtick != nullptr;
 }
 inline int mpiwrap_Pcontrol(const int level, ...) {
+  (void)level;
   mpiwrap_ensure_provider_selected();
   mpiwrap_unavailable("MPI_Pcontrol");
 }
@@ -2687,6 +2913,7 @@ inline bool mpiwrap_has_Comm_set_errhandler() {
 #define MPI_ERR_INTERN (::PLMD::mpiwrap_ERR_INTERN())
 #define MPI_ERR_PENDING (::PLMD::mpiwrap_ERR_PENDING())
 #define MPI_BOTTOM (::PLMD::mpiwrap_BOTTOM())
+#define MPI_ERR_IN_STATUS (::PLMD::mpiwrap_ERR_IN_STATUS())
 #endif // provider-only MPI name remapping
 #endif // native/provider declarations
 #endif // header guard

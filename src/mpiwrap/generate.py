@@ -233,7 +233,7 @@ def _provider_frontend_supported(function):
         return False
     allowed = {"scalar_value", "opaque_handle_value", "scalar_ref", "handle_ref",
                "buffer", "char_buffer", "pointer_storage", "status",
-               "array", "integer_array"}
+               "array", "integer_array", "handle_array", "status_array"}
     for argument in function["arguments"]:
         conversion = argument["conversion"]
         if conversion not in allowed:
@@ -264,9 +264,36 @@ def _frontend_status_guard(function, argument, metadata):
         conditions.append("native_indx != mpiwrap_UNDEFINED()")
     elif "flag != 0" in valid:
         conditions.append("native_flag != 0")
-    elif "indx != MPI_UNDEFINED" in valid:
-        conditions.append("native_indx != mpiwrap_UNDEFINED()")
     return " && ".join(conditions)
+
+
+def _frontend_array_extent(function, argument):
+    extent = argument.get("extent", "")
+    match = re.match(r"\s*([A-Za-z_]\w*)", extent)
+    if not match:
+        raise ValueError(f"{function['name']}.{argument['name']}: unsupported array extent {extent!r}")
+    return match.group(1)
+
+
+def _frontend_array_output_guard(function, argument):
+    name = function["name"]
+    error_codes = argument.get("valid_on_error_codes", [])
+    completion = ["native_return_value == 0"]
+    completion.extend(
+        f"native_return_value == mpiwrap_{code.removeprefix('MPI_')}()"
+        for code in error_codes)
+    completed = "(" + " || ".join(completion) + ")"
+    if name == "MPI_Testall":
+        return f"(native_return_value == mpiwrap_ERR_IN_STATUS() || (native_return_value == 0 && native_flag != 0))"
+    if name in {"MPI_Waitsome", "MPI_Testsome"}:
+        return f"{completed} && native_outcount > 0 && native_outcount != mpiwrap_UNDEFINED()"
+    return completed
+
+
+def _frontend_array_output_count(function, argument, extent):
+    if function["name"] in {"MPI_Waitsome", "MPI_Testsome"}:
+        return "native_outcount"
+    return extent
 
 
 def render_provider_inline_functions(functions):
@@ -300,6 +327,34 @@ def render_provider_inline_functions(functions):
                 call_args.append(argname)
             elif conversion in {"array", "integer_array"}:
                 call_args.append(argname)
+            elif conversion == "handle_array":
+                extent = _frontend_array_extent(function, argument)
+                native = f"native_{argname}"
+                before += [
+                    f"  if ({extent} < 0) throw std::invalid_argument(\"{name} requires nonnegative {extent}\");",
+                    f"  if ({extent} > 0 && !{argname}) throw std::invalid_argument(\"{name} requires {argname}\");",
+                    f"  std::vector<plumed_mpiw_handle_storage> {native}(static_cast<std::size_t>({extent}));",
+                ]
+                if argument["direction"] in {"in", "inout"}:
+                    before.append(
+                        f"  for (int i = 0; i < {extent}; ++i) {native}[static_cast<std::size_t>(i)] = {argname}[i].storage;")
+                call_args.append(f"({extent} > 0 ? {native}.data() : nullptr)")
+                if argument["direction"] in {"out", "inout"}:
+                    after.append(
+                        f"  if ({argname}) for (int i = 0; i < {extent}; ++i) {argname}[i].storage = {native}[static_cast<std::size_t>(i)];")
+            elif conversion == "status_array":
+                extent = _frontend_array_extent(function, argument)
+                native = f"native_{argname}"
+                before += [
+                    f"  if ({extent} < 0) throw std::invalid_argument(\"{name} requires nonnegative {extent}\");",
+                    f"  std::vector<plumed_mpiw_status> {native};",
+                    f"  if ({argname} && {extent} > 0) {native}.resize(static_cast<std::size_t>({extent}));",
+                ]
+                call_args.append(f"({argname} && {extent} > 0 ? {native}.data() : nullptr)")
+                valid = _frontend_array_output_guard(function, argument)
+                count = _frontend_array_output_count(function, argument, extent)
+                after.append(
+                    f"  if ({argname} && ({valid})) for (int i = 0; i < {count}; ++i) mpiwrap_status_from_transport({native}[static_cast<std::size_t>(i)], &{argname}[i]);")
             elif conversion == "scalar_ref":
                 native = f"native_{argname}"
                 before.append(f"  if (!{argname}) throw std::invalid_argument(\"{name} requires {argname}\");")
@@ -307,7 +362,8 @@ def render_provider_inline_functions(functions):
                 if argument["direction"] in {"in", "inout"}:
                     before.append(f"  {native} = static_cast<std::int32_t>(*{argname});")
                 call_args.append(f"&{native}")
-                guard = _frontend_status_guard(function, argument, argument)
+                guard = ("true" if argument["direction"] == "inout" else
+                         _frontend_status_guard(function, argument, argument))
                 after.append(f"  if ({guard}) *{argname} = static_cast<int>({native});")
             elif conversion == "handle_ref":
                 native = f"native_{argname}"
@@ -316,7 +372,7 @@ def render_provider_inline_functions(functions):
                 if argument["direction"] in {"in", "inout"}:
                     before.append(f"  {native} = {argname}->storage;")
                 call_args.append(f"&{native}")
-                guard = _frontend_status_guard(function, argument, argument)
+                guard = "true" if argument["direction"] == "inout" else _frontend_status_guard(function, argument, argument)
                 after.append(f"  if ({guard}) {argname}->storage = {native};")
             elif conversion == "status":
                 native = f"native_{argname}"
@@ -334,7 +390,9 @@ def render_provider_inline_functions(functions):
         signature = f"inline {wrapper_type(result)} mpiwrap_{suffix}({', '.join(arguments)}) {{"
         has_signature = f"inline bool mpiwrap_has_{suffix}() {{"
         if not supported:
-            lines += [signature, f'  mpiwrap_ensure_provider_selected();',
+            unused_arguments = [f"  (void){name_argument(raw)};"
+                                for raw in raw_args if raw != "..."]
+            lines += [signature, *unused_arguments, f'  mpiwrap_ensure_provider_selected();',
                       f'  mpiwrap_unavailable("{name}");', "}",
                       has_signature, "  return false;", "}"]
             continue
@@ -823,7 +881,7 @@ def render_native_adapter_function(function):
                 lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
             if argument["direction"] == "in":
                 lines.append(f"  if ({argname}->raw_size != sizeof(MPI_Status)) return MPI_ERR_ARG;")
-        if conversion not in {"array", "integer_array", "handle_array", "status_array"}:
+        if conversion not in {"handle_array", "status_array"}:
             continue
         spec = extent_spec(argument)
         if spec is None:
@@ -901,51 +959,11 @@ def render_native_adapter_function(function):
             condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
             post.append(f"  if ({condition}) *{argname} = plumed_mpiw_export_bytes(&{local}, sizeof({local}));")
         elif conversion in {"array", "integer_array"}:
-            extent = f"extent_{argname}"
-            local = f"native_{argname}"
-            dimensions = re.search(r"\[(\d+)\]$", ctype)
-            if dimensions:
-                if direction == "out":
-                    raise ValueError(f"{name}.{argname}: fixed-width output arrays need explicit copyback metadata")
-                width = dimensions.group(1)
-                allocation = (f"(int (*)[{width}])calloc((size_t)({extent} / {width}), sizeof(*{local}))"
-                              if direction == "out" else
-                              f"(int (*)[{width}])malloc(sizeof(*{local}) * (size_t)({extent} / {width}))")
-                lines += [f"  int (*{local})[{width}] = NULL;",
-                          f"  if ({extent} > 0) {{ {local} = {allocation}; if (!{local}) {{"]
-                lines += [f"    free({previous});" for previous in allocated_arrays]
-                lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
-                allocated_arrays.append(local)
-                if direction in {"in", "inout"}:
-                    rows = f"(({extent}) / {width})"
-                    lines.append(f"  for (int i = 0; i < {rows}; ++i) for (int j = 0; j < {width}; ++j) {local}[i][j] = (int){argname}[i][j];")
-                copy_count = extent
-                if direction in {"out", "inout"}:
-                    condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
-                    lines.append(f"  if ({condition}) for (int i = 0; i < (({copy_count}) / {width}); ++i) for (int j = 0; j < {width}; ++j) {argname}[i * {width} + j] = (int32_t){local}[i][j];")
-            else:
-                allocation = (f"(int *)calloc((size_t){extent}, sizeof(*{local}))"
-                              if direction == "out" else
-                              f"(int *)malloc(sizeof(*{local}) * (size_t){extent})")
-                lines += [f"  int *{local} = NULL;",
-                          f"  if ({extent} > 0) {{ {local} = {allocation}; if (!{local}) {{"]
-                lines += [f"    free({previous});" for previous in allocated_arrays]
-                lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
-                allocated_arrays.append(local)
-                if direction in {"in", "inout"}:
-                    lines.append(f"  for (int i = 0; i < {extent}; ++i) {local}[i] = (int){argname}[i];")
-            call_args.append(local)
-            copy_count = extent
-            if name in {"MPI_Waitsome", "MPI_Testsome"} and argname == "array_of_indices":
-                copy_count = "(native_outcount > 0 ? native_outcount : 0)"
-            if direction in {"out", "inout"} and not dimensions:
-                condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
-                error_codes = argument.get("valid_on_error_codes", [])
-                if error_codes:
-                    condition = "(" + " || ".join(["native_return_value == MPI_SUCCESS"] + [
-                        f"native_return_value == {code}" for code in error_codes]) + ")"
-                post.append(f"  if ({condition}) for (int i = 0; i < {copy_count}; ++i) {argname}[i] = (int32_t){local}[i];")
-            post.append(f"  free({local});")
+            if not re.search(r"\bint\b", ctype):
+                raise ValueError(f"{name}.{argname}: integer-array transport only supports int elements")
+            # int32_t is compile-time-verified to be the exact native int type,
+            # so these arrays can pass through without aliasing or copyback.
+            call_args.append(argname)
         elif conversion == "handle_array":
             extent = f"extent_{argname}"
             match = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", ctype)
@@ -991,7 +1009,7 @@ def render_native_adapter_function(function):
             if name == "MPI_Testall":
                 valid = "(native_return_value == MPI_ERR_IN_STATUS || (native_return_value == MPI_SUCCESS && native_flag))"
             elif name in {"MPI_Waitsome", "MPI_Testsome"}:
-                valid = f"({valid} && native_outcount > 0)"
+                valid = f"({valid} && native_outcount > 0 && native_outcount != MPI_UNDEFINED)"
             post.append(f"  if ({argname} && {valid}) for (int i = 0; i < {copy_count}; ++i) plumed_mpiw_export_status(&{local}[i], &{argname}[i]);")
             post.append(f"  free({local});")
         elif conversion == "buffer" or conversion == "char_buffer":

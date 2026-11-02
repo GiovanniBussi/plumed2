@@ -38,9 +38,9 @@ MPI_Request_free	mpi-api:MPI_Request_free	direct	optional-entry	unavailable	mpi-
 MPI_Waitany	mpi-api:MPI_Waitany	direct	optional-entry	direct	mpi-api:MPI_Waitany
 MPI_Testany	mpi-api:MPI_Testany	direct	optional-entry	direct	mpi-api:MPI_Testany
 MPI_Waitall	mpi-api:MPI_Waitall	direct	optional-entry	direct	mpi-api:MPI_Waitall
-MPI_Testall	mpi-api:MPI_Testall	direct	optional-entry	direct	mpi-api:MPI_Testall
-MPI_Waitsome	mpi-api:MPI_Waitsome	direct	optional-entry	direct	mpi-api:MPI_Waitsome
-MPI_Testsome	mpi-api:MPI_Testsome	direct	optional-entry	direct	mpi-api:MPI_Testsome
+MPI_Testall	mpi-api:MPI_Testall	direct	optional-entry	unavailable	mpi-api:MPI_Testall
+MPI_Waitsome	mpi-api:MPI_Waitsome	direct	optional-entry	narrow-collective-emulation	mpi-api:MPI_Waitsome
+MPI_Testsome	mpi-api:MPI_Testsome	direct	optional-entry	narrow-collective-emulation	mpi-api:MPI_Testsome
 MPI_Iprobe	mpi-api:MPI_Iprobe	direct	optional-entry	unavailable	mpi-api:MPI_Iprobe
 MPI_Probe	mpi-api:MPI_Probe	direct	optional-entry	unavailable	mpi-api:MPI_Probe
 MPI_Cancel	mpi-api:MPI_Cancel	direct	optional-entry	unavailable	mpi-api:MPI_Cancel

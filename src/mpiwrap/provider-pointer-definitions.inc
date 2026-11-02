@@ -199,5 +199,6 @@ plumed_mpiw_constant_accessor_fn constant_ERR_OTHER = nullptr;
 plumed_mpiw_constant_accessor_fn constant_ERR_INTERN = nullptr;
 plumed_mpiw_constant_accessor_fn constant_ERR_PENDING = nullptr;
 plumed_mpiw_constant_accessor_fn constant_BOTTOM = nullptr;
+plumed_mpiw_constant_accessor_fn constant_ERR_IN_STATUS = nullptr;
 }
 } // namespace PLMD::pointers

@@ -117,6 +117,15 @@ int run() {
   assert(!error.empty());
   assert(!registry.has("MPI_Comm_rank"));
 
+  if (sizeof(plumed_mpiw_handle_storage) < 16) {
+    error.clear();
+    descriptor.native_comm_size = 16;
+    assert(!registry.install(&descriptor, error));
+    assert(!error.empty());
+    assert(!registry.installed());
+    assert(!registry.has("MPI_Comm_rank"));
+  }
+
   descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage);
   assert(registry.install(&descriptor, error));
   assert(error.empty());
