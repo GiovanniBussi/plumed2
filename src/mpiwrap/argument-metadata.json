@@ -1642,21 +1642,23 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; no stable v2026.4 tMPI declaration/mapping; internal provider function is explicitly unavailable and must throw; injected provider may supply it",
-      "test_id": "mpi-api:MPI_Rsend",
+      "provider_behavior": "native MPI direct; internal tMPI ready-send emulation delegates to the standard send operation after the caller posts its matching receive; injected provider optional",
+      "test_id": "ready-send-posted-receive",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "unavailable",
-          "reason": "no stable v2026.4 declaration; frontend entry remains present and must throw for internal tMPI unless an explicit reviewed emulation is later added"
+          "status": "emulated",
+          "symbol": "tMPI_Send",
+          "emulation": "ready-send-to-standard-send",
+          "evidence": "ready-mode blocking send delegates to tMPI_Send; MPI requires the matching receive to be posted before the call"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
-        "semantic_test": "dedicated MPI-1 API test required if retained"
+        "semantic_test": "ready-send-posted-receive"
       },
       "native_adapter": "implemented"
     },
@@ -1954,21 +1956,23 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; no stable v2026.4 tMPI declaration/mapping; internal provider function is explicitly unavailable and must throw; injected provider may supply it",
-      "test_id": "mpi-api:MPI_Irsend",
+      "provider_behavior": "native MPI direct; internal tMPI ready-send emulation delegates to the standard nonblocking send operation after the caller posts its matching receive; injected provider optional",
+      "test_id": "iready-send-request-completion",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "unavailable",
-          "reason": "no stable v2026.4 declaration; frontend entry remains present and must throw for internal tMPI unless an explicit reviewed emulation is later added"
+          "status": "emulated",
+          "symbol": "tMPI_Isend",
+          "emulation": "ready-send-to-standard-nonblocking-send",
+          "evidence": "ready-mode nonblocking send delegates to tMPI_Isend; callers must post the matching receive before the call and complete the returned ordinary request"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
-        "semantic_test": "dedicated MPI-1 API test required if retained"
+        "semantic_test": "iready-send-request-completion"
       },
       "native_adapter": "implemented"
     },
