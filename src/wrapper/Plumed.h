@@ -1242,6 +1242,10 @@ __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlsym(void* dlhandle);
 __PLUMED_WRAPPER_C_END
 
+#ifdef __cplusplus
+namespace PLMD {
+#endif
+
 /** Load the linked/static kernel without constructing a PLUMED object. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_static(plumed_kernel_handle *out,
@@ -1294,7 +1298,21 @@ __PLUMED_WRAPPER_C_BEGIN
 void plumed_kernel_release(plumed_kernel_handle kernel);
 __PLUMED_WRAPPER_C_END
 
-#if defined(__cplusplus) && __PLUMED_WRAPPER_CXX
+#ifdef __cplusplus
+} // namespace PLMD
+
+// Preserve the global C API names for existing callers in C++ as well.
+using PLMD::plumed_kernel_open_static;
+using PLMD::plumed_kernel_open_dlopen;
+using PLMD::plumed_kernel_open_selected;
+using PLMD::plumed_kernel_inject_mpi;
+using PLMD::plumed_kernel_load_mpi_wrapper;
+using PLMD::plumed_kernel_create;
+using PLMD::plumed_kernel_launch_internal_threads;
+using PLMD::plumed_kernel_release;
+#endif
+
+#if defined(__cplusplus) && __PLUMED_WRAPPER_CXX && __cplusplus >= 201103L
 #include <cstring>
 #include <stdexcept>
 #include <utility>
@@ -4541,6 +4559,10 @@ plumed_implementation* plumed_malloc_pimpl() {
 }
 __PLUMED_WRAPPER_INTERNALS_END
 
+#ifdef __cplusplus
+namespace PLMD {
+#endif
+
 __PLUMED_WRAPPER_INTERNALS_BEGIN
 int plumed_kernel_report(plumed_kernel_error_fn report,void *context,int code,
                          const char *function,const char *message) {
@@ -4595,6 +4617,10 @@ int plumed_kernel_valid(plumed_kernel_handle_impl *kernel) {
          kernel->table;
 }
 __PLUMED_WRAPPER_INTERNALS_END
+
+#ifdef __cplusplus
+} // namespace PLMD
+#endif
 
 #ifndef NDEBUG
 
@@ -4701,6 +4727,10 @@ plumed plumed_create_dlsym(void* dlhandle) {
   return p;
 }
 __PLUMED_WRAPPER_C_END
+
+#ifdef __cplusplus
+namespace PLMD {
+#endif
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_static(plumed_kernel_handle *out,
@@ -4993,6 +5023,10 @@ void plumed_kernel_release(plumed_kernel_handle handle) {
   plumed_free(kernel);
 }
 __PLUMED_WRAPPER_C_END
+
+#ifdef __cplusplus
+} // namespace PLMD
+#endif
 
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen2(const char*path,int mode) {
