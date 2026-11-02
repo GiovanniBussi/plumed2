@@ -1,0 +1,40 @@
+// Existing loading calls forward an installed provider when the guest allows
+// injection, and preserve old guests' compatible-MPI assumption otherwise.
+namespace PLMD {
+const void *forwardedProvider() {
+  static const int descriptor = 1;
+  return &descriptor;
+}
+}
+#define __PLUMED_WRAPPER_IMPLEMENTATION 1
+#define __PLUMED_WRAPPER_EXTERN 0
+#define __PLUMED_HAS_DLOPEN 1
+#define __PLUMED_WRAPPER_MPI_PROVIDER() ::PLMD::forwardedProvider()
+#include "../wrapper/Plumed.h"
+
+extern "C" plumed_symbol_table_type *plumed_symbol_table_reexport() {
+  return nullptr;
+}
+
+int main(int argc, char **argv) {
+  if(argc != 4) {
+    return 2;
+  }
+  for(int i = 1; i < 3; ++i) {
+    const plumed object = plumed_create_dlopen(argv[i]);
+    const bool valid = plumed_valid(object);
+    plumed_finalize(object);
+    if(!valid) {
+      return i + 2;
+    }
+  }
+  // A new guest that rejects injection must not silently use a different
+  // provider or proceed under the legacy assumption.
+  const plumed rejected = plumed_create_dlopen(argv[3]);
+  const bool valid = plumed_valid(rejected);
+  plumed_finalize(rejected);
+  if(valid) {
+    return 5;
+  }
+  return 0;
+}
