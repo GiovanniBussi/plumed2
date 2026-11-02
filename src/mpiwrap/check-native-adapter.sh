@@ -28,6 +28,12 @@ for provider in mpich openmpi; do
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-c99.o"
     "$cxx" -std=c++98 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-cxx98.o"
+    "$cc" -x c -std=c99 -Wall -Wextra -Werror -DPLUMED_MPIW_HANDLE_CAPACITY=1 \
+      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+      "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-tiny-wrapper-c99.o"
+    "$cxx" -std=c++98 -Wall -Wextra -Werror -DPLUMED_MPIW_HANDLE_CAPACITY=1 \
+      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+      "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-tiny-wrapper-cxx98.o"
     for host_language in c cxx98; do
       case $host_language in
         c) host_compiler=$cc; host_standard=c99; host_input_language=c ;;
