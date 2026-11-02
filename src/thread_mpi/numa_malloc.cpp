@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 
 
 namespace PLMD {
@@ -539,3 +540,4 @@ int tMPI_Free_numa(void *ptr) {
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI

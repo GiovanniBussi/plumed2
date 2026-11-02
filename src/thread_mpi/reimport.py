@@ -220,6 +220,15 @@ def namespace_file(path, is_header):
     path.write_text("\n".join(lines) + "\n")
 
 
+def guard_source(path):
+    text = path.read_text()
+    if text.startswith("#ifdef __PLUMED_HAS_THREAD_MPI\n"):
+        return
+    path.write_text(
+        "#ifdef __PLUMED_HAS_THREAD_MPI\n" + text.rstrip() +
+        "\n#endif // __PLUMED_HAS_THREAD_MPI\n")
+
+
 def import_from(root, out, astyle, options):
     archive = subprocess.check_output(["git", "-C", str(root), "archive", PINNED,
                                        "src/external/thread_mpi"])
@@ -253,7 +262,7 @@ def import_from(root, out, astyle, options):
             "Source: GROMACS 2026.4 (v2026.4)\n"
             f"Commit: {PINNED}\n"
             "Upstream path: src/external/thread_mpi\n"
-            "Import transform: reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope.\n"
+            "Import transform: reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope. Each imported translation unit is guarded by __PLUMED_HAS_THREAD_MPI.\n"
             "Collision mapping: include/thread_mpi/collective.h -> thread_mpi_collective.h; src/collective.h -> thread_mpi_internal_collective.h; include/thread_mpi/tmpi.h -> thread_mpi_tmpi.h.\n"
             "UPSTREAM.sha256 records the exact original source paths and bytes before these deterministic transformations.\n"
         )
@@ -263,6 +272,8 @@ def import_from(root, out, astyle, options):
             target = out / name
             target.write_text(text)
             namespace_file(target, name.endswith(".h"))
+            if name.endswith(".cpp"):
+                guard_source(target)
         _format_imported_files(out, astyle, options)
 
 
