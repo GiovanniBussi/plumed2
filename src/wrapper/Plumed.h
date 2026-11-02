@@ -5004,6 +5004,19 @@ plumed plumed_create_dlsym(void* dlhandle) {
   }
   assert(pimpl->functions.cmd);
   assert(pimpl->functions.finalize);
+#if defined(__PLUMED_WRAPPER_MPI_PROVIDER)
+  /* An inlined wrapper forwards its installed implementation directly. A
+     guest without injection support uses the historical compatibility rule. */
+  if(pimpl->table && pimpl->table->version>=5 &&
+      pimpl->table->install_mpi_provider) {
+    const void *provider=__PLUMED_WRAPPER_MPI_PROVIDER();
+    if(provider && pimpl->table->install_mpi_provider(provider,0,0,0)!=0) {
+      __PLUMED_FPRINTF(stderr,"+++ Could not install the current MPI provider in the selected PLUMED kernel +++\n");
+      p.p=pimpl;
+      return p;
+    }
+  }
+#endif
   /* obtain object */
   pimpl->p=(*(pimpl->functions.create))();
   /* notice: we do not assert pimpl->p since in principle it might be nullptr */
