@@ -166,9 +166,15 @@ environment. The pinned thread-MPI source has a one-rank
 out-of-place Allreduce defect; the wrapper handles its size-one identity case
 without relying on that defective operation.
 
-The internal adapter currently advertises 23 entries: 18 direct routes and five
-routes with fixes or emulation (Allreduce, Allgather, Allgatherv, Waitsome,
-Testsome). Upstream Waitsome/Testsome index and status packing is bypassed
+The internal adapter currently advertises 26 entries, including fixes or
+emulation for Allreduce, Allgather, Allgatherv, Wait, Waitsome, Testsome, Rsend,
+and Irsend. Ready sends delegate to the corresponding standard sends; callers
+must have posted the matching receive before starting either ready send.
+Ssend/Issend remain unavailable because tMPI's standard sends can complete
+through eager buffering before a receive starts. Bsend remains unavailable
+because it needs the separate attached-buffer completion contract.
+Successful Wait clears the wrapper request even though upstream leaves the
+released pointer unchanged. Upstream Waitsome/Testsome index and status packing is bypassed
 through Waitany/Testany. Testall remains unavailable because the pinned upstream
 implementation modifies requests when its completion flag is false.
 

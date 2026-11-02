@@ -32,12 +32,12 @@ Provider status is a declaration/mapping classification, not a claim of tested r
 | Function | `MPI_Send` | selected | `mpi-api:MPI_Send` |
 | Function | `MPI_Bsend` | selected | `mpi-api:MPI_Bsend` |
 | Function | `MPI_Ssend` | selected | `mpi-api:MPI_Ssend` |
-| Function | `MPI_Rsend` | selected | `mpi-api:MPI_Rsend` |
+| Function | `MPI_Rsend` | selected | `ready-send-posted-receive` |
 | Function | `MPI_Buffer_attach` | selected | `mpi-api:MPI_Buffer_attach` |
 | Function | `MPI_Buffer_detach` | selected | `mpi-api:MPI_Buffer_detach` |
 | Function | `MPI_Ibsend` | selected | `mpi-api:MPI_Ibsend` |
 | Function | `MPI_Issend` | selected | `mpi-api:MPI_Issend` |
-| Function | `MPI_Irsend` | selected | `mpi-api:MPI_Irsend` |
+| Function | `MPI_Irsend` | selected | `iready-send-request-completion` |
 | Function | `MPI_Irecv` | selected | `mpi-api:MPI_Irecv` |
 | Function | `MPI_Test` | selected | `mpi-api:MPI_Test` |
 | Function | `MPI_Request_free` | selected | `mpi-api:MPI_Request_free` |
