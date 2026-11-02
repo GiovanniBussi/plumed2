@@ -2,7 +2,7 @@
 #include "provider-abi.h"
 #include "provider-callbacks.h"
 
-#include <thread_mpi/tmpi.h>
+#include <thread_mpi_tmpi.h>
 
 #include <cstddef>
 #include <cstdint>

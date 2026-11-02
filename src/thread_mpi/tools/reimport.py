@@ -9,6 +9,8 @@ import tarfile
 import tempfile
 import hashlib
 import io
+import posixpath
+import shlex
 
 PINNED = "6c69f720aa7378fddfee67f99d51aff21ccfb0a2"
 SOURCE_CPP = """alltoall.cpp atomic.cpp barrier.cpp bcast.cpp collective.cpp comm.cpp
@@ -16,6 +18,69 @@ errhandler.cpp event.cpp gather.cpp group.cpp list.cpp lock.cpp numa_malloc.cpp
 once.cpp p2p_protocol.cpp p2p_send_recv.cpp p2p_wait.cpp profile.cpp
 pthreads.cpp reduce.cpp reduce_fast.cpp scan.cpp scatter.cpp tmpi_init.cpp
 tmpi_malloc.cpp topology.cpp type.cpp""".split()
+LEGACY_WRAPPERS = [f"plumed_{pathlib.Path(name).stem}.cpp" for name in SOURCE_CPP]
+COLLISION_NAMES = {
+    "include/thread_mpi/collective.h": "thread_mpi_collective.h",
+    "src/collective.h": "thread_mpi_internal_collective.h",
+    "include/thread_mpi/tmpi.h": "thread_mpi_tmpi.h",
+}
+
+
+def _project_root():
+    return pathlib.Path(__file__).resolve().parents[3]
+
+
+def _source_files(src):
+    files = [src / "include/tmpi.h", src / "include/thread_mpi.h"]
+    files += sorted((src / "include/thread_mpi").rglob("*.h"))
+    files += [src / "src" / name for name in SOURCE_CPP]
+    files += sorted((src / "src").glob("*.h"))
+    return files
+
+
+def _flat_mapping(src):
+    mapping = {}
+    for path in _source_files(src):
+        relative = path.relative_to(src).as_posix()
+        mapping[relative] = COLLISION_NAMES.get(relative, pathlib.PurePosixPath(relative).name)
+    names = list(mapping.values())
+    if len(names) != len(set(names)):
+        raise ValueError("flat thread-MPI filename mapping contains an unresolved collision")
+    return mapping
+
+
+def _rewrite_include(text, relative, mapping):
+    pattern = re.compile(r'^(\s*#\s*include\s*)([<"])([^">]+)([">].*)$', re.MULTILINE)
+
+    def rewrite(match):
+        path = match.group(3)
+        candidates = []
+        if path.startswith("../include/"):
+            candidates.append(posixpath.normpath(posixpath.join(posixpath.dirname(relative), path)))
+        elif path.startswith("thread_mpi/"):
+            candidates.append("include/" + path)
+        elif path.startswith("atomic/"):
+            candidates.append("include/thread_mpi/" + path)
+        else:
+            candidates.append(posixpath.normpath(posixpath.join(posixpath.dirname(relative), path)))
+            candidates.append("include/" + path)
+            candidates.append("include/thread_mpi/" + path)
+        for candidate in candidates:
+            if candidate in mapping:
+                return match.group(1) + match.group(2) + mapping[candidate] + match.group(4)
+        return match.group(0)
+
+    return pattern.sub(rewrite, text)
+
+
+def _format_imported_files(out, astyle, options):
+    if not astyle.is_file() or not astyle.stat().st_mode & 0o111:
+        raise SystemExit(f"required astyle executable is unavailable: {astyle}")
+    if not options.is_file():
+        raise SystemExit(f"required astyle options are unavailable: {options}")
+    files = sorted(list(out.glob("*.cpp")) + list(out.glob("*.h")))
+    command = [str(astyle), f"--options={options}"] + [str(path) for path in files]
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
 
 
 def _first_code(lines):
@@ -125,7 +190,7 @@ def _header_scope(lines):
 
 def namespace_file(path, is_header):
     text = path.read_text()
-    if "namespace PLMD {" in text:
+    if re.search(r"namespace\s+PLMD\s*\{\s*namespace\s+thread_mpi\s*\{", text):
         return
     lines = text.splitlines()
     if is_header and _first_code(lines) == len(lines):
@@ -155,7 +220,7 @@ def namespace_file(path, is_header):
     path.write_text("\n".join(lines) + "\n")
 
 
-def import_from(root, out):
+def import_from(root, out, astyle, options):
     archive = subprocess.check_output(["git", "-C", str(root), "archive", PINNED,
                                        "src/external/thread_mpi"])
     with tempfile.TemporaryDirectory(prefix="plumed-thread-mpi-upstream-") as tmp:
@@ -163,16 +228,24 @@ def import_from(root, out):
             tf.extractall(tmp)
         src = pathlib.Path(tmp) / "src/external/thread_mpi"
         out.mkdir(parents=True, exist_ok=True)
+        mapping = _flat_mapping(src)
+        for name in mapping.values():
+            target = out / name
+            if target.exists() and target.is_file():
+                target.unlink()
+        for name in LEGACY_WRAPPERS:
+            wrapper = out / name
+            if wrapper.exists():
+                wrapper.unlink()
+            object_file = out / (pathlib.Path(name).stem + ".o")
+            if object_file.exists():
+                object_file.unlink()
         for name in ("include", "src"):
             target = out / name
             if target.exists():
                 shutil.rmtree(target)
-            target.mkdir(parents=True)
         (out / "LICENSE").write_bytes((src / "LICENSE").read_bytes())
-        upstream_files = [src / "LICENSE", src / "include/tmpi.h", src / "include/thread_mpi.h"]
-        upstream_files += sorted((src / "include/thread_mpi").rglob("*.h"))
-        upstream_files += [src / "src" / name for name in SOURCE_CPP]
-        upstream_files += sorted((src / "src").glob("*.h"))
+        upstream_files = [src / "LICENSE"] + _source_files(src)
         (out / "UPSTREAM.sha256").write_text("".join(
             f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(src)}\n"
             for p in upstream_files))
@@ -180,32 +253,22 @@ def import_from(root, out):
             "Source: GROMACS 2026.4 (v2026.4)\n"
             f"Commit: {PINNED}\n"
             "Upstream path: src/external/thread_mpi\n"
-            "Import transform: tools/reimport.py wraps C++ declarations and definitions in "
-            "PLMD::thread_mpi; include directives remain at global scope.\n"
-            "Upstream formatting is preserved; no upstream function bodies were edited.\n"
+            "Import transform: tools/reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope.\n"
+            "Collision mapping: include/thread_mpi/collective.h -> thread_mpi_collective.h; src/collective.h -> thread_mpi_internal_collective.h; include/thread_mpi/tmpi.h -> thread_mpi_tmpi.h.\n"
+            "UPSTREAM.sha256 records the exact original source paths and bytes before these deterministic transformations.\n"
         )
-        shutil.copytree(src / "include", out / "include", dirs_exist_ok=True)
-        for p in sorted((src / "src").glob("*.h")):
-            shutil.copy2(p, out / "src" / p.name)
-        for name in SOURCE_CPP:
-            shutil.copy2(src / "src" / name, out / "src" / name)
-        atomic = out / "src/atomic.cpp"
-        atomic_text = atomic.read_text().replace(
-            "int _tMPI_Atomics = 1;",
-            "namespace PLMD { namespace thread_mpi {\nint _tMPI_Atomics = 1;\n} }",
-        )
-        atomic.write_text(atomic_text)
-        for p in sorted((out / "include").rglob("*.h")):
-            namespace_file(p, True)
-        for p in sorted((out / "src").glob("*.h")):
-            namespace_file(p, True)
-        for p in sorted((out / "src").glob("*.cpp")):
-            namespace_file(p, False)
+        for relative, name in mapping.items():
+            source = src / relative
+            text = _rewrite_include(source.read_text(), relative, mapping)
+            target = out / name
+            target.write_text(text)
+            namespace_file(target, name.endswith(".h"))
+        _format_imported_files(out, astyle, options)
 
 
 def import_digest(path):
     files = [path / "LICENSE", path / "UPSTREAM.txt", path / "UPSTREAM.sha256"]
-    files.extend(p for subdir in ("include", "src") for p in (path / subdir).rglob("*") if p.is_file())
+    files.extend(list(path.glob("*.cpp")) + list(path.glob("*.h")))
     return {p.relative_to(path).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in files if p.exists()}
 
@@ -215,6 +278,11 @@ def main():
     ap.add_argument("gromacs", type=pathlib.Path, help="read-only pinned GROMACS checkout")
     ap.add_argument("--output", type=pathlib.Path,
                     default=pathlib.Path(__file__).resolve().parents[1])
+    project_root = _project_root()
+    ap.add_argument("--astyle", type=pathlib.Path, default=project_root / "astyle/astyle",
+                    help="required formatter executable (default: this checkout's astyle)")
+    ap.add_argument("--options", type=pathlib.Path, default=project_root / ".astyle.options",
+                    help="required project formatting options")
     ap.add_argument("--check", action="store_true", help="verify current import is reproducible")
     args = ap.parse_args()
     root = args.gromacs.resolve()
@@ -222,18 +290,20 @@ def main():
     if rev != PINNED:
         raise SystemExit(f"expected tag v2026.4 at {PINNED}, found {rev}")
     out = args.output.resolve()
+    astyle = args.astyle.resolve()
+    options = args.options.resolve()
     if out == root or root in out.parents:
         raise SystemExit("output must not be inside the read-only GROMACS tree")
     if args.check:
         with tempfile.TemporaryDirectory(prefix="plumed-thread-mpi-check-") as tmp:
             generated = pathlib.Path(tmp) / "tree"
-            import_from(root, generated)
+            import_from(root, generated, astyle, options)
             if import_digest(generated) != import_digest(out):
                 raise SystemExit("reimport check failed: generated tree differs from checked-in import")
         print(f"reimport check passed for {PINNED}")
     else:
-        import_from(root, out)
-        print(f"imported {len(SOURCE_CPP)} C++ files and {len(list(out.rglob('*.h')))} headers from {PINNED}")
+        import_from(root, out, astyle, options)
+        print(f"imported {len(SOURCE_CPP)} C++ files and {len(list(mapping for mapping in out.glob('*.h')))} headers from {PINNED}")
 
 
 if __name__ == "__main__":

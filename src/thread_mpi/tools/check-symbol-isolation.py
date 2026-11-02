@@ -47,7 +47,7 @@ target_link_libraries(host_thread_mpi PUBLIC Threads::Threads)
 add_library(host_runner OBJECT "{(source / 'tests/host-runner.cpp').as_posix()}")
 target_include_directories(host_runner PRIVATE "{host / 'include'}")
 add_library(internal_runner OBJECT "{(source / 'tests/internal-runner.cpp').as_posix()}")
-target_include_directories(internal_runner PRIVATE "{source / 'include'}")
+target_include_directories(internal_runner PRIVATE "{source}")
 add_executable(symbol_isolation
   $<TARGET_OBJECTS:host_runner> $<TARGET_OBJECTS:internal_runner>
   "{(source / 'tests/isolation-main.cpp').as_posix()}")
