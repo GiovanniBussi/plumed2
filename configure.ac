@@ -354,6 +354,42 @@ PLUMED_CONFIG_ENABLE([ar-cr],[use ar to build libplumedWrapper.a],[yes])
 PLUMED_CONFIG_ENABLE([static-archive],[try to build libplumed.a for static linking],[yes])
 PLUMED_CONFIG_ENABLE([asmjit],[enable embedded asmjit],[yes])
 PLUMED_CONFIG_ENABLE([mpi],[search for mpi],[yes])
+mpiwrap_handle_capacity='((sizeof(void *) > 8U) ? sizeof(void *) : 8U)'
+mpiwrap_status_capacity=128
+mpiwrap_capacity_cppflags=
+AC_ARG_WITH([mpiwrap-handle-capacity],
+  AS_HELP_STRING([--with-mpiwrap-handle-capacity=BYTES],
+    [set the wrapper handle byte capacity (default: max(pointer size, 8))]),
+  [mpiwrap_handle_capacity=$withval
+   case "$mpiwrap_handle_capacity" in
+     (''|*[!0-9]*) AC_MSG_ERROR([--with-mpiwrap-handle-capacity must be a positive integer byte count]) ;;
+   esac
+   mpiwrap_handle_capacity=`echo "$mpiwrap_handle_capacity" | sed 's/^0*//'`
+   if test -z "$mpiwrap_handle_capacity" ||
+      ! test "$mpiwrap_handle_capacity" -gt 0 2>/dev/null ||
+      ! test "$mpiwrap_handle_capacity" -le 4294967295 2>/dev/null; then
+     AC_MSG_ERROR([--with-mpiwrap-handle-capacity must be between 1 and 4294967295 bytes])
+   fi
+   mpiwrap_capacity_cppflags="$mpiwrap_capacity_cppflags -DPLUMED_MPIW_HANDLE_CAPACITY=$mpiwrap_handle_capacity"],
+  [])
+AC_ARG_WITH([mpiwrap-status-capacity],
+  AS_HELP_STRING([--with-mpiwrap-status-capacity=BYTES],
+    [set the wrapper status byte capacity (default: 128)]),
+  [mpiwrap_status_capacity=$withval
+   case "$mpiwrap_status_capacity" in
+     (''|*[!0-9]*) AC_MSG_ERROR([--with-mpiwrap-status-capacity must be a positive integer byte count]) ;;
+   esac
+   mpiwrap_status_capacity=`echo "$mpiwrap_status_capacity" | sed 's/^0*//'`
+   if test -z "$mpiwrap_status_capacity" ||
+      ! test "$mpiwrap_status_capacity" -gt 0 2>/dev/null ||
+      ! test "$mpiwrap_status_capacity" -le 4294967295 2>/dev/null; then
+     AC_MSG_ERROR([--with-mpiwrap-status-capacity must be between 1 and 4294967295 bytes])
+   fi
+   mpiwrap_capacity_cppflags="$mpiwrap_capacity_cppflags -DPLUMED_MPIW_STATUS_CAPACITY=$mpiwrap_status_capacity"],
+  [])
+CPPFLAGS="$CPPFLAGS $mpiwrap_capacity_cppflags"
+AC_SUBST([MPIWRAP_HANDLE_CAPACITY],[$mpiwrap_handle_capacity])
+AC_SUBST([MPIWRAP_STATUS_CAPACITY],[$mpiwrap_status_capacity])
 thread_mpi_request=auto
 AC_ARG_ENABLE([thread-mpi],
   AS_HELP_STRING([--enable-thread-mpi], [enable the internal thread-MPI provider; conflicts with native MPI]),
@@ -1937,6 +1973,7 @@ build_dir=`pwd`
 # This is to replace tags in Makefile.conf.in
 # saving the result to Makefile.conf
 AC_CONFIG_FILES([Makefile.conf sourceme.sh])
+AC_CONFIG_FILES([mpiwrap-capacity-installed.h:src/mpiwrap/mpiwrap-capacity.h.in])
 # This is to have the stamp-h file up to date
 # The date of this file keeps track of when Makefile.conf and sourceme.sh have been updated
 AC_CONFIG_FILES([stamp-h], [echo timestamp > stamp-h])

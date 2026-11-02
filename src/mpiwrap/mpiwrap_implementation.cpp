@@ -2,7 +2,6 @@
 #if defined(PLUMED_MPIW_NATIVE_ADAPTER)
 #include <mpi.h>
 #include "provider-abi.h"
-#include "provider-callbacks.h"
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>

@@ -53,7 +53,7 @@ if [[ -z "$output" ]]; then
 fi
 plumed_mpi_root=${PLUMED_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 adapter_dir="$plumed_mpi_root/src/mpiwrap"
-for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h provider-callbacks.h; do
+for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h; do
   if [[ ! -r "$adapter_dir/$source" ]]; then
     echo "mkmpi: missing installed adapter source $adapter_dir/$source" >&2
     exit 1
