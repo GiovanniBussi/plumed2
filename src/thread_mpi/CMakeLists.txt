@@ -23,23 +23,19 @@ target_link_libraries(thread_mpi_launch_test PRIVATE plumed_thread_mpi)
 
 add_executable(thread_mpi_internal_launcher_test
   tests/internal-launcher.cpp
-  ../mpiwrap/runtime/provider-registry.cpp
-  ../mpiwrap/runtime/provider-frontend.cpp
-  ../mpiwrap/runtime/thread-mpi-adapter.cpp
-  ../mpiwrap/runtime/thread-mpi-launcher.cpp)
+  ../mpiwrap/mpiwrap.cpp
+  ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(thread_mpi_internal_launcher_test PRIVATE
-  ../mpiwrap/generated ../mpiwrap/runtime)
+  ../mpiwrap)
 target_compile_definitions(thread_mpi_internal_launcher_test PRIVATE SIZEOF_LONG_LONG_INT)
 target_link_libraries(thread_mpi_internal_launcher_test PRIVATE plumed_thread_mpi)
 
 add_executable(mpiwrap_runtime_test
   tests/mpiwrap-runtime.cpp
-  ../mpiwrap/runtime/provider-registry.cpp
-  ../mpiwrap/runtime/provider-frontend.cpp
-  ../mpiwrap/runtime/thread-mpi-adapter.cpp
-  ../mpiwrap/runtime/thread-mpi-launcher.cpp)
+  ../mpiwrap/mpiwrap.cpp
+  ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(mpiwrap_runtime_test PRIVATE
-  ../mpiwrap/generated ../mpiwrap/runtime)
+  ../mpiwrap)
 target_compile_definitions(mpiwrap_runtime_test PRIVATE SIZEOF_LONG_LONG_INT)
 target_link_libraries(mpiwrap_runtime_test PRIVATE plumed_thread_mpi)
 
