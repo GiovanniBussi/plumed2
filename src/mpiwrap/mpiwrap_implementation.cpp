@@ -3,6 +3,9 @@
 #include <mpi.h>
 #include "provider-abi.h"
 #include "provider-callbacks.h"
+#include <limits.h>
+#include <string.h>
+#include <stdlib.h>
 namespace PLMD {
 extern "C" {
 #include "mpiwrap_implementation.cpp.inc"

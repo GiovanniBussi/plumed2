@@ -1296,7 +1296,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "error-string"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_create_errhandler",
@@ -1449,7 +1450,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Bsend",
@@ -1517,7 +1519,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Ssend",
@@ -1585,7 +1588,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Rsend",
@@ -1653,7 +1657,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Buffer_attach",
@@ -1692,7 +1697,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Buffer_detach",
@@ -1732,7 +1738,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Ibsend",
@@ -1808,7 +1815,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Issend",
@@ -1884,7 +1892,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Irsend",
@@ -1960,7 +1969,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Irecv",
@@ -2037,7 +2047,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Test",
@@ -2089,7 +2100,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Request_free",
@@ -2121,7 +2133,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Waitany",
@@ -2180,7 +2193,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Testany",
@@ -2247,7 +2261,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Waitall",
@@ -2298,7 +2313,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Testall",
@@ -2326,7 +2342,10 @@
           "direction": "out",
           "conversion": "scalar_ref",
           "extent": "one",
-          "valid_on_return": "defined on successful return"
+          "valid_on_return": "defined on MPI_SUCCESS or MPI_ERR_IN_STATUS",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         },
         {
           "name": "array_of_statuses",
@@ -2337,7 +2356,10 @@
           "sentinels": [
             "MPI_STATUSES_IGNORE"
           ],
-          "valid_on_return": "defined only when flag != 0"
+          "valid_on_return": "first outcount statuses defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0; Testall defines statuses for completed requests",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         }
       ],
       "callbacks": [],
@@ -2357,7 +2379,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Waitsome",
@@ -2385,7 +2408,10 @@
           "direction": "out",
           "conversion": "scalar_ref",
           "extent": "one",
-          "valid_on_return": "defined on successful return"
+          "valid_on_return": "defined on MPI_SUCCESS or MPI_ERR_IN_STATUS",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         },
         {
           "name": "array_of_indices",
@@ -2393,7 +2419,10 @@
           "direction": "out",
           "conversion": "integer_array",
           "extent": "incount capacity",
-          "valid_on_return": "first outcount elements valid when outcount > 0"
+          "valid_on_return": "first outcount entries defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         },
         {
           "name": "array_of_statuses",
@@ -2404,7 +2433,10 @@
           "sentinels": [
             "MPI_STATUSES_IGNORE"
           ],
-          "valid_on_return": "first outcount statuses defined only when outcount > 0"
+          "valid_on_return": "first outcount statuses defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0; Testall defines statuses for completed requests",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         }
       ],
       "callbacks": [],
@@ -2424,7 +2456,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Testsome",
@@ -2452,7 +2485,10 @@
           "direction": "out",
           "conversion": "scalar_ref",
           "extent": "one",
-          "valid_on_return": "defined on successful return"
+          "valid_on_return": "defined on MPI_SUCCESS or MPI_ERR_IN_STATUS",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         },
         {
           "name": "array_of_indices",
@@ -2460,7 +2496,10 @@
           "direction": "out",
           "conversion": "integer_array",
           "extent": "incount capacity",
-          "valid_on_return": "first outcount elements valid when outcount > 0"
+          "valid_on_return": "first outcount entries defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         },
         {
           "name": "array_of_statuses",
@@ -2471,7 +2510,10 @@
           "sentinels": [
             "MPI_STATUSES_IGNORE"
           ],
-          "valid_on_return": "first outcount statuses defined only when outcount > 0"
+          "valid_on_return": "first outcount statuses defined on MPI_SUCCESS or MPI_ERR_IN_STATUS when outcount > 0; Testall defines statuses for completed requests",
+          "valid_on_error_codes": [
+            "MPI_ERR_IN_STATUS"
+          ]
         }
       ],
       "callbacks": [],
@@ -2491,7 +2533,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Iprobe",
@@ -2555,7 +2598,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Probe",
@@ -2611,7 +2655,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cancel",
@@ -2643,7 +2688,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Test_cancelled",
@@ -2686,7 +2732,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Send_init",
@@ -2762,7 +2809,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Bsend_init",
@@ -2838,7 +2886,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Ssend_init",
@@ -2914,7 +2963,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Rsend_init",
@@ -2990,7 +3040,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Recv_init",
@@ -3066,7 +3117,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Start",
@@ -3098,7 +3150,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Startall",
@@ -3137,7 +3190,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Sendrecv_replace",
@@ -3230,7 +3284,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_contiguous",
@@ -3277,7 +3332,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_vector",
@@ -3337,7 +3393,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_indexed",
@@ -3399,7 +3456,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_commit",
@@ -3432,7 +3490,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_free",
@@ -3465,7 +3524,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Type_size",
@@ -3504,7 +3564,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Get_elements",
@@ -3554,7 +3615,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Pack",
@@ -3631,7 +3693,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Unpack",
@@ -3708,7 +3771,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Pack_size",
@@ -3761,7 +3825,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Gatherv",
@@ -4021,7 +4086,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Alltoallv",
@@ -4191,7 +4257,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Op_create",
@@ -4283,7 +4350,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Reduce_scatter",
@@ -4421,7 +4489,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_size",
@@ -4461,7 +4530,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_rank",
@@ -4501,7 +4571,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_translate_ranks",
@@ -4562,7 +4633,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_compare",
@@ -4608,7 +4680,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_group",
@@ -4648,7 +4721,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_union",
@@ -4694,7 +4768,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_intersection",
@@ -4740,7 +4815,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_difference",
@@ -4786,7 +4862,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_incl",
@@ -4841,7 +4918,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_excl",
@@ -4895,7 +4973,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_range_incl",
@@ -4949,7 +5028,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_range_excl",
@@ -5003,7 +5083,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Group_free",
@@ -5036,7 +5117,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_compare",
@@ -5083,7 +5165,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_create",
@@ -5130,7 +5213,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_test_inter",
@@ -5169,7 +5253,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_remote_size",
@@ -5208,7 +5293,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_remote_group",
@@ -5247,7 +5333,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Intercomm_create",
@@ -5314,7 +5401,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Intercomm_merge",
@@ -5360,7 +5448,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_create",
@@ -5430,7 +5519,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Dims_create",
@@ -5476,7 +5566,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graph_create",
@@ -5585,7 +5676,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graphdims_get",
@@ -5632,7 +5724,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graph_get",
@@ -5733,7 +5826,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_get",
@@ -5944,7 +6038,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graph_neighbors",
@@ -6058,7 +6153,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Cart_sub",
@@ -6169,7 +6265,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Graph_map",
@@ -6272,7 +6369,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Errhandler_free",
@@ -6305,7 +6403,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Error_class",
@@ -6344,7 +6443,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Wtime",
@@ -6368,7 +6468,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Wtick",
@@ -6392,7 +6493,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Pcontrol",
@@ -6465,7 +6567,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "finalized-query"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_get_errhandler",
@@ -6505,7 +6608,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "get-predefined-error-handler"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_set_errhandler",
@@ -6545,7 +6649,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "set-predefined-error-handler"
-      }
+      },
+      "native_adapter": "implemented"
     }
   ],
   "provenance": {
