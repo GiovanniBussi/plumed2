@@ -16,13 +16,27 @@ providers is an error. --disable-mpi --disable-thread-mpi configures a fully
 serial build.
 
 __PLUMED_HAS_MPI means native MPI only. __PLUMED_HAS_THREAD_MPI means the
-internal runtime is built, and __PLUMED_MPIWRAP keeps one consistent wrapper
-handle layout in every translation unit of such a build. Config reports
+internal runtime is built. __PLUMED_MPIWRAP is always defined by configure:
+availability of the wrapper frontend is separate from selecting a provider.
+Native MPI still uses its actual handle types and direct calls. Config reports
 has mpi when either MPI provider exists, and also reports real_mpi and
-thread_mpi separately. The regtest runner uses real_mpi when available and
-falls back to the legacy native-only has mpi query for older executables.
-Use --no-mpi --has-thread-mpi to query the capability without triggering
-native MPI initialization in a native-MPI executable.
+thread_mpi separately. The CLI provides --has-mpi for combined capability,
+--has-real-mpi for a native build and --has-thread-mpi for the internal runtime.
+These distinguish capability from MPI initialization. The regtest runner uses
+--has-mpi for its skip decision and probes --has-thread-mpi for internal launch;
+older executables without that query retain their native MPI launcher.
+
+Communicator construction evaluates MPI_COMM_SELF, as in the original code.
+Its lazy accessor selects the provider before storing the communicator: inject
+the host implementation before the first provider-dependent constant or call.
+Provider selection and initialization are separate; ordinary serial operations
+still use local fallbacks until MPI is initialized. In a fully disabled build,
+MPI_COMM_SELF supplies the serial surrogate when no provider was selected.
+Capability inquiries themselves do not select a provider. Explicit environment
+selection and the troubleshooting override are resolved by provider-dependent
+access; no dummy per-object lifecycle field or notification is needed.
+The separate `mpiwrap/mpi.h` inquiry reports whether an installed, initialized
+provider executes ranks as threads; the PLUMED action uses it for CHDIR safety.
 
 ## Handle and ABI boundary
 
@@ -32,7 +46,7 @@ handle representation. This is a deliberate compatibility contract:
 existing PLUMED callers can keep passing &Communicator::Get_comm() to nested
 kernels without changing their source or creating export buffers. A compatible
 receiver copies exactly the selected provider's reported native handle size
-from that address into an aligned native handle object. The storage capacity
+from that address into zero-filled wrapper storage. The storage capacity
 is validated before use. Matching bytes do not make a handle valid across
 unrelated MPI runtimes.
 
@@ -40,24 +54,30 @@ The wrapper and native adapter communicate through a versioned C-compatible
 provider descriptor. Kernel-table version 5 adds the injection/launch entries
 after the unchanged version-4 prefix; the provider descriptor has its own ABI
 version. Fixed entry layouts are frozen within a provider ABI major; new optional
-capabilities use named metadata entries. Function pointers travel through a
-generic carrier via byte copying and are restored to their exact typed
-signature before invocation. Integer values use explicit fixed-width and native
-conversion.
+capabilities use named metadata entries. Each injected implementation takes
+one pointer per argument plus a result-storage pointer, following the draft;
+there is no array of argument pointers. Function pointers use a generic
+function-pointer carrier and are cast back to the exact generated per-function
+transport type before invocation. IDs are hashes of function names used for
+validation, never addresses or table offsets. Entries append contiguously in
+array order, including conditional entries. PLUMED handles native storage,
+array strides and status conversion; injected implementations call native MPI.
+The nullable description is copied at installation for diagnostics only.
+`ranks_are_threads` describes execution; absence of a function means unavailable.
 
 PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *)); builds may
 override it with a positive byte count. Handle storage is a zero-filled
-byte-array POD, and provider ABI major 2 rejects older integer-storage ABI 1
-descriptors before reading their function entries. PLUMED_MPIW_STATUS_CAPACITY
+byte-array POD. Provider ABI major 3 uses fixed per-function pointer transport
+and rejects older incompatible provider layouts before reading their entries. PLUMED_MPIW_STATUS_CAPACITY
 defaults to 128 bytes. Providers must fit those configured representations,
 and installation validates the capacities and native scalar metadata before
-publishing callbacks. The frontend signatures
+publishing function pointers. The frontend signatures
 follow MPI-5 const correctness. The native adapter keeps any compatibility
 cast for older native headers local to an input-only MPI call; callback types
 and writable arguments retain their exact types.
 
-Internal launch is explicit and one-shot, and must happen before a PLUMED object
-is created. The launcher owns worker lifetime and finalization. A callback
+Internal launch is explicit and one-shot, and must precede the first
+provider-dependent constant use (including construction of a communicator). The launcher owns worker lifetime and finalization. A callback
 exception is fatal to the process rather than unwound through the C/tMPI
 boundary.
 
@@ -65,8 +85,8 @@ plumed_kernel_open_static, plumed_kernel_open_dlopen, and
 plumed_kernel_open_selected create a kernel handle. A caller can install a
 provider with plumed_kernel_inject_mpi, load the provider library with
 plumed_kernel_load_mpi_wrapper, create objects with plumed_kernel_create, and
-launch internal ranks with plumed_kernel_launch_internal_threads when needed. Provider selection must happen before the first wrapper use or
-kernel object creation. Objects retain their kernel/provider lifetime; release
+launch internal ranks with plumed_kernel_launch_internal_threads when needed.
+Inject before the first provider-dependent constant or function is used. Objects retain their kernel/provider lifetime; release
 the object with plumed_finalize and release the handle with the matching
 plumed_kernel_release. Releasing a handle does not finalize an object.
 C++ users can use the PLMD::Kernel RAII convenience API.
@@ -78,8 +98,10 @@ code, define `PLUMED_MPIW_HOST_ADAPTER` and
 `__PLUMED_WRAPPER_IMPLEMENTATION` in exactly one translation unit before
 including `Plumed.h`. Include the host MPI bindings first. For GROMACS
 thread-MPI, include `thread_mpi/mpi_bindings.h` first and ensure
-`GMX_THREAD_MPI` has its numeric build value; the adapter records the GROMACS
-version when `GMX_VERSION_STRING` is available. This opt-in header embeds the
+`GMX_THREAD_MPI` has its numeric build value. Include `gromacs/version.h` so
+`GMX_VERSION` is available, or explicitly define `PLUMED_MPIW_GROMACS_VERSION`
+using the same numeric encoding (2026.0 is 20260000). Unknown versions and
+versions earlier than 2026.0 are rejected when building the injected implementation. This opt-in header embeds the
 same generated adapter body, so it does not need a separate provider source or
 provider library.
 
@@ -134,7 +156,8 @@ caller. Already published callbacks are never replaced.
 
 All module files live directly in src/mpiwrap. The machine-readable inputs
 are support-matrix.tsv, argument-metadata.json, constant-metadata.json,
-type-metadata.json, signature-versions.json, and thread-mpi-api.tsv.
+type-metadata.json, signature-versions.json, availability-metadata.json, and
+thread-mpi-api.tsv. Signature revisions are independent of MPI standard versions.
 Build the repository formatter once with make -C astyle. generate.py validates
 these inputs and generates the wrapper declarations, provider ABI, constant
 accessors, route tables, signature checks, and coverage reports in the same
@@ -145,8 +168,9 @@ with:
 
 The .cpp.in and .c.in files are compile-only tests and probes; the module's
 wildcard source build does not compile them. The implementation unity source
-mpiwrap.cpp is built only when thread-MPI is configured and includes provider
-registry, frontend, and internal adapter fragments. mpiwrap-launcher.cpp
+mpiwrap.cpp supplies the registry and frontend in wrapper mode, including when
+the embedded runtime is disabled. Its internal adapter is compiled only when
+thread-MPI is configured. mpiwrap-launcher.cpp
 includes the internal rank launcher. mpiwrap_implementation.cpp is an opt-in
 translation unit for a provider DSO; it is not compiled into ordinary PLUMED
 kernels. Imported thread-MPI sources remain a separate module at
@@ -163,8 +187,8 @@ MPI_Pcontrol remains direct in native mode and unavailable through provider
 forwarding. Custom tMPI error handlers remain excluded as specified by the
 stable provider surface.
 
-The native adapter currently publishes 113 of the 118 retained function
-entries and all 81 constants. The omitted entries are MPI_Init/Finalize
+The native adapter can publish 113 of the 118 retained function entries;
+actual publication also depends on the host MPI version and supported constants. The omitted entries are MPI_Init/Finalize
 (lifecycle-owned), MPI_Pcontrol (variadic), MPI_Comm_create_errhandler and
 MPI_Op_create (callback bridges).
 Their frontend declarations remain available and their inquiries report the
@@ -214,3 +238,35 @@ src/mpiwrap/check-thread-mpi-cli.sh src/lib/plumed-static after a configured
 thread-MPI build. The tests cover 1, 2, and 4 ranks, callback error handling,
 provider lifecycle, raw communicator byte-prefix handling, native/legacy
 runner selection, and CHDIR rejection while thread-MPI is active.
+
+## Maintaining GROMACS compatibility
+
+Injected GROMACS thread-MPI support starts at GROMACS 2026. The embedded
+runtime remains pinned to stable 2026.4 in the separately licensed thread_mpi
+module. Earlier versions lacked Type_free, retaining derived datatype storage
+until finalization; 2025 also corrected Error_string's length-output type.
+
+Audit historical headers from a local full GROMACS clone without network access:
+
+    python3 src/mpiwrap/check-gromacs-history.py /path/to/gromacs --check
+
+To review a future release, rerun with --through vYYYY.N without --check,
+inspect the resulting gromacs-history.json diff, and update availability rules
+only after reviewing the corresponding implementations. The inventory records
+47 stable releases from 2020 through 2026.4; declarations alone do not establish
+standard-compatible semantics. Updating the embedded importer does not replace
+this review.
+
+The audited development-main snapshot 73d6be5d778e adds UINT64_T and makes Wait
+clear completed requests, relative to 2026.4. It introduces no further public
+functions or signature changes. This is a recorded snapshot, not a promise
+about a future 2027 release. Keep the 2026.4 request-clearing workaround and
+omit newer constants from hosts that do not provide them.
+
+Native MPI availability uses MPI_VERSION/MPI_SUBVERSION rather than testing
+whether a function name is a macro. The MPI-2 functions Comm_f2c, Finalized,
+Comm_get_errhandler and Comm_set_errhandler are omitted for older implementations;
+MPI_IN_PLACE also requires MPI-2. Optional long-long predefined types are
+published conservatively from MPI-2.1, when required by the standard. The same
+guards protect implementations and table rows. Synthetic MPI-1.1 probes verify
+that older headers need not declare omitted functions or constants.

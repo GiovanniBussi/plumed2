@@ -17,17 +17,6 @@ inline MPI_Comm mpiwrap_Comm_from_native(const void *native) {
   }
   return value;
 }
-inline bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage) {
-  if (!storage) {
-    return false;
-  }
-  if constexpr (sizeof(MPI_Comm) > sizeof(plumed_mpiw_handle_storage)) {
-    return false;
-  }
-  std::memset(storage, 0, sizeof(*storage));
-  std::memcpy(storage->bytes, &value, sizeof(value));
-  return true;
-}
 inline bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity) {
   if (!output || sizeof(value) > capacity) {
     return false;

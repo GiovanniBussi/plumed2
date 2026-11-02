@@ -796,8 +796,10 @@ fi
 
 if test "$thread_mpi_found" = ok; then
   AC_DEFINE([__PLUMED_HAS_THREAD_MPI])
-  AC_DEFINE([__PLUMED_MPIWRAP])
 fi
+# The provider frontend also supplies runtime-selected serial fallbacks.
+# Compiling it does not select or initialize an MPI implementation.
+AC_DEFINE([__PLUMED_MPIWRAP])
 
 # search for openmp is automatically disabled by autoconf
 # when configuring with --disable-openmp

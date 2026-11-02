@@ -1,391 +1,260 @@
-// Focused tests for atomic provider validation and exact typed pointer restore.
+// Focused tests for ABI3 provider validation and owned descriptor snapshots.
 #include "provider-registry.hpp"
 #include "provider-callbacks.h"
 #include "mpiwrap.h"
-#include "callback-bridges.h"
 
 #include <cassert>
-#include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <string>
-#include <thread>
 
 namespace PLMD {
+[[noreturn]] void mpiwrap_unavailable(const char *name) {
+  throw std::runtime_error(name ? name : "unavailable MPI function");
+}
+
 namespace mpiwrap_provider_test {
 
-std::int32_t fakeRank(plumed_mpiw_handle_storage communicator,
-                      std::int32_t *rank) {
-  std::uint64_t value = 0;
-  std::memcpy(&value, communicator.bytes, sizeof(value));
-  *rank = static_cast<std::int32_t>(value + 42);
-  return 0;
+void fakeRank(void *communicator_storage, void *rank_storage, void *result) {
+  std::uint32_t communicator = 0;
+  std::memcpy(&communicator, communicator_storage, sizeof(communicator));
+  *static_cast<std::int32_t *>(rank_storage) = static_cast<std::int32_t>(communicator + 42);
+  const std::int32_t success = 0;
+  std::memcpy(result, &success, sizeof(success));
 }
 
-void fakeInitialized() {}
-
-std::int32_t fakeRankAlternative(plumed_mpiw_handle_storage,
-                                 std::int32_t *rank) {
-  *rank = 0;
-  return 0;
-}
-
-std::int32_t fakeOpCreate(plumed_mpiw_user_callback *,
-                          std::int32_t, plumed_mpiw_handle_storage *operation) {
-  std::memset(operation, 0, sizeof(*operation));
-  operation->bytes[0] = 17;
-  return 0;
-}
-
-std::int32_t fakeSuccessConstant(void *output, std::uint32_t capacity) {
-  if (!output || capacity != sizeof(std::int32_t)) {
-    return -1;
+void fakeCommDup(void *communicator_storage, void *new_communicator_storage,
+                 void *result) {
+  std::uint32_t communicator = 0;
+  std::memcpy(&communicator, communicator_storage, sizeof(communicator));
+  if (communicator == UINT32_C(13)) {
+    const std::int32_t failure = 17;
+    std::memcpy(result, &failure, sizeof(failure));
+    return;
   }
+  const std::uint32_t duplicate = UINT32_C(0x12345678);
+  std::memcpy(new_communicator_storage, &duplicate, sizeof(duplicate));
+  const std::int32_t success = 0;
+  std::memcpy(result, &success, sizeof(success));
+}
+
+void fakeRankAlternative(void *, void *, void *result) {
+  const std::int32_t success = 0;
+  std::memcpy(result, &success, sizeof(success));
+}
+
+void fakeFinalized(void *flag_storage, void *result) {
+  const std::int32_t finalized = 1;
+  const std::int32_t success = 0;
+  std::memcpy(flag_storage, &finalized, sizeof(finalized));
+  std::memcpy(result, &success, sizeof(success));
+}
+
+void fakeConstant(void *output) {
   const std::int32_t value = 23;
   std::memcpy(output, &value, sizeof(value));
-  return 0;
-}
-
-plumed_mpiw_handle_storage observed_datatype{};
-int observed_callback_length = 0;
-void fakeUserFunction(void *, void *, int *length, PLMD::MPI_Datatype *datatype) {
-  observed_callback_length = *length;
-  observed_datatype = datatype->storage;
-}
-
-plumed_mpiw_handle_storage observed_communicator{};
-int observed_error_code = 0;
-void fakeCommErrorHandler(PLMD::MPI_Comm *communicator, int *error_code, ...) {
-  observed_communicator = communicator->storage;
-  observed_error_code = *error_code;
 }
 
 plumed_mpiw_provider_descriptor makeDescriptor(
   plumed_mpiw_function_entry *functions, std::uint64_t function_count,
-  plumed_mpiw_generic_fn rank_anchor) {
+  plumed_mpiw_metadata_entry *metadata, std::uint64_t metadata_count,
+  const char *description) {
   plumed_mpiw_provider_descriptor descriptor{};
   descriptor.struct_size = sizeof(descriptor);
   descriptor.abi_major = PLUMED_MPIW_PROVIDER_ABI_MAJOR;
   descriptor.abi_minor = 0;
-  descriptor.runtime_kind = PLUMED_MPIW_RUNTIME_PROCESS_MPI;
-  descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.native_group_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.native_datatype_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.native_request_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.native_op_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.native_errhandler_size = sizeof(plumed_mpiw_handle_storage);
+  descriptor.ranks_are_threads = 0;
+  descriptor.description = description;
+  descriptor.native_comm_size = sizeof(std::uint32_t);
+  descriptor.native_group_size = sizeof(std::uint64_t);
+  descriptor.native_datatype_size = sizeof(std::uint64_t);
+  descriptor.native_request_size = sizeof(std::uint64_t);
+  descriptor.native_op_size = sizeof(std::uint64_t);
+  descriptor.native_errhandler_size = sizeof(std::uint64_t);
   descriptor.native_status_size = 20;
-  descriptor.native_status_align = 4;
-  descriptor.native_c_int_size = sizeof(std::int32_t);
-  descriptor.native_c_int_signed = 1;
+  descriptor.native_status_source_offset = 0;
+  descriptor.native_status_tag_offset = 4;
+  descriptor.native_status_error_offset = 8;
   descriptor.native_fint_size = sizeof(std::int32_t);
   descriptor.native_fint_signed = 1;
-  descriptor.wrapper_handle_size = sizeof(plumed_mpiw_handle_storage);
-  descriptor.wrapper_status_capacity = PLUMED_MPIW_STATUS_CAPACITY;
-  descriptor.provider_name = "test-provider";
-  descriptor.provider_version = "1";
   descriptor.function_count = function_count;
   descriptor.functions = functions;
-  descriptor.identity_comm_rank = rank_anchor;
-  descriptor.identity_initialized = reinterpret_cast<plumed_mpiw_generic_fn>(
-                                      &fakeInitialized);
+  descriptor.metadata_count = metadata_count;
+  descriptor.metadata = metadata;
   return descriptor;
 }
 
-plumed_mpiw_function_entry rankEntry() {
+plumed_mpiw_function_entry rankEntry(plumed_mpiw_generic_fn function) {
   plumed_mpiw_function_entry entry{};
   entry.struct_size = sizeof(entry);
   entry.name = "MPI_Comm_rank";
   entry.signature_id = UINT32_C(0x4e7672aa);
   entry.signature_version = 1;
-  entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank);
+  entry.argument_count = 2;
+  entry.function = function;
+  return entry;
+}
+
+plumed_mpiw_function_entry commDupEntry(plumed_mpiw_generic_fn function) {
+  plumed_mpiw_function_entry entry{};
+  entry.struct_size = sizeof(entry);
+  entry.name = "MPI_Comm_dup";
+  entry.signature_id = UINT32_C(0xf0dc6608);
+  entry.signature_version = 1;
+  entry.argument_count = 2;
+  entry.function = function;
+  return entry;
+}
+
+plumed_mpiw_function_entry finalizedEntry(plumed_mpiw_generic_fn function) {
+  plumed_mpiw_function_entry entry{};
+  entry.struct_size = sizeof(entry);
+  entry.name = "MPI_Finalized";
+  entry.signature_id = UINT32_C(0x105b65c7);
+  entry.signature_version = 1;
+  entry.argument_count = 1;
+  entry.function = function;
   return entry;
 }
 
 int run() {
   using PLMD::mpiwrap_provider::Registry;
-  plumed_mpiw_function_entry valid_entry = rankEntry();
-  const auto anchor = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank);
-  plumed_mpiw_provider_descriptor descriptor = makeDescriptor(&valid_entry, 1, anchor);
+  plumed_mpiw_function_entry functions[] = {
+    rankEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank)),
+    commDupEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeCommDup)),
+    finalizedEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeFinalized)),
+  };
+  plumed_mpiw_constant_accessor_fn constant = &fakeConstant;
+  char optional_payload[] = "future";
+  char optional_name[] = "future:payload";
+  plumed_mpiw_metadata_entry metadata[] = {
+    {
+      sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0,
+      "value:MPI_SUCCESS", sizeof(constant), sizeof(std::int32_t), &constant
+    },
+    {
+      sizeof(plumed_mpiw_metadata_entry), 91, 0, optional_name,
+      sizeof(optional_payload), 0, optional_payload
+    },
+  };
+  char description[] = "temporary test description";
+  plumed_mpiw_provider_descriptor descriptor = makeDescriptor(
+        functions, 3, metadata, 2, description);
 
   Registry registry;
   std::string error;
-  Registry late_provider;
-  late_provider.markObjectCreated();
-  assert(!late_provider.install(&descriptor, error));
-  assert(error.find("before the first PLUMED object") != std::string::npos);
-  plumed_mpiw_provider_descriptor legacy_integer_descriptor = descriptor;
-  legacy_integer_descriptor.abi_major = 1;
-  error.clear();
-  assert(!registry.install(&legacy_integer_descriptor, error));
-  assert(error.find("ABI major") != std::string::npos);
-  assert(!registry.installed());
-  error.clear();
-  descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage) + 1;
-  assert(!registry.install(&descriptor, error));
-  assert(!error.empty());
-  assert(!registry.has("MPI_Comm_rank"));
-
-  if (sizeof(plumed_mpiw_handle_storage) < 16) {
-    error.clear();
-    descriptor.native_comm_size = 16;
-    assert(!registry.install(&descriptor, error));
-    assert(!error.empty());
-    assert(!registry.installed());
-    assert(!registry.has("MPI_Comm_rank"));
-  }
-
-  descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage);
   assert(registry.install(&descriptor, error));
   assert(error.empty());
-  assert(registry.has("MPI_Comm_rank"));
-  assert(!registry.has("MPI_Pcontrol"));
+  std::memset(description, 'x', sizeof(description) - 1);
+  std::memset(optional_payload, 'y', sizeof(optional_payload) - 1);
+  std::memset(optional_name, 'z', sizeof(optional_name) - 1);
 
-  const auto callback = registry.function<plumed_mpiw_MPI_Comm_rank_fn>(
-                          "MPI_Comm_rank", UINT32_C(0x4e7672aa), 1);
-  assert(callback);
-  std::int32_t rank = -1;
-  plumed_mpiw_handle_storage rank_comm{};
-  const std::uint64_t rank_comm_value = 7;
-  std::memcpy(rank_comm.bytes, &rank_comm_value, sizeof(rank_comm_value));
-  assert(callback(rank_comm, &rank) == 0);
-  assert(rank == 49);
-  assert(registry.bindings().MPI_Comm_rank_pointer == callback);
-  const std::uint64_t raw_communicator = UINT64_C(0x12345678);
-  const PLMD::MPI_Comm imported = PLMD::mpiwrap_provider::importComm(
-                                    registry, &raw_communicator);
-  assert(std::memcmp(imported.storage.bytes, &raw_communicator,
-                     sizeof(raw_communicator)) == 0);
-  plumed_mpiw_handle_storage exported{};
-  assert(PLMD::mpiwrap_provider::exportComm(registry, imported, &exported));
-  assert(std::memcmp(&exported, &imported.storage, sizeof(exported)) == 0);
-  plumed_mpiw_provider_descriptor mpich_descriptor = descriptor;
-  mpich_descriptor.native_comm_size = sizeof(std::uint32_t);
-  Registry mpich_registry;
-  assert(mpich_registry.install(&mpich_descriptor, error));
-  const std::uint32_t mpich_communicator = UINT32_C(0x1234abcd);
-  const PLMD::MPI_Comm imported_mpich = PLMD::mpiwrap_provider::importComm(
-                                          mpich_registry, &mpich_communicator);
-  assert(std::memcmp(imported_mpich.storage.bytes, &mpich_communicator,
-                     sizeof(mpich_communicator)) == 0);
-  std::uint32_t forwarded_mpich_communicator = 0;
-  std::memcpy(&forwarded_mpich_communicator, &imported_mpich,
-              mpich_registry.nativeCommSize());
-  assert(forwarded_mpich_communicator == mpich_communicator);
-  PLMD::mpiwrap_provider::Registry *thread_registry = nullptr;
-  std::thread registry_thread([&thread_registry]() {
-    thread_registry = &PLMD::mpiwrap_provider::currentRegistry();
-  });
-  registry_thread.join();
-  assert(thread_registry == &PLMD::mpiwrap_provider::currentRegistry());
-  assert(!registry.function<plumed_mpiw_MPI_Comm_rank_fn>(
-           "MPI_Comm_rank", UINT32_C(0x4e7672aa), 2));
+  const plumed_mpiw_provider_descriptor *snapshot = registry.descriptorSnapshot();
+  assert(snapshot && snapshot != &descriptor);
+  assert(std::strcmp(snapshot->description, "temporary test description") == 0);
+  assert(snapshot->metadata_count == 2);
+  assert(std::strcmp(snapshot->metadata[1].name, "future:payload") == 0);
+  assert(snapshot->metadata[1].value_size == sizeof(optional_payload));
+  assert(std::memcmp(snapshot->metadata[1].value, "future", sizeof(optional_payload)) == 0);
+  assert(snapshot->metadata[0].value_size == sizeof(constant));
+  assert(snapshot->metadata[0].native_value_size == sizeof(std::int32_t));
 
-  bool missing_reported = false;
-  try {
-    registry.require<plumed_mpiw_MPI_Finalize_fn>(
-      "MPI_Finalize", UINT32_C(0xf02bd24d), 1);
-  } catch (const std::runtime_error &exception) {
-    missing_reported = std::string(exception.what()).find("MPI_Finalize") !=
-                       std::string::npos;
+  plumed_mpiw_generic_fn erased = registry.dispatch(
+                                    "MPI_Comm_rank", UINT32_C(0x4e7672aa), 1, 2);
+  assert(erased == reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank));
+  plumed_mpiw_transport_MPI_Comm_rank_fn dispatch =
+    reinterpret_cast<plumed_mpiw_transport_MPI_Comm_rank_fn>(erased);
+  std::uint32_t communicator = 7;
+  std::int32_t rank_value = -1;
+  std::int32_t return_value = -1;
+  dispatch(&communicator, &rank_value, &return_value);
+  assert(return_value == 0 && rank_value == 49);
+  assert(registry.dispatch("MPI_Comm_dup", UINT32_C(0xf0dc6608), 1, 2) != nullptr);
+  plumed_mpiw_generic_fn finalized_erased = registry.dispatch(
+        "MPI_Finalized", UINT32_C(0x105b65c7), 1, 1);
+  assert(finalized_erased == reinterpret_cast<plumed_mpiw_generic_fn>(&fakeFinalized));
+  plumed_mpiw_transport_MPI_Finalized_fn finalized_dispatch =
+    reinterpret_cast<plumed_mpiw_transport_MPI_Finalized_fn>(finalized_erased);
+  std::int32_t finalized_flag = 0;
+  std::int32_t finalized_result = -1;
+  finalized_dispatch(&finalized_flag, &finalized_result);
+  assert(finalized_result == 0 && finalized_flag == 1);
+  Registry &bridge_registry = PLMD::mpiwrap_provider::currentRegistry();
+  assert(bridge_registry.install(&descriptor, error));
+  plumed_mpiw_handle_storage comm_handle{};
+  std::memset(comm_handle.bytes, 0x5a, sizeof(comm_handle.bytes));
+  std::memcpy(comm_handle.bytes, &communicator, sizeof(communicator));
+  plumed_mpiw_handle_storage duplicate_handle;
+  std::memset(duplicate_handle.bytes, 0xa5, sizeof(duplicate_handle.bytes));
+  assert(bridge_registry.bindings().MPI_Comm_dup_pointer(comm_handle, &duplicate_handle) == 0);
+  std::uint32_t duplicate_value = 0;
+  std::memcpy(&duplicate_value, duplicate_handle.bytes, sizeof(duplicate_value));
+  assert(duplicate_value == UINT32_C(0x12345678));
+  for (std::size_t i = sizeof(duplicate_value); i < sizeof(duplicate_handle.bytes); ++i) {
+    assert(duplicate_handle.bytes[i] == 0);
   }
-  assert(missing_reported);
+  std::memset(comm_handle.bytes, 0x5a, sizeof(comm_handle.bytes));
+  const std::uint32_t fail_input = 13;
+  std::memcpy(comm_handle.bytes, &fail_input, sizeof(fail_input));
+  std::memset(duplicate_handle.bytes, 0xa5, sizeof(duplicate_handle.bytes));
+  assert(bridge_registry.bindings().MPI_Comm_dup_pointer(comm_handle, &duplicate_handle) == 17);
+  for (std::size_t i = 0; i < sizeof(duplicate_handle.bytes); ++i) {
+    assert(duplicate_handle.bytes[i] == 0xa5);
+  }
+  assert(!registry.dispatch("MPI_Comm_rank", UINT32_C(0x4e7672aa), 1, 1));
+  assert(registry.nativeConstantSize("MPI_SUCCESS") == sizeof(std::int32_t));
+  std::int32_t success = 0;
+  assert(registry.copyNativeValue("MPI_SUCCESS", &success, sizeof(success)));
+  assert(success == 23);
 
-  assert(registry.install(&descriptor, error));
-  plumed_mpiw_provider_descriptor conflict = descriptor;
-  conflict.identity_comm_rank = reinterpret_cast<plumed_mpiw_generic_fn>(
-                                  &fakeInitialized);
+  // A changed diagnostic label does not make an otherwise identical provider conflict.
+  plumed_mpiw_provider_descriptor same_provider = descriptor;
+  same_provider.description = "another diagnostic label";
+  metadata[1].name = "future:payload";
+  std::memcpy(optional_payload, "future", sizeof(optional_payload));
+  assert(registry.install(&same_provider, error));
+
+  plumed_mpiw_function_entry conflicting_functions[] = {
+    rankEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRankAlternative)),
+    functions[1],
+    functions[2],
+  };
+  plumed_mpiw_provider_descriptor conflict = makeDescriptor(
+        conflicting_functions, 3, metadata, 2, "conflict");
   assert(!registry.install(&conflict, error));
   assert(error.find("conflicting") != std::string::npos);
-  conflict = descriptor;
-  conflict.native_status_size = 24;
-  assert(!registry.install(&conflict, error));
-  conflict = descriptor;
-  valid_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(
-                           &fakeRankAlternative);
-  assert(registry.install(&conflict, error));
-  rank = -1;
-  assert(callback(rank_comm, &rank) == 0);
-  assert(rank == 49);  // Equivalent adapter thunk does not replace published code.
 
-  plumed_mpiw_function_entry mismatched_entry = valid_entry;
-  mismatched_entry.signature_version = 2;
-  plumed_mpiw_provider_descriptor malformed = makeDescriptor(
-        &mismatched_entry, 1, anchor);
-  Registry retryable;
-  assert(!retryable.install(&malformed, error));
-  assert(!retryable.has("MPI_Comm_rank"));
-  assert(retryable.install(&descriptor, error));
+  Registry null_description_registry;
+  plumed_mpiw_provider_descriptor no_description = makeDescriptor(
+        functions, 3, metadata, 2, nullptr);
+  assert(null_description_registry.install(&no_description, error));
+  assert(null_description_registry.descriptorSnapshot()->description == nullptr);
 
-  plumed_mpiw_function_entry duplicate_entries[] = {valid_entry, valid_entry};
-  malformed = makeDescriptor(duplicate_entries, 2, anchor);
-  Registry duplicates;
-  assert(!duplicates.install(&malformed, error));
-  assert(error.find("duplicate") != std::string::npos);
+  Registry late_provider;
+  late_provider.markProviderValueUsed();
+  assert(!late_provider.install(&descriptor, error));
+  assert(error.find("before the first MPI value") != std::string::npos);
 
-  plumed_mpiw_function_entry unknown_required{};
-  unknown_required.struct_size = sizeof(unknown_required);
-  unknown_required.flags = PLUMED_MPIW_FUNCTION_REQUIRED;
-  unknown_required.name = "MPI_Unknown_future";
-  unknown_required.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank);
-  malformed = makeDescriptor(&unknown_required, 1, anchor);
-  Registry unknown;
-  assert(!unknown.install(&malformed, error));
+  plumed_mpiw_provider_descriptor old_abi = descriptor;
+  old_abi.abi_major = 2;
+  Registry old_provider;
+  assert(!old_provider.install(&old_abi, error));
+  assert(error.find("ABI major") != std::string::npos);
+
+  plumed_mpiw_provider_descriptor bad_size = descriptor;
+  bad_size.native_comm_size = sizeof(plumed_mpiw_handle_storage) + 1;
+  Registry invalid_size;
+  assert(!invalid_size.install(&bad_size, error));
+
+  plumed_mpiw_metadata_entry unknown_required = metadata[1];
+  unknown_required.flags = PLUMED_MPIW_METADATA_REQUIRED;
+  plumed_mpiw_provider_descriptor required_unknown = makeDescriptor(
+        functions, 2, &unknown_required, 1, "required unknown");
+  Registry rejects_unknown;
+  assert(!rejects_unknown.install(&required_unknown, error));
   assert(error.find("unknown required") != std::string::npos);
 
-  malformed = descriptor;
-  malformed.struct_size = sizeof(malformed) - 1;
-  Registry truncated;
-  assert(!truncated.install(&malformed, error));
-  assert(error.find("shorter") != std::string::npos);
-
-  std::atomic<bool> concurrent_success{true};
-  Registry concurrent;
-  auto install_same = [&concurrent, &descriptor, &concurrent_success]() {
-    std::string local_error;
-    if (!concurrent.install(&descriptor, local_error)) {
-      concurrent_success.store(false);
-    }
-  };
-  std::thread first(install_same);
-  std::thread second(install_same);
-  first.join();
-  second.join();
-  assert(concurrent_success.load());
-
-  plumed_mpiw_function_entry op_entry{};
-  op_entry.struct_size = sizeof(op_entry);
-  op_entry.name = "MPI_Op_create";
-  op_entry.signature_id = UINT32_C(0x891a52d1);
-  op_entry.signature_version = 2;
-  op_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeOpCreate);
-  static const char user_callback_abi[] = PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1;
-  plumed_mpiw_metadata_entry callback_metadata{};
-  callback_metadata.struct_size = sizeof(callback_metadata);
-  callback_metadata.value_type = PLUMED_MPIW_VALUE_UTF8;
-  callback_metadata.flags = PLUMED_MPIW_METADATA_REQUIRED;
-  callback_metadata.name = PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI;
-  callback_metadata.value_size = sizeof(user_callback_abi);
-  callback_metadata.value = user_callback_abi;
-  plumed_mpiw_constant_accessor_fn success_accessor = &fakeSuccessConstant;
-  plumed_mpiw_metadata_entry success_metadata{};
-  success_metadata.struct_size = sizeof(success_metadata);
-  success_metadata.value_type = PLUMED_MPIW_VALUE_ACCESSOR;
-  success_metadata.name = "value:MPI_SUCCESS";
-  success_metadata.value_size = sizeof(success_accessor);
-  success_metadata.value = &success_accessor;
-  const plumed_mpiw_metadata_entry callback_values[] = {
-    callback_metadata, success_metadata
-  };
-  plumed_mpiw_provider_descriptor callback_descriptor = makeDescriptor(
-        &op_entry, 1, anchor);
-  callback_descriptor.metadata_count = 2;
-  callback_descriptor.metadata = callback_values;
-  Registry callbacks;
-  assert(callbacks.install(&callback_descriptor, error));
-  const plumed_mpiw_provider_descriptor *snapshot = callbacks.descriptorSnapshot();
-  assert(snapshot && snapshot != &callback_descriptor);
-  assert(std::string(snapshot->provider_name) == "test-provider");
-  assert(snapshot->function_count == 1 &&
-         std::string(snapshot->functions[0].name) == "MPI_Op_create");
-  assert(snapshot->metadata_count == 2);
-  callback_descriptor.provider_name = "caller-mutated";
-  op_entry.name = "MPI_Broken";
-  op_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRankAlternative);
-  assert(std::string(snapshot->provider_name) == "test-provider");
-  assert(std::string(snapshot->functions[0].name) == "MPI_Op_create");
-  assert(snapshot->functions[0].function ==
-         reinterpret_cast<plumed_mpiw_generic_fn>(&fakeOpCreate));
-  assert(std::string(snapshot->metadata[0].name) ==
-         PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI);
-  assert(std::string(static_cast<const char *>(snapshot->metadata[0].value)) ==
-         PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1);
-  assert(std::string(snapshot->metadata[1].name) == "value:MPI_SUCCESS");
-  plumed_mpiw_constant_accessor_fn copied_accessor = nullptr;
-  std::memcpy(&copied_accessor, snapshot->metadata[1].value,
-              sizeof(copied_accessor));
-  assert(copied_accessor == &fakeSuccessConstant);
-  op_entry.name = "MPI_Op_create";
-  op_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeOpCreate);
-  callback_descriptor.provider_name = "test-provider";
-  std::int32_t constant_value = -1;
-  assert(callbacks.copyValue("MPI_SUCCESS", &constant_value,
-                             sizeof(constant_value)));
-  assert(constant_value == 23);
-  std::uint64_t wrong_constant_size = 0;
-  assert(!callbacks.copyValue("MPI_SUCCESS", &wrong_constant_size,
-                              sizeof(wrong_constant_size)));
-  const auto op_create = callbacks.function<plumed_mpiw_MPI_Op_create_fn>(
-                           "MPI_Op_create", UINT32_C(0x891a52d1), 2);
-  plumed_mpiw_handle_storage operation{};
-  assert(op_create(nullptr, 1, &operation) == 0 && operation.bytes[0] == 17);
-
-  const auto callback_record = PLMD::mpiwrap_provider::make_user_callback(
-                                 &fakeUserFunction);
-  const std::uint32_t mpich_datatype = UINT32_C(0x1234abcd);
-  plumed_mpiw_handle_storage imported_mpich_datatype{};
-  std::memcpy(imported_mpich_datatype.bytes, &mpich_datatype, sizeof(mpich_datatype));
-  callback_record.invoke(callback_record.function, nullptr, nullptr, 3,
-                         imported_mpich_datatype);
-  assert(std::memcmp(&observed_datatype, &imported_mpich_datatype,
-                     sizeof(observed_datatype)) == 0);
-  assert(observed_callback_length == 3);
-  plumed_mpiw_handle_storage openmpi_datatype{};
-  const std::uint64_t openmpi_value = UINT64_C(0x123456789abcdef0);
-  std::memcpy(openmpi_datatype.bytes, &openmpi_value, sizeof(openmpi_value));
-  callback_record.invoke(callback_record.function, nullptr, nullptr, 5,
-                         openmpi_datatype);
-  assert(std::memcmp(&observed_datatype, &openmpi_datatype,
-                     sizeof(observed_datatype)) == 0);
-  assert(observed_callback_length == 5);
-
-  const auto error_callback_record =
-    PLMD::mpiwrap_provider::make_comm_errhandler_callback(&fakeCommErrorHandler);
-  plumed_mpiw_handle_storage error_comm{};
-  const std::uint64_t error_comm_value = UINT64_C(0x87654321);
-  std::memcpy(error_comm.bytes, &error_comm_value, sizeof(error_comm_value));
-  error_callback_record.invoke(error_callback_record.function,
-                               error_comm, 9);
-  assert(std::memcmp(&observed_communicator, &error_comm,
-                     sizeof(error_comm)) == 0);
-  assert(observed_error_code == 9);
-
-  plumed_mpiw_metadata_entry invalid_metadata[] = {
-    callback_metadata, success_metadata
-  };
-  invalid_metadata[0].value_type = PLUMED_MPIW_VALUE_I32;
-  callback_descriptor.metadata = invalid_metadata;
-  Registry wrong_metadata_type;
-  assert(!wrong_metadata_type.install(&callback_descriptor, error));
-  assert(error.find("callback ABI metadata") != std::string::npos);
-
-  callback_descriptor.metadata_count = 0;
-  Registry missing_callback_metadata;
-  assert(!missing_callback_metadata.install(&callback_descriptor, error));
-  assert(error.find("MPI_User_function") != std::string::npos);
-
-  static const char unavailable_error_callback[] =
-    PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
-  plumed_mpiw_metadata_entry unavailable_metadata{};
-  unavailable_metadata.struct_size = sizeof(unavailable_metadata);
-  unavailable_metadata.value_type = PLUMED_MPIW_VALUE_UTF8;
-  unavailable_metadata.flags = PLUMED_MPIW_METADATA_REQUIRED;
-  unavailable_metadata.name = PLUMED_MPIW_METADATA_MPI_ERRHANDLER_FUNCTION_ABI;
-  unavailable_metadata.value_size = sizeof(unavailable_error_callback);
-  unavailable_metadata.value = unavailable_error_callback;
-  plumed_mpiw_provider_descriptor thread_provider = descriptor;
-  thread_provider.runtime_kind = PLUMED_MPIW_RUNTIME_THREAD_MPI;
-  thread_provider.native_fint_size = 0;
-  thread_provider.native_fint_signed = 0;
-  thread_provider.metadata_count = 1;
-  thread_provider.metadata = &unavailable_metadata;
-  Registry unavailable_error_handler;
-  assert(unavailable_error_handler.install(&thread_provider, error));
-
-  thread_provider.metadata_count = 0;
-  thread_provider.metadata = nullptr;
-  Registry no_fortran;
-  assert(no_fortran.install(&thread_provider, error));
   return 0;
 }
 

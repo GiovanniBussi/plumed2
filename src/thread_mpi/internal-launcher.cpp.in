@@ -75,17 +75,13 @@ int runUnlaunchedSerial() {
     std::cerr << "MPI_Initialized selected or initialized a provider\n";
     return 1;
   }
-  mpiwrap_provider::noteKernelObjectCreated();
+  const MPI_Comm self = mpiwrap_COMM_SELF();
   if (!registry.installed() || registry.runtimeKind() !=
       PLUMED_MPIW_RUNTIME_THREAD_MPI) {
-    std::cerr << "ordinary object creation did not select the default provider\n";
+    std::cerr << "MPI_COMM_SELF use did not select the default provider\n";
     return 1;
   }
-  const MPI_Comm self = mpiwrap_COMM_SELF();
-  if (!mpiwrap_handle_storage_is_zero(self.storage)) {
-    std::cerr << "pre-init MPI_COMM_SELF was not the zero-filled placeholder\n";
-    return 1;
-  }
+  (void) self;
   if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
       initialized != 0) {
     std::cerr << "provider selection initialized thread-MPI unexpectedly\n";
