@@ -76,7 +76,7 @@ int runUnlaunchedSerial() {
     return 1;
   }
   const MPI_Comm self = mpiwrap_COMM_SELF();
-  if (self.storage != 0) {
+  if (!mpiwrap_handle_storage_is_zero(self.storage)) {
     std::cerr << "pre-init MPI_COMM_SELF was not the zero-filled placeholder\n";
     return 1;
   }

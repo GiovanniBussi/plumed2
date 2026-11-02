@@ -16,12 +16,12 @@ namespace PLMD {
 using sample_function = int (*)(int);
 
 struct CommHandle {
-  uintptr_t value;
+  plumed_mpiw_handle_storage value;
   bool operator==(const CommHandle &other) const {
-    return value == other.value;
+    return std::memcmp(&value, &other.value, sizeof(value)) == 0;
   }
   bool operator!=(const CommHandle &other) const {
-    return value != other.value;
+    return !(*this == other);
   }
 };
 
@@ -30,7 +30,6 @@ int sample_callback(int value) {
 }
 
 int run_probe() {
-  static_assert(sizeof(void *) <= sizeof(uintptr_t), "pointer handles exceed uintptr_t storage");
   const sample_function typed = &sample_callback;
   const plumed_mpiw_generic_fn carrier = reinterpret_cast<plumed_mpiw_generic_fn>(typed);
   const sample_function restored = reinterpret_cast<sample_function>(carrier);
@@ -39,24 +38,26 @@ int run_probe() {
   }
 
   int native_integer_handle = 19;
-  uintptr_t integer_storage = 0;
-  std::memcpy(&integer_storage, &native_integer_handle, sizeof(native_integer_handle));
+  plumed_mpiw_handle_storage integer_storage{};
+  std::memcpy(integer_storage.bytes, &native_integer_handle, sizeof(native_integer_handle));
   int restored_integer_handle = 0;
-  std::memcpy(&restored_integer_handle, &integer_storage, sizeof(restored_integer_handle));
+  std::memcpy(&restored_integer_handle, integer_storage.bytes, sizeof(restored_integer_handle));
   if (restored_integer_handle != native_integer_handle) {
     return 2;
   }
+  plumed_mpiw_handle_storage different_storage = integer_storage;
+  different_storage.bytes[0] ^= 1;
   if (!(CommHandle{integer_storage} == CommHandle{integer_storage}) ||
-      !(CommHandle{integer_storage} != CommHandle{integer_storage + 1})) {
+      !(CommHandle{integer_storage} != CommHandle{different_storage})) {
     return 5;
   }
 
   int pointed_value = 23;
   int *native_pointer_handle = &pointed_value;
-  uintptr_t pointer_storage = 0;
-  std::memcpy(&pointer_storage, &native_pointer_handle, sizeof(native_pointer_handle));
+  plumed_mpiw_handle_storage pointer_storage{};
+  std::memcpy(pointer_storage.bytes, &native_pointer_handle, sizeof(native_pointer_handle));
   int *restored_pointer_handle = nullptr;
-  std::memcpy(&restored_pointer_handle, &pointer_storage, sizeof(restored_pointer_handle));
+  std::memcpy(&restored_pointer_handle, pointer_storage.bytes, sizeof(restored_pointer_handle));
   if (restored_pointer_handle != native_pointer_handle || *restored_pointer_handle != 23) {
     return 3;
   }
@@ -88,12 +89,12 @@ int run_probe() {
               offsetof(plumed_mpiw_metadata_entry, name),
               offsetof(plumed_mpiw_metadata_entry, value_size),
               offsetof(plumed_mpiw_metadata_entry, value));
-  std::printf("uintptr_t=%zu wrapper-handle=%u wrapper-status-capacity=%u\n",
-              sizeof(uintptr_t),
-              static_cast<unsigned>(sizeof(uintptr_t)), 128U);
+  std::printf("pointer=%zu wrapper-handle=%zu handle-capacity=%zu wrapper-status-capacity=%u\n",
+              sizeof(void *), sizeof(plumed_mpiw_handle_storage),
+              static_cast<std::size_t>(PLUMED_MPIW_HANDLE_CAPACITY), 128U);
   std::printf("native-C-int sizeof=%zu signed=%d MPI_Fint metadata=provider-reported\n",
               sizeof(int), std::numeric_limits<int>::is_signed ? 1 : 0);
-  std::printf("generic-function-pointer roundtrip=pass integer-handle-bytes=pass pointer-handle-bytes=pass entry-stride=pass\n");
+  std::printf("generic-function-pointer roundtrip=pass integer-handle-bytes=pass pointer-handle-bytes=pass byte-equality=pass entry-stride=pass\n");
   return 0;
 }
 }

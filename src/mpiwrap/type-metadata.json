@@ -20,13 +20,13 @@
       "representation": "opaque implementation-defined native handle",
       "test_id": "comm-roundtrip",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
@@ -36,13 +36,13 @@
       "representation": "opaque implementation-defined native handle",
       "test_id": "group-roundtrip",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
@@ -52,13 +52,13 @@
       "representation": "opaque implementation-defined native handle",
       "test_id": "datatype-roundtrip",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
@@ -68,13 +68,13 @@
       "representation": "opaque implementation-defined native handle",
       "test_id": "request-roundtrip",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
@@ -118,13 +118,13 @@
       "representation": "opaque reduction-operation handle",
       "test_id": "type:MPI_Op",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
@@ -134,13 +134,13 @@
       "representation": "opaque error-handler handle",
       "test_id": "type:MPI_Errhandler",
       "category": "opaque-handle",
-      "wrapper_storage": "distinct standard-layout/trivially-copyable configured unsigned integer, default uintptr_t",
+      "wrapper_storage": "distinct standard-layout/trivially-copyable byte array, default capacity max(8, sizeof(void *))",
       "native_metadata": [
         "sizeof",
         "alignof",
         "representation-byte-copy compatibility"
       ],
-      "conversion": "zero destination storage and memcpy native handle bytes; reverse memcpy to aligned native local; explicit same-kind equality after validated representation",
+      "conversion": "zero-filled byte storage plus memcpy of native handle bytes; reverse memcpy to aligned native local; bytewise same-kind equality after validated representation",
       "thread_mpi": "native declaration; verify pinned size; tMPI_Op is numeric enum type while other handles pointer types"
     },
     {
