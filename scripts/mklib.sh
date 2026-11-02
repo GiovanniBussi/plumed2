@@ -75,7 +75,7 @@ fi
 recompile=no
 for file in "${files[@]}"
 do
-  if ! test $lib -nt $file ;
+  if ! test "$lib" -nt "$file" ;
   then
     recompile=yes
   fi
@@ -90,8 +90,6 @@ if test $recompile = no ; then
   exit 0
 fi
 
-rm -f "$lib"
-
 toRemove=""
 remover() {
   #if compilation fails or crashes the trap will delete the temporary files
@@ -102,7 +100,8 @@ remover() {
 trap "remover" EXIT
 objs=""
 
-tmpdir=$(mktemp -d "plumed_mklib.XXXXXX")
+tmpdir=$(mktemp -d "$(dirname "$lib")/plumed_mklib.XXXXXX") || exit 1
+tmp_lib="$tmpdir/$(basename "$lib")"
 
 toRemove="${toRemove} $tmpdir"
 
@@ -170,11 +169,22 @@ fi
 # libraries listed before the objects using them. The kernel would then not be recorded
 # as a dependency, and LOAD would fail with undefined symbols when the kernel was loaded
 # with RTLD_LOCAL (as done by the python interface).
-eval "$link_shared" $objs "$PLUMED_MKLIB_LDFLAGS" "$link_libs" -o "$tmpdir/$lib"
+eval "$link_shared" $objs "$PLUMED_MKLIB_LDFLAGS" "$link_libs" -o "$tmp_lib" || exit 1
 
 if test -n "$no_clobber" ; then
-  # || true is necessary with recent coreutils
-  mv -n "$tmpdir/$lib" $lib || true
-else
-  mv "$tmpdir/$lib" $lib
+  # Another caller may have finished compiling these inputs while we linked.
+  recompile=no
+  for file in "${files[@]}" ; do
+    if ! test "$lib" -nt "$file" ; then
+      recompile=yes
+    fi
+  done
+  if test "$recompile" = no ; then
+    exit 0
+  fi
 fi
+
+# Keep the previous library available until its replacement is complete.
+# The temporary directory is on the destination filesystem, so rename publishes
+# the complete library atomically even when another rank is loading it.
+mv "$tmp_lib" "$lib"
