@@ -507,6 +507,8 @@ extern "C" void plumed_plumedmain_finalize(void*plumed) {
   delete static_cast<PLMD::PlumedMain*>(plumed);
 }
 
+namespace PLMD {
+
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
   int (*report)(void*,int,const char*,const char*),
@@ -568,6 +570,8 @@ extern "C" int plumed_plumedmain_launch_internal_threads(
   return 1;
 #endif
 }
+
+} // namespace PLMD
 
 // values here should be consistent with those in plumed_symbol_table_init !!!!
 plumed_symbol_table_type_x plumed_symbol_table= {
