@@ -18,6 +18,7 @@ a.out
 makefile.dep
 .ipynb_checkpoints
 /Makefile.conf
+/mpiwrap-capacity-installed.h
 /sourceme.sh
 /tmp
 /codes

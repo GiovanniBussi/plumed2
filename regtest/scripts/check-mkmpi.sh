@@ -6,7 +6,7 @@ TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mkmpi-test.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 export PLUMED_ROOT="$TASK_DIR/installed tree"
 mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/src/mpiwrap" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
-for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h provider-callbacks.h; do
+for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h; do
   cp "$ROOT/src/mpiwrap/$source" "$PLUMED_ROOT/src/mpiwrap/"
 done
 printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\n" > "$PLUMED_ROOT/src/config/compile_options.sh"

@@ -297,7 +297,7 @@ endif
 	cd ../../ ; tar cf - patches scripts | tar xf - -C "$(DESTDIR)$(libdir)/$(program_name)/"
 # Keep the standalone provider build usable without the original source tree.
 	mkdir -p "$(DESTDIR)$(libdir)/$(program_name)/src/mpiwrap"
-	cp ../mpiwrap/mpiwrap_implementation.cpp ../mpiwrap/mpiwrap_implementation.cpp.inc ../mpiwrap/provider-abi.h ../mpiwrap/provider-callbacks.h "$(DESTDIR)$(libdir)/$(program_name)/src/mpiwrap/"
+	cp ../mpiwrap/mpiwrap_implementation.cpp ../mpiwrap/mpiwrap_implementation.cpp.inc ../mpiwrap/provider-abi.h "$(DESTDIR)$(libdir)/$(program_name)/src/mpiwrap/"
 # copy Template.cpp file (we leave it in src/colvar/ for backward compatibility)
 	cp ../colvar/Template.cpp "$(DESTDIR)$(libdir)/$(program_name)/src/colvar/"
 # copy compile_options.sh file (we leave it in src/colvar/ for backward compatibility)
@@ -685,6 +685,8 @@ $(DIRSLINKS): %.links:
 
 install-headers:
 	bash ../maketools/install.headers "$(DESTDIR)$(includedir)/$(program_name)/" $(subst ../,,$(DIRS))
+	cp ../../mpiwrap-capacity-installed.h "$(DESTDIR)$(includedir)/$(program_name)/mpiwrap/mpiwrap-capacity.h"
+
 
 
 # generic makefile rules

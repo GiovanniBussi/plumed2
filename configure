@@ -657,6 +657,8 @@ OBJEXT
 EXEEXT
 ac_ct_CXX
 CPPFLAGS
+MPIWRAP_HANDLE_CAPACITY
+MPIWRAP_STATUS_CAPACITY
 LDFLAGS
 CXXFLAGS
 CXX
@@ -736,6 +738,8 @@ enable_ar_cr
 enable_static_archive
 enable_asmjit
 enable_mpi
+with_mpiwrap_handle_capacity
+with_mpiwrap_status_capacity
 enable_thread_mpi
 enable_external_lapack
 enable_external_blas
@@ -1477,6 +1481,12 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-mpiwrap-handle-capacity=BYTES
+                          set the wrapper handle byte capacity
+                          (default: max(pointer size, 8))
+  --with-mpiwrap-status-capacity=BYTES
+                          set the wrapper status byte capacity
+                          (default: 128)
   --with-kenref-src=DIR   use a local KEnRef checkout instead of cloning it
                           (with --enable-kenref)
 
@@ -2906,6 +2916,45 @@ else
 
 fi
 
+
+
+mpiwrap_handle_capacity='((sizeof(void *) > 8U) ? sizeof(void *) : 8U)'
+mpiwrap_status_capacity=128
+mpiwrap_capacity_cppflags=
+
+# Check whether --with-mpiwrap-handle-capacity was given.
+if test "${with_mpiwrap_handle_capacity+set}" = set; then :
+  mpiwrap_handle_capacity=$with_mpiwrap_handle_capacity
+  case "$mpiwrap_handle_capacity" in
+    (''|*[!0-9]*) as_fn_error $? "--with-mpiwrap-handle-capacity must be a positive integer byte count" "$LINENO" 5 ;;
+  esac
+  mpiwrap_handle_capacity=`echo "$mpiwrap_handle_capacity" | sed 's/^0*//'`
+  if test -z "$mpiwrap_handle_capacity" ||
+     ! test "$mpiwrap_handle_capacity" -gt 0 2>/dev/null ||
+     ! test "$mpiwrap_handle_capacity" -le 4294967295 2>/dev/null; then
+    as_fn_error $? "--with-mpiwrap-handle-capacity must be between 1 and 4294967295 bytes" "$LINENO" 5
+  fi
+  mpiwrap_capacity_cppflags="$mpiwrap_capacity_cppflags -DPLUMED_MPIW_HANDLE_CAPACITY=$mpiwrap_handle_capacity"
+fi
+
+# Check whether --with-mpiwrap-status-capacity was given.
+if test "${with_mpiwrap_status_capacity+set}" = set; then :
+  mpiwrap_status_capacity=$with_mpiwrap_status_capacity
+  case "$mpiwrap_status_capacity" in
+    (''|*[!0-9]*) as_fn_error $? "--with-mpiwrap-status-capacity must be a positive integer byte count" "$LINENO" 5 ;;
+  esac
+  mpiwrap_status_capacity=`echo "$mpiwrap_status_capacity" | sed 's/^0*//'`
+  if test -z "$mpiwrap_status_capacity" ||
+     ! test "$mpiwrap_status_capacity" -gt 0 2>/dev/null ||
+     ! test "$mpiwrap_status_capacity" -le 4294967295 2>/dev/null; then
+    as_fn_error $? "--with-mpiwrap-status-capacity must be between 1 and 4294967295 bytes" "$LINENO" 5
+  fi
+  mpiwrap_capacity_cppflags="$mpiwrap_capacity_cppflags -DPLUMED_MPIW_STATUS_CAPACITY=$mpiwrap_status_capacity"
+fi
+
+CPPFLAGS="$CPPFLAGS $mpiwrap_capacity_cppflags"
+MPIWRAP_HANDLE_CAPACITY=$mpiwrap_handle_capacity
+MPIWRAP_STATUS_CAPACITY=$mpiwrap_status_capacity
 
 
 thread_mpi_request=auto
@@ -11229,6 +11278,7 @@ build_dir=`pwd`
 # This is to replace tags in Makefile.conf.in
 # saving the result to Makefile.conf
 ac_config_files="$ac_config_files Makefile.conf sourceme.sh"
+ac_config_files="$ac_config_files mpiwrap-capacity-installed.h:src/mpiwrap/mpiwrap-capacity.h.in"
 
 # This is to have the stamp-h file up to date
 # The date of this file keeps track of when Makefile.conf and sourceme.sh have been updated
@@ -11966,6 +12016,7 @@ do
   case $ac_config_target in
     "Makefile.conf") CONFIG_FILES="$CONFIG_FILES Makefile.conf" ;;
     "sourceme.sh") CONFIG_FILES="$CONFIG_FILES sourceme.sh" ;;
+    "mpiwrap-capacity-installed.h") CONFIG_FILES="$CONFIG_FILES mpiwrap-capacity-installed.h:src/mpiwrap/mpiwrap-capacity.h.in" ;;
     "stamp-h") CONFIG_FILES="$CONFIG_FILES stamp-h" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

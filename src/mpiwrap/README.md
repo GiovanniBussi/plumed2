@@ -65,8 +65,14 @@ array strides and status conversion; injected implementations call native MPI.
 The nullable description is copied at installation for diagnostics only.
 `ranks_are_threads` describes execution; absence of a function means unavailable.
 
-PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *)); builds may
-override it with a positive byte count. Handle storage is a zero-filled
+PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *)); configure with
+--with-mpiwrap-handle-capacity=BYTES to choose a positive byte count. Use
+--with-mpiwrap-status-capacity=BYTES to change the status default of 128 bytes.
+Configured sizes reach all kernel translation units and installed public
+headers. Rebuild clients using wrapper types when changing these sizes;
+explicit compiler overrides must agree with the kernel. Native MPI's direct
+types are independent of these capacities, as is the thin native provider;
+provider installation checks that its native values fit the receiving kernel. Handle storage is a zero-filled
 byte-array POD. Provider ABI major 3 uses fixed per-function pointer transport
 and rejects older incompatible provider layouts before reading their entries. PLUMED_MPIW_STATUS_CAPACITY
 defaults to 128 bytes. Providers must fit those configured representations,
@@ -270,3 +276,15 @@ MPI_IN_PLACE also requires MPI-2. Optional long-long predefined types are
 published conservatively from MPI-2.1, when required by the standard. The same
 guards protect implementations and table rows. Synthetic MPI-1.1 probes verify
 that older headers need not declare omitted functions or constants.
+
+A configured-capacity installation check uses a separate configured checkout:
+
+    ./configure --disable-mpi --with-mpiwrap-handle-capacity=24 \
+      --with-mpiwrap-status-capacity=192
+    MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ \
+      bash src/mpiwrap/check-capacity-install.sh /path/to/mpich/mpicxx \
+      /path/to/openmpi/mpicxx
+
+It runs the public install-headers recipe and compiles installed headers
+without capacity defines. This checks propagation; the build/runtime matrix
+above remains separate validation.
