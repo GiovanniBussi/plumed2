@@ -500,9 +500,12 @@ Registry &currentRegistry() {
   return kernel_registry();
 }
 
+#if defined(__PLUMED_HAS_MPI)
+void ensureProviderSelected() {}
 void noteKernelObjectCreated() {
   currentRegistry().markObjectCreated();
 }
+#endif
 
 MPI_Comm importComm(Registry &registry, const void *native) {
   MPI_Comm result{};

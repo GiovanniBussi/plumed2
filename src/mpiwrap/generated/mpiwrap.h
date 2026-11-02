@@ -78,6 +78,7 @@ inline MPI_Request mpiwrap_export_Request(MPI_Request value) {
 #include <cstdint>
 #include <type_traits>
 static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");
+using MPI_Fint = std::int32_t;
 namespace PLMD {
 struct MPI_Comm {
   plumed_mpiw_handle_storage storage;
@@ -90,6 +91,8 @@ struct MPI_Comm {
 };
 static_assert(std::is_trivial<MPI_Comm>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Comm>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Comm, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Comm) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Datatype {
@@ -103,6 +106,8 @@ struct MPI_Datatype {
 };
 static_assert(std::is_trivial<MPI_Datatype>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Datatype>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Datatype, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Datatype) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Errhandler {
@@ -116,6 +121,8 @@ struct MPI_Errhandler {
 };
 static_assert(std::is_trivial<MPI_Errhandler>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Errhandler>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Errhandler, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Errhandler) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Group {
@@ -129,6 +136,8 @@ struct MPI_Group {
 };
 static_assert(std::is_trivial<MPI_Group>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Group>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Group, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Group) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Op {
@@ -142,6 +151,8 @@ struct MPI_Op {
 };
 static_assert(std::is_trivial<MPI_Op>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Op>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Op, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Op) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Request {
@@ -155,6 +166,8 @@ struct MPI_Request {
 };
 static_assert(std::is_trivial<MPI_Request>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Request>::value, "handle layout");
+// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
+static_assert(offsetof(MPI_Request, storage) == 0, "native handle bytes begin at offset zero");
 static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Request) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Status {
