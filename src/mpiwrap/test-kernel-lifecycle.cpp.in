@@ -1,7 +1,7 @@
 #define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #define __PLUMED_WRAPPER_EXTERN 0
 #define __PLUMED_HAS_DLOPEN 1
-#include "../../wrapper/Plumed.h"
+#include "../wrapper/Plumed.h"
 
 #include <cstdio>
 #include <cstdlib>

@@ -1,6 +1,6 @@
 // Stable tMPI provider entries for the first runtime communication slice.
-#include "../generated/provider-abi.h"
-#include "../generated/provider-callbacks.h"
+#include "provider-abi.h"
+#include "provider-callbacks.h"
 
 #include <thread_mpi/tmpi.h>
 
@@ -541,7 +541,7 @@ int32_t exportPointer(void *output, uint32_t capacity, Pointer value) {
 }
 
 using namespace thread_mpi;
-#include "../generated/thread-mpi-constant-accessors.inc"
+#include "thread-mpi-constant-accessors.inc"
 
 static const char callback_unavailable[] = PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
 static const plumed_mpiw_function_entry functions[] = {
@@ -633,7 +633,7 @@ static const plumed_mpiw_metadata_entry metadata[] = {
     PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI,
     sizeof(callback_unavailable), callback_unavailable
   },
-#include "../generated/thread-mpi-constant-metadata.inc"
+#include "thread-mpi-constant-metadata.inc"
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,
     PLUMED_MPIW_METADATA_REQUIRED, 0,

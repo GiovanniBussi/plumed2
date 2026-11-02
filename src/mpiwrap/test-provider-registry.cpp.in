@@ -1,8 +1,8 @@
 // Focused tests for atomic provider validation and exact typed pointer restore.
-#include "../runtime/provider-registry.hpp"
-#include "../generated/provider-callbacks.h"
-#include "../generated/mpiwrap.h"
-#include "../generated/callback-bridges.h"
+#include "provider-registry.hpp"
+#include "provider-callbacks.h"
+#include "mpiwrap.h"
+#include "callback-bridges.h"
 
 #include <cassert>
 #include <atomic>

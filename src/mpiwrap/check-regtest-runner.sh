@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo=$(cd "$(dirname "$0")/../../.." && pwd)
+repo=$(cd "$(dirname "$0")/../.." && pwd)
 tmp=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiwrap-regtest.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/regtest/scripts" "$tmp/regtest/case/deep"

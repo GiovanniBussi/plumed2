@@ -2,8 +2,8 @@
 #ifndef PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
 #define PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
 
-#include "../generated/mpiwrap-pointers.h"
-#include "../generated/mpiwrap.h"
+#include "mpiwrap-pointers.h"
+#include "mpiwrap.h"
 
 #include <cstddef>
 #include <cstdint>
