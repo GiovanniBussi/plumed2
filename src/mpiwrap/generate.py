@@ -879,14 +879,14 @@ def render_native_adapter_function(function):
         conversion = argument["conversion"]
         argname = argument["name"]
         if conversion in {"scalar_ref", "handle_ref", "pointer_storage"}:
-            lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+            lines.append(f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;")
         elif conversion == "status":
             nullable = ("MPI_STATUS_IGNORE" in argument.get("sentinels", []) and
                         argument["direction"] != "in")
             if not nullable:
-                lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+                lines.append(f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;")
             if argument["direction"] == "in":
-                lines.append(f"  if ({argname}->raw_size != sizeof(MPI_Status)) return MPI_ERR_ARG;")
+                lines.append(f"  if ({argname}->raw_size != sizeof(MPI_Status)) return PLUMED_MPIW_ERROR_ARG;")
         if conversion not in {"handle_array", "status_array"}:
             continue
         spec = extent_spec(argument)
@@ -895,14 +895,14 @@ def render_native_adapter_function(function):
         base, factor = spec
         extent_name = f"extent_{argument['name']}"
         if factor > 1:
-            lines += [f"  if ({base} < 0 || {base} > INT_MAX / {factor}) return MPI_ERR_COUNT;"]
+            lines += [f"  if ({base} < 0 || {base} > INT_MAX / {factor}) return PLUMED_MPIW_ERROR_COUNT;"]
         else:
-            lines += [f"  if ({base} < 0) return MPI_ERR_COUNT;"]
+            lines += [f"  if ({base} < 0) return PLUMED_MPIW_ERROR_COUNT;"]
         lines.append(f"  int {extent_name} = (int){base} * {factor};")
         ignoreable_statuses = (argument["conversion"] == "status_array" and
                                "MPI_STATUSES_IGNORE" in argument.get("sentinels", []))
         if not ignoreable_statuses:
-            lines.append(f"  if ({extent_name} > 0 && !{argname}) return MPI_ERR_ARG;")
+            lines.append(f"  if ({extent_name} > 0 && !{argname}) return PLUMED_MPIW_ERROR_ARG;")
         if conversion == "handle_array":
             handle = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", argument["c_type"])
             if not handle:
@@ -912,7 +912,7 @@ def render_native_adapter_function(function):
             element_size = "sizeof(MPI_Status)"
         else:
             element_size = "sizeof(int)"
-        lines.append(f"  if ((size_t){extent_name} > SIZE_MAX / {element_size}) return MPI_ERR_COUNT;")
+        lines.append(f"  if ((size_t){extent_name} > SIZE_MAX / {element_size}) return PLUMED_MPIW_ERROR_COUNT;")
 
     for argument in args:
         argname = argument["name"]
@@ -937,7 +937,7 @@ def render_native_adapter_function(function):
             native_type = ctype.replace("const ", "").replace("*", "").strip()
             local = f"native_{argname}"
             lines += [f"  {native_type} {local} = 0;",
-                      f"  if (!{argname}) return MPI_ERR_ARG;"]
+                      f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;"]
             if direction == "inout":
                 lines.append(f"  {local} = ({native_type})*{argname};")
             call_args.append(f"&{local}")
@@ -958,7 +958,7 @@ def render_native_adapter_function(function):
             local = f"native_{argname}"
             lines += [f"  {native_type} {local};",
                       f"  memset(&{local}, 0, sizeof({local}));",
-                      f"  if (!{argname}) return MPI_ERR_ARG;"]
+                      f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;"]
             if direction == "inout":
                 lines.append(f"  {local} = plumed_mpiw_import_{helper}(*{argname});")
             call_args.append(f"&{local}")
@@ -981,7 +981,7 @@ def render_native_adapter_function(function):
             lines += [f"  {native_type} *{local} = NULL;",
                       f"  if ({extent} > 0) {{ {local} = ({native_type} *)calloc((size_t){extent}, sizeof(*{local})); if (!{local}) {{"]
             lines += [f"    free({previous});" for previous in allocated_arrays]
-            lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+            lines += ["    return PLUMED_MPIW_ERROR_NO_MEM;", "  } }"]
             allocated_arrays.append(local)
             if direction in {"in", "inout"}:
                 lines.append(f"  for (int i = 0; i < {extent}; ++i) {local}[i] = plumed_mpiw_import_{helper}({argname}[i]);")
@@ -996,7 +996,7 @@ def render_native_adapter_function(function):
             lines += [f"  MPI_Status *{local} = NULL;",
                       f"  if ({extent} > 0 && {argname}) {{ {local} = (MPI_Status *)calloc((size_t){extent}, sizeof(*{local})); if (!{local}) {{"]
             lines += [f"    free({previous});" for previous in allocated_arrays]
-            lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+            lines += ["    return PLUMED_MPIW_ERROR_NO_MEM;", "  } }"]
             allocated_arrays.append(local)
             if "MPI_STATUSES_IGNORE" in argument.get("sentinels", []):
                 call_args.append(f"{argname} ? {local} : MPI_STATUSES_IGNORE")
@@ -1027,14 +1027,14 @@ def render_native_adapter_function(function):
             lines += [f"  MPI_Status {local};",
                       f"  if ({argname}) memset(&{local}, 0, sizeof({local}));"]
             if direction == "in":
-                lines += [f"  if (!plumed_mpiw_import_status({argname}, &{local})) return MPI_ERR_ARG;"]
+                lines += [f"  if (!plumed_mpiw_import_status({argname}, &{local})) return PLUMED_MPIW_ERROR_ARG;"]
                 call_args.append(f"&{local}")
             else:
                 sentinels = argument.get("sentinels", [])
                 if "MPI_STATUS_IGNORE" in sentinels:
                     call_args.append(f"{argname} ? &{local} : MPI_STATUS_IGNORE")
                 else:
-                    lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+                    lines.append(f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;")
                     call_args.append(f"&{local}")
                 valid = "native_return_value == MPI_SUCCESS"
                 if name == "MPI_Test":
@@ -1054,7 +1054,7 @@ def render_native_adapter_function(function):
             # normal scalar_ref path.
             if direction != "out" or ctype != "void *":
                 raise ValueError(f"{name}.{argname}: unsupported pointer-storage argument {ctype}/{direction}")
-            lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+            lines.append(f"  if (!{argname}) return PLUMED_MPIW_ERROR_ARG;")
             call_args.append(argname)
         else:
             raise ValueError(f"{name}.{argname}: native conversion {conversion} needs an explicit adapter")
@@ -1082,6 +1082,14 @@ def render_native_adapter_body(functions, constants, versions):
             raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
         if name not in manual:
             generated_functions.append(render_native_adapter_function(function))
+
+    def gmx_guard(name, unavailable=False):
+        if unavailable:
+            return "#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)"
+        return ("#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI) || "
+                f"defined({name})")
+
+    thread_unavailable = {"MPI_Init", "MPI_Init_thread", "MPI_Finalize"}
     function_rows = [
         "#define PLUMED_MPIW_ENTRY(name, id, version, fn) { (uint32_t)sizeof(plumed_mpiw_function_entry), PLUMED_MPIW_FUNCTION_REQUIRED, #name, id, version, (plumed_mpiw_generic_fn)(fn) }",
         "static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {",
@@ -1092,15 +1100,16 @@ def render_native_adapter_body(functions, constants, versions):
         if route.get("status") == "unavailable" or function.get("callbacks"):
             raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
         identifier = int(hashlib.sha256(name.encode("ascii")).hexdigest()[:8], 16)
-        comma = "," if index + 1 < len(implemented) else ""
-        function_rows.append(
-            f"  PLUMED_MPIW_ENTRY({name}, 0x{identifier:08x}u, {versions[name]}u, plumed_mpiw_{name}){comma}")
+        function_rows += [gmx_guard(name, name in thread_unavailable),
+                          f"  PLUMED_MPIW_ENTRY({name}, 0x{identifier:08x}u, {versions[name]}u, plumed_mpiw_{name}),",
+                          "#endif"]
     function_rows += ["};", "#undef PLUMED_MPIW_ENTRY"]
     typed_checks = ["static void plumed_mpiw_verify_typed_functions(void) {"]
     for function in implemented:
         name = function["name"]
-        typed_checks += [f"  plumed_mpiw_{name}_fn typed_{name} = &plumed_mpiw_{name};",
-                         f"  (void)typed_{name};"]
+        typed_checks += ["  " + gmx_guard(name, name in thread_unavailable),
+                         f"  plumed_mpiw_{name}_fn typed_{name} = &plumed_mpiw_{name};",
+                         f"  (void)typed_{name};", "  #endif"]
     typed_checks.append("}")
 
     implemented_constants = [constant for constant in constants
@@ -1113,6 +1122,7 @@ def render_native_adapter_body(functions, constants, versions):
         native_type = constant.get("native_type")
         if not native_type:
             raise ValueError(f"{name}: implemented native constant lacks native_type")
+        constant_impl.append(gmx_guard(name))
         if name == "MPI_STATUS_IGNORE":
             constant_impl.append(
                 "static int32_t plumed_mpiw_value_MPI_STATUS_IGNORE(void *out, uint32_t cap) {\n"
@@ -1127,11 +1137,15 @@ def render_native_adapter_body(functions, constants, versions):
             constant_impl.append(f"PLUMED_MPIW_POINTER_CONSTANT({name})")
         else:
             raise ValueError(f"{name}: unsupported native constant class {category}")
+        constant_impl.append("#endif")
+        constant_accessors.append(gmx_guard(name))
         constant_accessors.append(
             f"static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_{name} = &plumed_mpiw_value_{name};")
-    constant_metadata = [f"  PLUMED_MPIW_VALUE({constant['standard_api_name']})" +
-                         ("," if index + 1 < len(implemented_constants) else "")
-                         for index, constant in enumerate(implemented_constants)]
+        constant_accessors.append("#endif")
+    constant_metadata = []
+    for constant in implemented_constants:
+        name = constant["standard_api_name"]
+        constant_metadata += [gmx_guard(name), f"  PLUMED_MPIW_VALUE({name}),", "#endif"]
     replacements = {
         "/* PLUMED_MPIW_GENERATED_FUNCTIONS */": "\n\n".join(generated_functions),
         "/* PLUMED_MPIW_TYPED_FUNCTION_CHECKS */": "\n".join(typed_checks),
@@ -1144,7 +1158,81 @@ def render_native_adapter_body(functions, constants, versions):
         if marker not in template:
             raise ValueError(f"native adapter template missing {marker}")
         template = template.replace(marker, replacement)
+    for function in implemented:
+        name = function["name"]
+        match = re.search(r"(?m)^static [^\n]*\bplumed_mpiw_" + re.escape(name) + r"\(", template)
+        if not match:
+            raise ValueError(f"{name}: native adapter definition not found for host guard")
+        brace = template.find("{", match.start())
+        depth = 0
+        end = None
+        for position in range(brace, len(template)):
+            if template[position] == "{":
+                depth += 1
+            elif template[position] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = position + 1
+                    break
+        if end is None:
+            raise ValueError(f"{name}: unterminated adapter definition")
+        template = (template[:match.start()] + gmx_guard(name, name in thread_unavailable) + "\n" +
+                    template[match.start():end] + "\n#endif" + template[end:])
     return template
+
+
+def render_host_adapter_wrapper(abi, callbacks, body):
+    wrapper = ROOT / "src/wrapper/Plumed.h"
+    source = wrapper.read_text()
+    callbacks = callbacks.replace('#include "provider-abi.h"\n', "")
+    prelude = "\n".join([
+        "#if defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_ && !defined(__PLUMED_wrapper_Plumed_implementation)",
+        "#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)",
+        "#include <mpi.h>",
+        "#endif",
+        "#include <limits.h>",
+        "#include <stddef.h>",
+        "#include <stdint.h>",
+        "#include <stdlib.h>",
+        "#include <string.h>",
+        abi.rstrip(),
+        callbacks.rstrip(),
+        "#endif",
+        "",
+    ])
+    implementation = "\n".join([
+        "#if defined(PLUMED_MPIW_HOST_ADAPTER)",
+        "#ifdef __cplusplus",
+        'extern "C" {',
+        "#endif",
+        body.rstrip(),
+        "#ifdef __cplusplus",
+        "}",
+        "#endif",
+        "__PLUMED_WRAPPER_C_BEGIN",
+        "int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,",
+        "                                    plumed_kernel_error_fn report,void *context) {",
+        "  return plumed_kernel_inject_mpi(kernel,plumed_mpiw_get_descriptor(),report,context);",
+        "}",
+        "__PLUMED_WRAPPER_C_END",
+        "#endif",
+        "",
+    ])
+    for begin, end, text in (
+        ("/* MPIW_HOST_ADAPTER_PRELUDE_BEGIN */", "/* MPIW_HOST_ADAPTER_PRELUDE_END */", prelude),
+        ("/* MPIW_HOST_ADAPTER_IMPLEMENTATION_BEGIN */",
+         "/* MPIW_HOST_ADAPTER_IMPLEMENTATION_END */", implementation),
+    ):
+        if source.count(begin) != 1 or source.count(end) != 1:
+            raise ValueError(f"wrapper header must contain one {begin} / {end} marker pair")
+        pattern = re.escape(begin) + r"[\s\S]*?" + re.escape(end)
+        replacement = begin + "\n" + text + end
+        source, count = re.subn(pattern, lambda _: replacement, source, count=1)
+        if count != 1:
+            raise ValueError(f"wrapper header must contain one {begin} / {end} marker pair")
+    return subprocess.run(
+        [str(ROOT / "astyle/astyle"), "--options=" + str(ROOT / ".astyle.options")],
+        input=source, text=True, capture_output=True, check=True).stdout
 
 
 def generate(output, write=True):
@@ -1214,6 +1302,8 @@ def generate(output, write=True):
         "coverage.tsv": render_coverage(functions),
         "support-matrix.md": render_matrix(functions, constants_doc["constants"], types_doc["types"]),
     }
+    wrapper_header = render_host_adapter_wrapper(
+        abi, files["provider-callbacks.h"], files["mpiwrap_implementation.cpp.inc"])
     # Generated C/C++ files follow project style using the checked-in formatter,
     # independent of the generated output directory (including --check temp trees).
     astyle = ROOT / "astyle/astyle"
@@ -1228,7 +1318,8 @@ def generate(output, write=True):
         output.mkdir(parents=True, exist_ok=True)
         for name, text in files.items():
             (output / name).write_text(text)
-    return files
+        (ROOT / "src/wrapper/Plumed.h").write_text(wrapper_header)
+    return files, wrapper_header
 
 
 def main():
@@ -1238,13 +1329,15 @@ def main():
     args = parser.parse_args()
     import subprocess
     subprocess.run([sys.executable, str(DEVELOPMENT / "validate-manifest.py")], check=True)
-    expected = generate(args.output, write=not args.check)
+    expected, wrapper_header = generate(args.output, write=not args.check)
     if args.check:
         bad = [name for name, text in expected.items()
                if not (args.output / name).is_file() or
                (args.output / name).read_text() != text]
         if bad:
             raise SystemExit("generated files differ: " + ", ".join(bad))
+        if (ROOT / "src/wrapper/Plumed.h").read_text() != wrapper_header:
+            raise SystemExit("generated file differs: src/wrapper/Plumed.h")
     count = len(json.loads((DEVELOPMENT / "argument-metadata.json").read_text())["functions"])
     action = "verified" if args.check else "generated"
     print(f"{action} {len(expected)} files for {count} MPI functions")

@@ -18,7 +18,7 @@ python3 "$repo_root/src/mpiwrap/generate.py" --check
   -fsyntax-only -x c++ "$generated/wrapper-header-check.cpp.in"
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$generated" \
   -fsyntax-only -x c++ "$generated/callback-bridges.h"
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -I"$generated" \
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I"$generated" \
   -fsyntax-only -x c "$generated/provider-callbacks.h"
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$generated" \
   -I"$tmpi_include" -fsyntax-only -x c++ "$generated/thread-mpi-symbol-check.cpp.in"
