@@ -469,12 +469,6 @@ template<> MPI_Datatype Communicator::getMPIType<long double>() {
 void Communicator::Split(int color,int key,Communicator&pc)const {
   checkNotStandIn();
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
-#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-  if(!initialized()) {
-    pc.standIn=false;
-    return;
-  }
-#endif
   // free the communicator previously held by pc (it was obtained with MPI_Comm_dup or MPI_Comm_split)
   if(pc.communicator!=MPI_COMM_SELF && pc.communicator!=MPI_COMM_WORLD && pc.communicator!=MPI_COMM_NULL) {
     MPI_Comm_free(&pc.communicator);
