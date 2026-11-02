@@ -2,12 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 project(plumed_thread_mpi LANGUAGES CXX)
 
 find_package(Threads REQUIRED)
-set(TMPI_SOURCES
-  alltoall.cpp atomic.cpp barrier.cpp bcast.cpp collective.cpp comm.cpp
-  errhandler.cpp event.cpp gather.cpp group.cpp list.cpp lock.cpp numa_malloc.cpp
-  once.cpp p2p_protocol.cpp p2p_send_recv.cpp p2p_wait.cpp profile.cpp
-  pthreads.cpp reduce.cpp reduce_fast.cpp scan.cpp scatter.cpp tmpi_init.cpp
-  tmpi_malloc.cpp topology.cpp type.cpp)
+# Imported upstream implementation sources stay in sync with reimport.py.
+file(GLOB TMPI_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 add_library(plumed_thread_mpi STATIC ${TMPI_SOURCES})
 target_include_directories(plumed_thread_mpi PUBLIC . PRIVATE .)
 target_compile_features(plumed_thread_mpi PUBLIC cxx_std_17)
