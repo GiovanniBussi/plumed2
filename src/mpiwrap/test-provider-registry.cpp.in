@@ -283,6 +283,31 @@ int run() {
   callback_descriptor.metadata = callback_values;
   Registry callbacks;
   assert(callbacks.install(&callback_descriptor, error));
+  const plumed_mpiw_provider_descriptor *snapshot = callbacks.descriptorSnapshot();
+  assert(snapshot && snapshot != &callback_descriptor);
+  assert(std::string(snapshot->provider_name) == "test-provider");
+  assert(snapshot->function_count == 1 &&
+         std::string(snapshot->functions[0].name) == "MPI_Op_create");
+  assert(snapshot->metadata_count == 2);
+  callback_descriptor.provider_name = "caller-mutated";
+  op_entry.name = "MPI_Broken";
+  op_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRankAlternative);
+  assert(std::string(snapshot->provider_name) == "test-provider");
+  assert(std::string(snapshot->functions[0].name) == "MPI_Op_create");
+  assert(snapshot->functions[0].function ==
+         reinterpret_cast<plumed_mpiw_generic_fn>(&fakeOpCreate));
+  assert(std::string(snapshot->metadata[0].name) ==
+         PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI);
+  assert(std::string(static_cast<const char *>(snapshot->metadata[0].value)) ==
+         PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1);
+  assert(std::string(snapshot->metadata[1].name) == "value:MPI_SUCCESS");
+  plumed_mpiw_constant_accessor_fn copied_accessor = nullptr;
+  std::memcpy(&copied_accessor, snapshot->metadata[1].value,
+              sizeof(copied_accessor));
+  assert(copied_accessor == &fakeSuccessConstant);
+  op_entry.name = "MPI_Op_create";
+  op_entry.function = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeOpCreate);
+  callback_descriptor.provider_name = "test-provider";
   std::int32_t constant_value = -1;
   assert(callbacks.copyValue("MPI_SUCCESS", &constant_value,
                              sizeof(constant_value)));
