@@ -397,6 +397,21 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   native_comm_size_ = next_native_comm_size;
   compatibility_fingerprint_ = next_fingerprint;
   installed_ = true;
+  if (this == &currentRegistry()) {
+    // Publish the complete immutable function table before either readiness
+    // flag becomes visible to readers.
+#define PLUMED_MPIW_PROVIDER_POINTER(field, suffix) \
+    pointers::suffix = next_bindings.field##_pointer;
+#define PLUMED_MPIW_PROVIDER_VALUE(name, suffix) \
+    { \
+      const auto value = values_.find(#name); \
+      pointers::suffix = value == values_.end() ? nullptr : value->second.accessor; \
+    }
+#include "provider-pointer-publish.inc"
+#undef PLUMED_MPIW_PROVIDER_VALUE
+#undef PLUMED_MPIW_PROVIDER_POINTER
+    pointers::ready.store(true, std::memory_order_release);
+  }
   ready_.store(true, std::memory_order_release);
   error.clear();
   return true;
