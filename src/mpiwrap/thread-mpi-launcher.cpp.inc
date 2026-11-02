@@ -5,6 +5,7 @@
 #include "provider-abi.h"
 #include <thread_mpi_tmpi.h>
 #include "provider-loader.cpp.inc"
+#include "../tools/Exception.h"
 
 #include <cstdio>
 #include <cstddef>
@@ -25,8 +26,6 @@ namespace mpiwrap_provider {
 namespace {
 
 using Callback = int (*)(int, const void *, std::size_t, void *);
-using ErrorReport = int (*)(void *, int, const char *, const char *);
-
 struct LaunchContext {
   Callback callback;
   void *callback_context;
@@ -84,18 +83,6 @@ void rankEntry(const void *opaque) {
   if (rank == 0) {
     context->process_result = process_result;
   }
-}
-
-int reportError(ErrorReport report, void *context, int code,
-                const char *message) noexcept {
-  if (report) {
-    try {
-      report(context, code, "plumed_kernel_launch_internal_threads", message);
-    } catch (...) {
-      // Exceptions cannot cross the C lifecycle API.
-    }
-  }
-  return code;
 }
 
 }  // namespace
@@ -164,26 +151,23 @@ void noteKernelObjectCreated() {
 #endif
 
 int launchInternalThreadMPI(int ranks, Callback callback,
-                            void *callback_context, int *result,
-                            ErrorReport report, void *report_context) {
+                            void *callback_context, int *result) {
   if (ranks < 1 || !callback || !result) {
-    return reportError(report, report_context, 1,
-                       "rank count, callback, and result output are required");
+    throw ExceptionTypeError("rank count, callback, and result output are required");
   }
 
 #if defined(__PLUMED_HAS_MPI)
-  return reportError(report, report_context, 2,
-                     "internal thread-MPI launch is unavailable in a native-MPI kernel");
+  throw ExceptionError("internal thread-MPI launch is unavailable in a native-MPI kernel");
 #else
   const plumed_mpiw_provider_descriptor *descriptor =
     plumed_mpiw_thread_mpi_provider();
   Registry &registry = currentRegistry();
   std::string error;
   if (!registry.install(descriptor, error)) {
-    return reportError(report, report_context, 4, error.c_str());
+    throw ExceptionError(error);
   }
   if (!registry.beginInternalLaunch(descriptor, error)) {
-    return reportError(report, report_context, 4, error.c_str());
+    throw ExceptionError(error);
   }
 
   LaunchContext launch_context{callback, callback_context, 0};

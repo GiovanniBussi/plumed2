@@ -31,12 +31,12 @@ int run(int ranks, int throw_rank) {
   if (throw_rank >= 0) {
     int result = 0;
     (void)mpiwrap_provider::launchInternalThreadMPI(
-      ranks, rank_callback, &throw_rank, &result, nullptr, nullptr);
+      ranks, rank_callback, &throw_rank, &result);
     return 1;
   }
   int result = -1;
   const int status = mpiwrap_provider::launchInternalThreadMPI(
-                       ranks, rank_callback, nullptr, &result, nullptr, nullptr);
+                       ranks, rank_callback, nullptr, &result);
   if (status != 0 || result != ranks) {
     std::cerr << "internal launch result mismatch: status=" << status
               << " result=" << result << " expected=" << ranks << '\n';
@@ -50,8 +50,14 @@ int run(int ranks, int throw_rank) {
   }
 
   int second_result = 0;
-  if (mpiwrap_provider::launchInternalThreadMPI(
-        ranks, rank_callback, nullptr, &second_result, nullptr, nullptr) == 0) {
+  bool repeated_launch_rejected = false;
+  try {
+    (void)mpiwrap_provider::launchInternalThreadMPI(
+      ranks, rank_callback, nullptr, &second_result);
+  } catch (...) {
+    repeated_launch_rejected = true;
+  }
+  if (!repeated_launch_rejected) {
     std::cerr << "repeated internal launch was accepted\n";
     return 1;
   }

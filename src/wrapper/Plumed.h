@@ -809,7 +809,6 @@ typedef struct {
 
 /** Opaque handle for loading a kernel, installing its MPI provider, then creating objects. */
 typedef struct plumed_kernel_handle_impl* plumed_kernel_handle;
-typedef int (*plumed_kernel_error_fn)(void*,int,const char*,const char*);
 typedef int (*plumed_kernel_rank_callback)(int,const void*,
     __PLUMED_WRAPPER_STD size_t,void*);
 struct plumed_mpiw_provider_descriptor;
@@ -1249,20 +1248,20 @@ namespace PLMD {
 /** Load the linked/static kernel without constructing a PLUMED object. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_static(plumed_kernel_handle *out,
-                              plumed_kernel_error_fn report,void *context);
+                              plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Load one explicit kernel path without constructing a PLUMED object. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_dlopen(const char *path,int mode,
                               plumed_kernel_handle *out,
-                              plumed_kernel_error_fn report,void *context);
+                              plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Bind the currently selected PLUMED_KERNEL or linked kernel. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_selected(plumed_kernel_handle *out,
-                                plumed_kernel_error_fn report,void *context);
+                                plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Install a caller-owned provider descriptor before any object is created.
@@ -1270,7 +1269,7 @@ __PLUMED_WRAPPER_C_END
     use plumed_kernel_load_mpi_wrapper() when the provider is a shared library. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_inject_mpi(plumed_kernel_handle kernel,const void *descriptor,
-                             plumed_kernel_error_fn report,void *context);
+                             plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 #if defined(PLUMED_MPIW_HOST_ADAPTER)
@@ -1278,7 +1277,7 @@ __PLUMED_WRAPPER_C_END
     any PLUMED object. Define PLUMED_MPIW_HOST_ADAPTER in one implementation TU. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,
-                                    plumed_kernel_error_fn report,void *context);
+                                    plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 #endif
 
@@ -1286,20 +1285,20 @@ __PLUMED_WRAPPER_C_END
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_load_mpi_wrapper(plumed_kernel_handle kernel,
                                    const char *provider_path,
-                                   plumed_kernel_error_fn report,void *context);
+                                   plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Create an object from the exact kernel bound by this handle. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_create(plumed_kernel_handle kernel,plumed *out,
-                         plumed_kernel_error_fn report,void *context);
+                         plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Launch the kernel's embedded thread-MPI runtime, once per loaded kernel. */
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_launch_internal_threads(
   plumed_kernel_handle kernel,int ranks,plumed_kernel_rank_callback callback,
-  void *callback_context,int *result,plumed_kernel_error_fn report,void *context);
+  void *callback_context,int *result,plumed_nothrow_handler nothrow);
 __PLUMED_WRAPPER_C_END
 
 /** Release this kernel-handle reference. Objects hold their own kernel references. */
@@ -1330,26 +1329,34 @@ using PLMD::plumed_kernel_release;
 #include <utility>
 
 namespace PLMD {
+__PLUMED_WRAPPER_ANONYMOUS_BEGIN
+__PLUMED_WRAPPER_CXX_NORETURN __PLUMED_WRAPPER_STATIC_INLINE void plumed_kernel_error_rethrow_cxx(plumed_error error);
+
 /// RAII convenience around the C pre-creation kernel lifecycle API.
 class Kernel {
   plumed_kernel_handle handle_;
   struct Error {
-    int code=0;
-    char message[512] {};
+    plumed_error value;
+    Error() {
+      plumed_error_init(&value);
+    }
+    plumed_nothrow_handler handler() {
+      plumed_nothrow_handler result;
+      result.ptr=&value;
+      result.handler=plumed_error_set;
+      return result;
+    }
   };
   explicit Kernel(plumed_kernel_handle handle): handle_(handle) {}
-  static int report(void *context,int code,const char *,const char *message) noexcept {
-    Error *error=static_cast<Error *>(context);
-    error->code=code;
-    if(message) {
-      std::strncpy(error->message,message,sizeof(error->message)-1);
-      error->message[sizeof(error->message)-1]='\0';
-    }
-    return 0;
-  }
   static void check(int code,const Error &error) {
+    if(error.value.code) {
+      plumed_kernel_error_rethrow_cxx(error.value);
+    }
     if(code!=PLUMED_KERNEL_OK) {
-      throw std::runtime_error(error.message[0] ? error.message : "PLUMED kernel operation failed");
+      plumed_error fallback;
+      plumed_error_init(&fallback);
+      plumed_error_set(&fallback,code,"PLUMED kernel operation failed",__PLUMED_WRAPPER_CXX_NULLPTR);
+      plumed_kernel_error_rethrow_cxx(fallback);
     }
   }
 public:
@@ -1372,33 +1379,33 @@ public:
   static Kernel openStatic() {
     Error error;
     plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_static(&handle,&report,&error),error);
+    check(plumed_kernel_open_static(&handle,error.handler()),error);
     return Kernel(handle);
   }
   static Kernel open(const char *path,int mode) {
     Error error;
     plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_dlopen(path,mode,&handle,&report,&error),error);
+    check(plumed_kernel_open_dlopen(path,mode,&handle,error.handler()),error);
     return Kernel(handle);
   }
   static Kernel openSelected() {
     Error error;
     plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_selected(&handle,&report,&error),error);
+    check(plumed_kernel_open_selected(&handle,error.handler()),error);
     return Kernel(handle);
   }
   void injectMPI(const void *descriptor) {
     Error error;
-    check(plumed_kernel_inject_mpi(handle_,descriptor,&report,&error),error);
+    check(plumed_kernel_inject_mpi(handle_,descriptor,error.handler()),error);
   }
   void loadMPIWrapper(const char *path) {
     Error error;
-    check(plumed_kernel_load_mpi_wrapper(handle_,path,&report,&error),error);
+    check(plumed_kernel_load_mpi_wrapper(handle_,path,error.handler()),error);
   }
   plumed create() {
     Error error;
     plumed object= {nullptr};
-    check(plumed_kernel_create(handle_,&object,&report,&error),error);
+    check(plumed_kernel_create(handle_,&object,error.handler()),error);
     return object;
   }
   int launchInternalThreads(int ranks,plumed_kernel_rank_callback callback,
@@ -1406,10 +1413,11 @@ public:
     Error error;
     int result=0;
     check(plumed_kernel_launch_internal_threads(handle_,ranks,callback,
-          callback_context,&result,&report,&error),error);
+          callback_context,&result,error.handler()),error);
     return result;
   }
 };
+__PLUMED_WRAPPER_ANONYMOUS_END
 } // namespace PLMD
 #endif
 
@@ -3834,6 +3842,10 @@ public:
 
 };
 
+__PLUMED_WRAPPER_CXX_NORETURN __PLUMED_WRAPPER_STATIC_INLINE void plumed_kernel_error_rethrow_cxx(plumed_error error) {
+  Plumed::plumed_error_rethrow_cxx(error);
+}
+
 /**
   \related Plumed
   Comparison operator. Available as of PLUMED 2.5.
@@ -4388,10 +4400,10 @@ typedef struct {
     Available with version>=5. The descriptor uses the independent MPI provider
     ABI; this symbol-table version only advertises that the entry is present.
   */
-  int (*install_mpi_provider)(const void*,int (*)(void*,int,const char*,const char*),void*,void*);
+  int (*install_mpi_provider)(const void*,plumed_nothrow_handler,void*);
   /** Runs one callback on each internal thread-MPI rank; available with version>=5. */
   int (*launch_internal_threads)(int,plumed_kernel_rank_callback,void*,int*,
-                                 int (*)(void*,int,const char*,const char*),void*);
+                                 plumed_nothrow_handler);
 } plumed_symbol_table_type;
 
 /* Utility to convert function pointers to pointers, just for the sake of printing them */
@@ -4850,17 +4862,23 @@ namespace PLMD {
 #endif
 
 __PLUMED_WRAPPER_INTERNALS_BEGIN
-int plumed_kernel_report(plumed_kernel_error_fn report,void *context,int code,
+int plumed_kernel_report(plumed_nothrow_handler nothrow,int code,
                          const char *function,const char *message) {
-  if(report) {
+  if(nothrow.handler) {
+    char full_message[512];
+    const char *reported=message;
+    if(function) {
+      __PLUMED_WRAPPER_STD snprintf(full_message,sizeof(full_message),"%s: %s",function,message ? message : "");
+      reported=full_message;
+    }
 #ifdef __cplusplus
     try {
-      report(context,code,function,message);
+      nothrow.handler(nothrow.ptr,code,reported,__PLUMED_WRAPPER_CXX_NULLPTR);
     } catch(...) {
       /* An error callback cannot unwind through the C wrapper ABI. */
     }
 #else
-    report(context,code,function,message);
+    nothrow.handler(nothrow.ptr,code,reported,__PLUMED_WRAPPER_CXX_NULLPTR);
 #endif
   }
   return code;
@@ -5010,7 +5028,11 @@ plumed plumed_create_dlsym(void* dlhandle) {
   if(pimpl->table && pimpl->table->version>=5 &&
       pimpl->table->install_mpi_provider) {
     const void *provider=__PLUMED_WRAPPER_MPI_PROVIDER();
-    if(provider && pimpl->table->install_mpi_provider(provider,0,0,0)!=0) {
+    plumed_nothrow_handler nothrow;
+    nothrow.ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+    nothrow.handler=__PLUMED_WRAPPER_CXX_NULLPTR;
+    if(provider && pimpl->table->install_mpi_provider(provider,nothrow,
+        __PLUMED_WRAPPER_CXX_NULLPTR)!=0) {
       __PLUMED_FPRINTF(stderr,"+++ Could not install the current MPI provider in the selected PLUMED kernel +++\n");
       p.p=pimpl;
       return p;
@@ -5033,29 +5055,29 @@ namespace PLMD {
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_static(plumed_kernel_handle *out,
-                              plumed_kernel_error_fn report,void *context) {
+                              plumed_nothrow_handler nothrow) {
   plumed_symbol_table_type *table;
   plumed_kernel_handle_impl *kernel;
   if(!out) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_static","null output handle");
   }
   *out=__PLUMED_WRAPPER_CXX_NULLPTR;
 #if __PLUMED_WRAPPER_LINK_RUNTIME
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                               "plumed_kernel_open_static",
                               "this wrapper is configured for runtime kernel loading");
 #else
   table=plumed_symbol_table_reexport();
   if(!table || table->version<5 || !table->install_mpi_provider) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_open_static",
                                 "linked kernel does not support pre-creation MPI provider installation");
   }
   kernel=plumed_kernel_allocate(table,1,__PLUMED_WRAPPER_CXX_NULLPTR,
                                 __PLUMED_WRAPPER_CXX_NULLPTR,0);
   if(!kernel) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_static","kernel handle allocation failed");
   }
   *out=kernel;
@@ -5067,7 +5089,7 @@ __PLUMED_WRAPPER_C_END
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_dlopen(const char *path,int mode,
                               plumed_kernel_handle *out,
-                              plumed_kernel_error_fn report,void *context) {
+                              plumed_nothrow_handler nothrow) {
 #ifdef __PLUMED_HAS_DLOPEN
   void *handle;
   plumed_plumedmain_function_holder functions;
@@ -5076,32 +5098,32 @@ int plumed_kernel_open_dlopen(const char *path,int mode,
   void *symbol;
   Dl_info information;
   if(!out || !path || !path[0]) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_dlopen","path and output handle are required");
   }
   *out=__PLUMED_WRAPPER_CXX_NULLPTR;
   handle=plumed_attempt_dlopen(path,mode);
   if(!handle) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                                 "plumed_kernel_open_dlopen","could not load the requested kernel path");
   }
   plumed_search_symbols(handle,&functions,&table);
   if(!table || table->version<5 || !table->install_mpi_provider) {
     dlclose(handle);
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_open_dlopen",
                                 "kernel is older than the pre-creation MPI provider API");
   }
   __PLUMED_CONVERT_FPTR(symbol,functions.create);
   if(!dladdr(symbol,&information) || !information.dli_fname) {
     dlclose(handle);
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                                 "plumed_kernel_open_dlopen","cannot resolve the loaded kernel path");
   }
   kernel=plumed_kernel_allocate(table,0,handle,information.dli_fname,mode);
   if(!kernel) {
     dlclose(handle);
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_dlopen","kernel handle allocation failed");
   }
   *out=kernel;
@@ -5110,7 +5132,7 @@ int plumed_kernel_open_dlopen(const char *path,int mode,
   (void) path;
   (void) mode;
   (void) out;
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                               "plumed_kernel_open_dlopen","wrapper was built without dlopen support");
 #endif
 }
@@ -5118,12 +5140,12 @@ __PLUMED_WRAPPER_C_END
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_open_selected(plumed_kernel_handle *out,
-                                plumed_kernel_error_fn report,void *context) {
+                                plumed_nothrow_handler nothrow) {
   plumed_plumedmain_function_holder functions;
   plumed_symbol_table_type *table;
   void *handle;
   if(!out) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_selected","null output handle");
   }
   *out=__PLUMED_WRAPPER_CXX_NULLPTR;
@@ -5134,7 +5156,7 @@ int plumed_kernel_open_selected(plumed_kernel_handle *out,
       dlclose(handle);
 #endif
     }
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_open_selected",
                                 "selected kernel does not support pre-creation MPI provider installation");
   }
@@ -5159,27 +5181,27 @@ int plumed_kernel_open_selected(plumed_kernel_handle *out,
     __PLUMED_CONVERT_FPTR(symbol,functions.create);
     if(!dladdr(symbol,&information) || !information.dli_fname) {
       dlclose(handle);
-      return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+      return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                                   "plumed_kernel_open_selected",
                                   "cannot resolve the selected kernel library path");
     }
     *out=plumed_kernel_allocate(table,0,handle,information.dli_fname,mode);
     if(!*out) {
       dlclose(handle);
-      return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+      return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                   "plumed_kernel_open_selected","kernel handle allocation failed");
     }
     return PLUMED_KERNEL_OK;
 #else
     (void) functions;
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_open_selected","runtime kernel path lookup is unavailable");
 #endif
   }
   *out=plumed_kernel_allocate(table,1,__PLUMED_WRAPPER_CXX_NULLPTR,
                               __PLUMED_WRAPPER_CXX_NULLPTR,0);
   if(!*out) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_open_selected","kernel handle allocation failed");
   }
   return PLUMED_KERNEL_OK;
@@ -5188,19 +5210,18 @@ __PLUMED_WRAPPER_C_END
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_inject_mpi(plumed_kernel_handle handle,const void *descriptor,
-                             plumed_kernel_error_fn report,void *context) {
+                             plumed_nothrow_handler nothrow) {
   plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
   if(!plumed_kernel_valid(kernel)) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_inject_mpi","invalid kernel handle");
   }
   if(kernel->table->version<5 || !kernel->table->install_mpi_provider) {
-    return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_inject_mpi","kernel lacks provider installation support");
   }
-  if(kernel->table->install_mpi_provider(descriptor,
-                                         __PLUMED_WRAPPER_STATIC_CAST(int (*)(void*,int,const char*,const char*),report),
-                                         context,__PLUMED_WRAPPER_CXX_NULLPTR)!=0) {
+  if(kernel->table->install_mpi_provider(descriptor,nothrow,
+                                         __PLUMED_WRAPPER_CXX_NULLPTR)!=0) {
     return PLUMED_KERNEL_PROVIDER_ERROR;
   }
   return PLUMED_KERNEL_OK;
@@ -9097,8 +9118,8 @@ static inline const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(
 #endif
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,
-                                    plumed_kernel_error_fn report,void *context) {
-return plumed_kernel_inject_mpi(kernel,plumed_mpiw_get_descriptor(),report,context);
+                                    plumed_nothrow_handler nothrow) {
+return plumed_kernel_inject_mpi(kernel,plumed_mpiw_get_descriptor(),nothrow);
 }
 __PLUMED_WRAPPER_C_END
 #endif
@@ -9106,7 +9127,7 @@ __PLUMED_WRAPPER_C_END
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_load_mpi_wrapper(plumed_kernel_handle handle,const char *path,
-                                   plumed_kernel_error_fn report,void *context) {
+                                   plumed_nothrow_handler nothrow) {
 #ifdef __PLUMED_HAS_DLOPEN
 plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
 void *provider_handle;
@@ -9114,12 +9135,12 @@ void *symbol;
 plumed_mpiw_provider_factory_pointer factory;
 const void *descriptor;
 if(!plumed_kernel_valid(kernel) || !path || !path[0]) {
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                               "plumed_kernel_load_mpi_wrapper","valid kernel handle and provider path are required");
 }
 provider_handle=dlopen(path,RTLD_NOW|RTLD_LOCAL);
 if(!provider_handle) {
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                               "plumed_kernel_load_mpi_wrapper","could not load provider library");
 }
 symbol=dlsym(provider_handle,PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL);
@@ -9128,14 +9149,16 @@ __PLUMED_WRAPPER_STD memcpy(&factory,&symbol,
                             sizeof(factory)<sizeof(symbol)?sizeof(factory):sizeof(symbol));
 if(!factory) {
   dlclose(provider_handle);
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                               "plumed_kernel_load_mpi_wrapper","provider factory symbol is missing");
 }
 descriptor=factory();
-if(kernel->table->version<5 || !kernel->table->install_mpi_provider ||
-    kernel->table->install_mpi_provider(descriptor,
-                                        __PLUMED_WRAPPER_STATIC_CAST(int (*)(void*,int,const char*,const char*),report),
-                                        context,provider_handle)!=0) {
+if(kernel->table->version<5 || !kernel->table->install_mpi_provider) {
+  dlclose(provider_handle);
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
+                              "plumed_kernel_load_mpi_wrapper","kernel lacks provider installation support");
+}
+if(kernel->table->install_mpi_provider(descriptor,nothrow,provider_handle)!=0) {
   dlclose(provider_handle);
   return PLUMED_KERNEL_PROVIDER_ERROR;
 }
@@ -9143,7 +9166,7 @@ return PLUMED_KERNEL_OK;
 #else
 (void) handle;
 (void) path;
-return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                             "plumed_kernel_load_mpi_wrapper","wrapper was built without dlopen support");
 #endif
 }
@@ -9151,12 +9174,12 @@ __PLUMED_WRAPPER_C_END
 
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_create(plumed_kernel_handle handle,plumed *out,
-                         plumed_kernel_error_fn report,void *context) {
+                         plumed_nothrow_handler nothrow) {
 plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
 plumed_implementation *implementation;
 plumed result;
 if(!out || !plumed_kernel_valid(kernel)) {
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                               "plumed_kernel_create","valid kernel handle and output object are required");
 }
 out->p=__PLUMED_WRAPPER_CXX_NULLPTR;
@@ -9167,13 +9190,13 @@ if(kernel->is_static) {
 }
 if(!plumed_valid(result)) {
   plumed_finalize(result);
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                               "plumed_kernel_create","could not construct an object from the selected kernel");
 }
 implementation=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*,result.p);
 if(implementation->table!=kernel->table) {
   plumed_finalize(result);
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_LOAD_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
                               "plumed_kernel_create","resolved object does not belong to the selected kernel");
 }
 *out=result;
@@ -9184,20 +9207,18 @@ __PLUMED_WRAPPER_C_END
 __PLUMED_WRAPPER_C_BEGIN
 int plumed_kernel_launch_internal_threads(
   plumed_kernel_handle handle,int ranks,plumed_kernel_rank_callback callback,
-  void *callback_context,int *result,plumed_kernel_error_fn report,void *context) {
+  void *callback_context,int *result,plumed_nothrow_handler nothrow) {
 plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
 if(!plumed_kernel_valid(kernel)) {
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
                               "plumed_kernel_launch_internal_threads","invalid kernel handle");
 }
 if(kernel->table->version<5 || !kernel->table->launch_internal_threads) {
-  return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
+  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
                               "plumed_kernel_launch_internal_threads","kernel lacks internal launcher support");
 }
 return kernel->table->launch_internal_threads(
-         ranks,callback,callback_context,result,
-         __PLUMED_WRAPPER_STATIC_CAST(int (*)(void*,int,const char*,const char*),report),
-         context);
+         ranks,callback,callback_context,result,nothrow);
 }
 __PLUMED_WRAPPER_C_END
 
