@@ -322,6 +322,61 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 
 }  // namespace
 
+struct Registry::DescriptorSnapshot {
+  plumed_mpiw_provider_descriptor descriptor{};
+  std::string provider_name;
+  std::string provider_version;
+  std::vector<std::string> function_names;
+  std::vector<plumed_mpiw_function_entry> functions;
+  std::vector<std::string> metadata_names;
+  std::vector<std::string> metadata_values;
+  std::vector<plumed_mpiw_metadata_entry> metadata;
+
+  DescriptorSnapshot(const plumed_mpiw_provider_descriptor &source,
+                     const std::unordered_map<std::string, std::string> &known_metadata,
+                     const std::unordered_map<std::string, ValueEntry> &known_values)
+    : descriptor(source), provider_name(source.provider_name),
+      provider_version(source.provider_version) {
+    function_names.reserve(static_cast<std::size_t>(source.function_count));
+    functions.reserve(static_cast<std::size_t>(source.function_count));
+    for (std::uint64_t i = 0; i < source.function_count; ++i) {
+      function_names.emplace_back(source.functions[i].name);
+      functions.push_back(source.functions[i]);
+    }
+    for (std::uint64_t i = 0; i < source.metadata_count; ++i) {
+      const plumed_mpiw_metadata_entry &entry = source.metadata[i];
+      const std::string name(entry.name);
+      const bool known_callback = known_metadata.find(name) != known_metadata.end();
+      const bool known_constant = name.compare(0, 6, "value:") == 0 &&
+                                  known_values.find(name.substr(6)) != known_values.end();
+      // Unknown optional metadata is deliberately omitted; required unknown
+      // metadata has already been rejected by descriptor validation.
+      if (!known_callback && !known_constant) {
+        continue;
+      }
+      metadata_names.push_back(name);
+      metadata_values.emplace_back(
+        static_cast<const char *>(entry.value),
+        static_cast<std::size_t>(entry.value_size));
+      metadata.push_back(entry);
+    }
+
+    descriptor.provider_name = provider_name.c_str();
+    descriptor.provider_version = provider_version.c_str();
+    descriptor.function_count = functions.size();
+    descriptor.functions = functions.empty() ? nullptr : functions.data();
+    descriptor.metadata_count = metadata.size();
+    descriptor.metadata = metadata.empty() ? nullptr : metadata.data();
+    for (std::size_t i = 0; i < functions.size(); ++i) {
+      functions[i].name = function_names[i].c_str();
+    }
+    for (std::size_t i = 0; i < metadata.size(); ++i) {
+      metadata[i].name = metadata_names[i].c_str();
+      metadata[i].value = metadata_values[i].data();
+    }
+  }
+};
+
 Registry::Registry() : identity_comm_rank_(nullptr), identity_initialized_(nullptr),
   host_runtime_token_(nullptr), runtime_kind_(0), native_comm_size_(0),
   compatibility_fingerprint_(0), installed_(false), object_created_(false),
@@ -359,6 +414,8 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
                           error)) {
     return false;
   }
+  std::unique_ptr<DescriptorSnapshot> next_snapshot(
+    new DescriptorSnapshot(*descriptor, next_metadata, next_values));
 
   std::lock_guard<std::mutex> lock(mutex_);
   if (installed_) {
@@ -396,6 +453,7 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   runtime_kind_ = next_runtime_kind;
   native_comm_size_ = next_native_comm_size;
   compatibility_fingerprint_ = next_fingerprint;
+  descriptor_snapshot_.swap(next_snapshot);
   installed_ = true;
   if (this == &currentRegistry()) {
     // Publish the complete immutable function table before either readiness
@@ -415,6 +473,13 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
   ready_.store(true, std::memory_order_release);
   error.clear();
   return true;
+}
+
+const plumed_mpiw_provider_descriptor *Registry::descriptorSnapshot() const noexcept {
+  if (!ready_.load(std::memory_order_acquire) || !descriptor_snapshot_) {
+    return nullptr;
+  }
+  return &descriptor_snapshot_->descriptor;
 }
 
 void Registry::markObjectCreated() {

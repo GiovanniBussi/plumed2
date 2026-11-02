@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <atomic>
 #include <mutex>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -44,6 +45,8 @@ public:
   bool installed() const noexcept {
     return ready_.load(std::memory_order_acquire);
   }
+  /* Immutable, owned copy for injection into a nested compatible kernel. */
+  const plumed_mpiw_provider_descriptor *descriptorSnapshot() const noexcept;
   void markObjectCreated();
   bool beginInternalLaunch(const plumed_mpiw_provider_descriptor *descriptor,
                            std::string &error);
@@ -87,6 +90,7 @@ public:
   std::string providerVersion() const;
 
 private:
+  struct DescriptorSnapshot;
   mutable std::mutex mutex_;
   std::unordered_map<std::string, FunctionEntry> functions_;
   std::unordered_map<std::string, std::string> metadata_;
@@ -101,6 +105,7 @@ private:
   std::uint32_t native_comm_size_;
   std::uint64_t compatibility_fingerprint_;
   std::vector<void *> provider_libraries_;
+  std::unique_ptr<DescriptorSnapshot> descriptor_snapshot_;
   bool installed_;
   bool object_created_;
   bool internal_launch_started_;
