@@ -198,7 +198,13 @@ actual publication also depends on the host MPI version and supported constants.
 (lifecycle-owned), MPI_Pcontrol (variadic), MPI_Comm_create_errhandler and
 MPI_Op_create (callback bridges).
 Their frontend declarations remain available and their inquiries report the
-missing provider capability. The mock-native probes compile against real
+missing provider capability.
+Deferring these two callback-creation APIs is an explicit initial scope decision;
+direct native MPI calls remain available. Future support can build on
+`mpiw_old_draft`, but must preserve standard callback signatures and manage
+registration lifetime safely. The draft's callback-reference conversions are
+useful precedent, not a substitute for that review. No callback registration
+or retained-handler allocation occurs for these unavailable APIs. The mock-native probes compile against real
 provider headers and exercise call-through without initializing MPI; they are
 not real MPI runtime communication tests. Native MPI startup and multi-process
 communication were blocked in the development sandbox by process-manager and
