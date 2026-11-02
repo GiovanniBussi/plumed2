@@ -1,6 +1,6 @@
 {
   "source": "GROMACS",
-  "tag": "v2026.4",
+  "ref": "v2026.4",
   "commit": "6c69f720aa7378fddfee67f99d51aff21ccfb0a2",
   "path": "src/external/thread_mpi",
   "checksums": {

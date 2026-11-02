@@ -14,6 +14,8 @@ import shlex
 import json
 
 PROVENANCE = pathlib.Path(__file__).resolve().with_name("UPSTREAM.json")
+DEFAULT_SOURCE = "GROMACS"
+DEFAULT_UPSTREAM_PATH = "src/external/thread_mpi"
 
 
 def _project_root():
@@ -78,16 +80,57 @@ def _flat_mapping(src):
 
 
 def _provenance():
+    if not PROVENANCE.is_file():
+        raise FileNotFoundError(PROVENANCE)
     with PROVENANCE.open() as stream:
         metadata = json.load(stream)
-    required = {"source", "tag", "commit", "path", "checksums"}
+    if "tag" in metadata and "ref" not in metadata:
+        metadata["ref"] = metadata.pop("tag")
+    required = {"source", "ref", "commit", "path", "checksums"}
     if not required.issubset(metadata) or set(metadata) - required - {"imported_files"}:
         raise ValueError(f"{PROVENANCE} must contain {sorted(required)}")
     return metadata
 
 
+def _resolve_ref(root, ref):
+    return subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--end-of-options",
+         f"{ref}^{{commit}}"], text=True).strip()
+
+
+def _resolve_metadata(root, ref):
+    existing = True
+    try:
+        metadata = _provenance()
+    except FileNotFoundError:
+        existing = False
+        if not ref:
+            raise SystemExit(
+                f"missing {PROVENANCE}; specify --ref TAG_OR_COMMIT to bootstrap the import")
+        metadata = {
+            "source": DEFAULT_SOURCE,
+            "ref": ref,
+            "commit": "",
+            "path": DEFAULT_UPSTREAM_PATH,
+            "checksums": {},
+            "imported_files": [],
+        }
+
+    if ref:
+        resolved = _resolve_ref(root, ref)
+        if not existing or resolved != metadata["commit"]:
+            metadata["ref"] = ref
+        metadata["commit"] = resolved
+    else:
+        resolved = _resolve_ref(root, metadata["commit"])
+        if resolved != metadata["commit"]:
+            raise SystemExit(
+                f"pinned commit {metadata['commit']} resolves to unexpected commit {resolved}")
+    return metadata
+
+
 def _write_provenance(path, metadata, checksums, imported_files):
-    updated = dict(metadata)
+    updated = {key: metadata[key] for key in ("source", "ref", "commit", "path")}
     updated["checksums"] = dict(sorted(checksums.items()))
     updated["imported_files"] = sorted(imported_files)
     path.write_text(json.dumps(updated, indent=2) + "\n")
@@ -341,16 +384,12 @@ def main():
                     help="required formatter executable (default: this checkout's astyle)")
     ap.add_argument("--options", type=pathlib.Path, default=project_root / ".astyle.options",
                     help="required project formatting options")
+    ap.add_argument("--ref", metavar="TAG_OR_COMMIT",
+                    help="import this local GROMACS tag or commit and refresh provenance")
     ap.add_argument("--check", action="store_true", help="verify current import is reproducible")
     args = ap.parse_args()
     root = args.gromacs.resolve()
-    metadata = _provenance()
-    rev = subprocess.check_output(
-        ["git", "-C", str(root), "rev-parse", f"{metadata['tag']}^{{commit}}"],
-        text=True).strip()
-    if rev != metadata["commit"]:
-        raise SystemExit(
-            f"expected {metadata['tag']} at {metadata['commit']}, found {rev}")
+    metadata = _resolve_metadata(root, args.ref)
     out = args.output.resolve()
     astyle = args.astyle.resolve()
     options = args.options.resolve()
