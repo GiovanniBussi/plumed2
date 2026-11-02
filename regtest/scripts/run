@@ -50,6 +50,13 @@ plumed_language=c++
 
 source ./config
 
+# These test types invoke a PLUMED CLTool rather than an external executable.
+plumed_cli_test=no
+plumed_internal_launch=no
+case "$type" in
+  driver|sum_hills|simplemd|plumed) plumed_cli_test=yes ;;
+esac
+
 for file in $extra_files
 do
   cp -f ../$file .
@@ -117,7 +124,7 @@ fi
 
 if [[ "$has_real_mpi" = no ]]
 then
-  if [[ "$type" = driver && "$plumed_thread_mpi" = no ]] && $plumed_nompi --has-thread-mpi ; then
+  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" = no ]] && $plumed_nompi --has-thread-mpi ; then
     if [[ "${plumed_chdir:-no}" = yes ]]; then
       echo "NOT_APPLICABLE (CHDIR is unsupported with thread-MPI)"
     else
@@ -125,12 +132,13 @@ then
     fi
     exit 0
   fi
-  # Internal thread-MPI launch is currently supported for the driver CLTool.
-  # Keep MPI regtests that compile/run external engines on their native launcher.
-  if [[ "$type" = driver && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]] && $plumed_nompi --has-thread-mpi ; then
+  # The launcher dispatches CLTools, including generic command tests such as
+  # benchmark. External engines still require their native MPI launcher.
+  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]] && $plumed_nompi --has-thread-mpi ; then
     echo "++ Using PLUMED internal thread-MPI with $mpiprocs ranks"
     mpi=env
     plumed="$plumed --tmpi-threads $mpiprocs"
+    plumed_internal_launch=yes
   else
     if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
       if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
@@ -233,7 +241,12 @@ case "$type" in
     echo "FAILURE: in file not present"
     exit 1
   }
-  $mpi $valgrind $plumed simplemd < in > out 2> err
+  if [[ "$plumed_internal_launch" = yes ]]; then
+    # A future MPI-enabled simplemd must not consume one stdin across threads.
+    $mpi $valgrind $plumed simplemd in > out 2> err
+  else
+    $mpi $valgrind $plumed simplemd < in > out 2> err
+  fi
   ;;
 (driver)
   $mpi $valgrind $plumed driver $arg > out 2> err
