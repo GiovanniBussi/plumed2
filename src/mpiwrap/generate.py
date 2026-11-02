@@ -423,9 +423,7 @@ def render_provider_inline_functions(functions):
             lines += [f"  {provider_result(result)} native_return_value = {call};",
                       *after, "  return static_cast<" + wrapper_type(result) + ">(native_return_value);", "}"]
         lines += [has_signature,
-                  (f"  mpiwrap_ensure_provider_selected(); return pointers::{suffix} != nullptr;"
-                   if name != "MPI_Initialized" else
-                   f"  return pointers::ready.load(std::memory_order_acquire) && pointers::{suffix} != nullptr;"),
+                  f"  return pointers::ready.load(std::memory_order_acquire) && pointers::{suffix} != nullptr;",
                   "}"]
     return lines
 
