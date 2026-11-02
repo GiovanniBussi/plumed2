@@ -1,5 +1,6 @@
 Source: GROMACS 2026.4 (v2026.4)
 Commit: 6c69f720aa7378fddfee67f99d51aff21ccfb0a2
 Upstream path: src/external/thread_mpi
-Import transform: tools/reimport.py wraps C++ declarations and definitions in PLMD::thread_mpi; include directives remain at global scope.
-Upstream formatting is preserved; no upstream function bodies were edited.
+Import transform: tools/reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope.
+Collision mapping: include/thread_mpi/collective.h -> thread_mpi_collective.h; src/collective.h -> thread_mpi_internal_collective.h; include/thread_mpi/tmpi.h -> thread_mpi_tmpi.h.
+UPSTREAM.sha256 records the exact original source paths and bytes before these deterministic transformations.

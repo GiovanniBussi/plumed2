@@ -137,7 +137,7 @@ tMPI use:
       sh src/mpiwrap/check-generated.sh \
       /Users/bussi/miniconda3/envs/mpich/bin/mpicxx \
       /Users/bussi/miniconda3/envs/openmpi/bin/mpicxx \
-      src/thread_mpi/include
+      src/thread_mpi
 
 Internal launch semantics are exercised by
 src/mpiwrap/check-thread-mpi-cli.sh src/lib/plumed-static after a configured
