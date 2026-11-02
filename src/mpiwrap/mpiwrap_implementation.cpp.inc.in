@@ -1,5 +1,4 @@
 /* Native process-MPI adapter body. C-compatible implementation. */
-#include <string.h>
 
 #if defined(__cplusplus)
 #define PLUMED_MPIW_STATIC_ASSERT(c, m) static_assert((c), m)
@@ -31,6 +30,18 @@ static MPI_Datatype plumed_mpiw_import_datatype(plumed_mpiw_handle_storage value
 }
 static MPI_Op plumed_mpiw_import_op(plumed_mpiw_handle_storage value) {
   MPI_Op result;
+  memset(&result, 0, sizeof(result));
+  memcpy(&result, &value, sizeof(result));
+  return result;
+}
+static MPI_Group plumed_mpiw_import_group(plumed_mpiw_handle_storage value) {
+  MPI_Group result;
+  memset(&result, 0, sizeof(result));
+  memcpy(&result, &value, sizeof(result));
+  return result;
+}
+static MPI_Errhandler plumed_mpiw_import_errhandler(plumed_mpiw_handle_storage value) {
+  MPI_Errhandler result;
   memset(&result, 0, sizeof(result));
   memcpy(&result, &value, sizeof(result));
   return result;
@@ -234,6 +245,7 @@ static plumed_mpiw_handle_storage plumed_mpiw_MPI_Comm_f2c(int32_t comm) {
 }
 
 
+/* PLUMED_MPIW_GENERATED_FUNCTIONS */
 /* PLUMED_MPIW_FUNCTION_ENTRIES */
 
 static int32_t plumed_mpiw_store_constant(void *output, uint32_t capacity, const void *value, size_t size) {

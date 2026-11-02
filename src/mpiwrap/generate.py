@@ -604,10 +604,284 @@ def render_native_header_check():
     ])
 
 
+def render_native_adapter_function(function):
+    name = function["name"]
+    result_type = function["return_type"]
+    args = function["arguments"]
+    params = []
+    for argument in args:
+        ctype = argument["c_type"]
+        argname = argument["name"]
+        array = re.search(r"((?:\[[^]]*\])+)$", ctype)
+        declaration = (ctype[:array.start()].rstrip() + " " + argname + array.group(1)
+                       if array else ctype + " " + argname)
+        params.append(provider_argument(declaration))
+    if not params:
+        params = ["void"]
+    lines = [f"static {provider_result(result_type)} plumed_mpiw_{name}({', '.join(params)}) {{"]
+    call_args = []
+    post = []
+    handle_helpers = {
+        "MPI_Comm": "comm", "MPI_Group": "group", "MPI_Datatype": "datatype",
+        "MPI_Request": "request", "MPI_Op": "op", "MPI_Errhandler": "errhandler",
+    }
+    allocated_arrays = []
+    def extent_spec(argument):
+        extent = argument.get("extent", "")
+        match = re.fullmatch(r"([A-Za-z_]\w*)(?:\s*\*\s*(\d+))?(?: capacity)?", extent)
+        if not match:
+            return None
+        return match.group(1), int(match.group(2) or "1")
+
+    # Validate every array extent and pointer before allocating any scratch
+    # arrays. This keeps validation failures from leaking an earlier array.
+    for argument in args:
+        conversion = argument["conversion"]
+        argname = argument["name"]
+        if conversion in {"scalar_ref", "handle_ref", "pointer_storage"}:
+            lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+        elif conversion == "status":
+            nullable = ("MPI_STATUS_IGNORE" in argument.get("sentinels", []) and
+                        argument["direction"] != "in")
+            if not nullable:
+                lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+            if argument["direction"] == "in":
+                lines.append(f"  if ({argname}->raw_size != sizeof(MPI_Status)) return MPI_ERR_ARG;")
+        if conversion not in {"array", "integer_array", "handle_array", "status_array"}:
+            continue
+        spec = extent_spec(argument)
+        if spec is None:
+            raise ValueError(f"{name}.{argument['name']}: array extent is not a single named scalar")
+        base, factor = spec
+        extent_name = f"extent_{argument['name']}"
+        if factor > 1:
+            lines += [f"  if ({base} < 0 || {base} > INT_MAX / {factor}) return MPI_ERR_COUNT;"]
+        else:
+            lines += [f"  if ({base} < 0) return MPI_ERR_COUNT;"]
+        lines.append(f"  int {extent_name} = (int){base} * {factor};")
+        ignoreable_statuses = (argument["conversion"] == "status_array" and
+                               "MPI_STATUSES_IGNORE" in argument.get("sentinels", []))
+        if not ignoreable_statuses:
+            lines.append(f"  if ({extent_name} > 0 && !{argname}) return MPI_ERR_ARG;")
+        if conversion == "handle_array":
+            handle = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", argument["c_type"])
+            if not handle:
+                raise ValueError(f"{name}.{argname}: unsupported handle-array type")
+            element_size = f"sizeof({handle.group(0)})"
+        elif conversion == "status_array":
+            element_size = "sizeof(MPI_Status)"
+        else:
+            element_size = "sizeof(int)"
+        lines.append(f"  if ((size_t){extent_name} > SIZE_MAX / {element_size}) return MPI_ERR_COUNT;")
+
+    for argument in args:
+        argname = argument["name"]
+        ctype = argument["c_type"].strip()
+        direction = argument["direction"]
+        conversion = argument["conversion"]
+        if conversion == "opaque_handle_value":
+            match = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", ctype)
+            if not match:
+                raise ValueError(f"{name}.{argname}: unsupported opaque handle type {ctype}")
+            native_type = match.group(0)
+            helper = handle_helpers[native_type]
+            local = f"native_{argname}"
+            lines.append(f"  {native_type} {local} = plumed_mpiw_import_{helper}({argname});")
+            call_args.append(local)
+        elif conversion == "scalar_value":
+            native_type = ctype.replace("const ", "").strip()
+            local = f"native_{argname}"
+            lines.append(f"  {native_type} {local} = ({native_type}){argname};")
+            call_args.append(local)
+        elif conversion == "scalar_ref":
+            native_type = ctype.replace("const ", "").replace("*", "").strip()
+            local = f"native_{argname}"
+            lines += [f"  {native_type} {local} = 0;",
+                      f"  if (!{argname}) return MPI_ERR_ARG;"]
+            if direction == "inout":
+                lines.append(f"  {local} = ({native_type})*{argname};")
+            call_args.append(f"&{local}")
+            if direction == "inout":
+                post.append(f"  *{argname} = ({provider_result(native_type)}){local};")
+            else:
+                valid = "native_return_value == MPI_SUCCESS"
+                error_codes = argument.get("valid_on_error_codes", [])
+                if error_codes:
+                    valid = "(" + " || ".join([valid] + [f"native_return_value == {code}" for code in error_codes]) + ")"
+                post.append(f"  if ({valid}) *{argname} = ({provider_result(native_type)}){local};")
+        elif conversion == "handle_ref":
+            match = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", ctype)
+            if not match:
+                raise ValueError(f"{name}.{argname}: unsupported handle reference type {ctype}")
+            native_type = match.group(0)
+            helper = handle_helpers[native_type]
+            local = f"native_{argname}"
+            lines += [f"  {native_type} {local};",
+                      f"  memset(&{local}, 0, sizeof({local}));",
+                      f"  if (!{argname}) return MPI_ERR_ARG;"]
+            if direction == "inout":
+                lines.append(f"  {local} = plumed_mpiw_import_{helper}(*{argname});")
+            call_args.append(f"&{local}")
+            condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
+            post.append(f"  if ({condition}) *{argname} = plumed_mpiw_export_bytes(&{local}, sizeof({local}));")
+        elif conversion in {"array", "integer_array"}:
+            extent = f"extent_{argname}"
+            local = f"native_{argname}"
+            dimensions = re.search(r"\[(\d+)\]$", ctype)
+            if dimensions:
+                if direction == "out":
+                    raise ValueError(f"{name}.{argname}: fixed-width output arrays need explicit copyback metadata")
+                width = dimensions.group(1)
+                allocation = (f"(int (*)[{width}])calloc((size_t)({extent} / {width}), sizeof(*{local}))"
+                              if direction == "out" else
+                              f"(int (*)[{width}])malloc(sizeof(*{local}) * (size_t)({extent} / {width}))")
+                lines += [f"  int (*{local})[{width}] = NULL;",
+                          f"  if ({extent} > 0) {{ {local} = {allocation}; if (!{local}) {{"]
+                lines += [f"    free({previous});" for previous in allocated_arrays]
+                lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+                allocated_arrays.append(local)
+                if direction in {"in", "inout"}:
+                    rows = f"(({extent}) / {width})"
+                    lines.append(f"  for (int i = 0; i < {rows}; ++i) for (int j = 0; j < {width}; ++j) {local}[i][j] = (int){argname}[i * {width} + j];")
+                copy_count = extent
+                if direction in {"out", "inout"}:
+                    condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
+                    lines.append(f"  if ({condition}) for (int i = 0; i < (({copy_count}) / {width}); ++i) for (int j = 0; j < {width}; ++j) {argname}[i * {width} + j] = (int32_t){local}[i][j];")
+            else:
+                allocation = (f"(int *)calloc((size_t){extent}, sizeof(*{local}))"
+                              if direction == "out" else
+                              f"(int *)malloc(sizeof(*{local}) * (size_t){extent})")
+                lines += [f"  int *{local} = NULL;",
+                          f"  if ({extent} > 0) {{ {local} = {allocation}; if (!{local}) {{"]
+                lines += [f"    free({previous});" for previous in allocated_arrays]
+                lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+                allocated_arrays.append(local)
+                if direction in {"in", "inout"}:
+                    lines.append(f"  for (int i = 0; i < {extent}; ++i) {local}[i] = (int){argname}[i];")
+            call_args.append(local)
+            copy_count = extent
+            if name in {"MPI_Waitsome", "MPI_Testsome"} and argname == "array_of_indices":
+                copy_count = "(native_outcount > 0 ? native_outcount : 0)"
+            if direction in {"out", "inout"} and not dimensions:
+                condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
+                error_codes = argument.get("valid_on_error_codes", [])
+                if error_codes:
+                    condition = "(" + " || ".join(["native_return_value == MPI_SUCCESS"] + [
+                        f"native_return_value == {code}" for code in error_codes]) + ")"
+                post.append(f"  if ({condition}) for (int i = 0; i < {copy_count}; ++i) {argname}[i] = (int32_t){local}[i];")
+            post.append(f"  free({local});")
+        elif conversion == "handle_array":
+            extent = f"extent_{argname}"
+            match = re.search(r"MPI_(?:Comm|Group|Datatype|Request|Op|Errhandler)", ctype)
+            if not match:
+                raise ValueError(f"{name}.{argname}: unsupported handle-array type {ctype}")
+            native_type = match.group(0)
+            helper = handle_helpers[native_type]
+            local = f"native_{argname}"
+            lines += [f"  {native_type} *{local} = NULL;",
+                      f"  if ({extent} > 0) {{ {local} = ({native_type} *)calloc((size_t){extent}, sizeof(*{local})); if (!{local}) {{"]
+            lines += [f"    free({previous});" for previous in allocated_arrays]
+            lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+            allocated_arrays.append(local)
+            if direction in {"in", "inout"}:
+                lines.append(f"  for (int i = 0; i < {extent}; ++i) {local}[i] = plumed_mpiw_import_{helper}({argname}[i]);")
+            call_args.append(local)
+            if direction in {"out", "inout"}:
+                condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
+                post.append(f"  if ({condition}) for (int i = 0; i < {extent}; ++i) {argname}[i] = plumed_mpiw_export_bytes(&{local}[i], sizeof({local}[i]));")
+            post.append(f"  free({local});")
+        elif conversion == "status_array":
+            extent = f"extent_{argname}"
+            local = f"native_{argname}"
+            lines += [f"  MPI_Status *{local} = NULL;",
+                      f"  if ({extent} > 0 && {argname}) {{ {local} = (MPI_Status *)calloc((size_t){extent}, sizeof(*{local})); if (!{local}) {{"]
+            lines += [f"    free({previous});" for previous in allocated_arrays]
+            lines += ["    return MPI_ERR_NO_MEM;", "  } }"]
+            allocated_arrays.append(local)
+            if "MPI_STATUSES_IGNORE" in argument.get("sentinels", []):
+                call_args.append(f"{argname} ? {local} : MPI_STATUSES_IGNORE")
+            else:
+                call_args.append(local)
+            if name == "MPI_Waitall":
+                copy_count = extent
+            elif name == "MPI_Testall":
+                copy_count = extent
+            else:
+                copy_count = "native_outcount"
+            valid = "native_return_value == MPI_SUCCESS"
+            error_codes = argument.get("valid_on_error_codes", [])
+            if error_codes:
+                valid = "(" + " || ".join([valid] + [f"native_return_value == {code}" for code in error_codes]) + ")"
+            if name == "MPI_Testall":
+                valid = "(native_return_value == MPI_ERR_IN_STATUS || (native_return_value == MPI_SUCCESS && native_flag))"
+            elif name in {"MPI_Waitsome", "MPI_Testsome"}:
+                valid = f"({valid} && native_outcount > 0)"
+            post.append(f"  if ({argname} && {valid}) for (int i = 0; i < {copy_count}; ++i) plumed_mpiw_export_status(&{local}[i], &{argname}[i]);")
+            post.append(f"  free({local});")
+        elif conversion == "buffer" or conversion == "char_buffer":
+            if direction in {"out", "inout"} and not any(x in ctype for x in ("void", "char")):
+                raise ValueError(f"{name}.{argname}: unsupported output buffer type {ctype}")
+            call_args.append(f"(void *){argname}" if ctype.lstrip().startswith("const ") else argname)
+        elif conversion == "status":
+            local = f"native_{argname}"
+            lines += [f"  MPI_Status {local};",
+                      f"  if ({argname}) memset(&{local}, 0, sizeof({local}));"]
+            if direction == "in":
+                lines += [f"  if (!plumed_mpiw_import_status({argname}, &{local})) return MPI_ERR_ARG;"]
+                call_args.append(f"&{local}")
+            else:
+                sentinels = argument.get("sentinels", [])
+                if "MPI_STATUS_IGNORE" in sentinels:
+                    call_args.append(f"{argname} ? &{local} : MPI_STATUS_IGNORE")
+                else:
+                    lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+                    call_args.append(f"&{local}")
+                valid = "native_return_value == MPI_SUCCESS"
+                if name == "MPI_Test":
+                    valid += " && native_flag"
+                elif name == "MPI_Testany":
+                    valid += " && native_flag && native_indx != MPI_UNDEFINED"
+                elif name == "MPI_Waitany":
+                    valid += " && native_indx != MPI_UNDEFINED"
+                elif name == "MPI_Iprobe":
+                    valid += " && native_flag"
+                post.append(f"  if (({valid}) && {argname}) plumed_mpiw_export_status(&{local}, {argname});")
+        elif conversion == "pointer_storage":
+            # MPI_Buffer_detach receives the address of the user's buffer
+            # pointer through its historical void* parameter.  The pointed-to
+            # storage contains a data pointer, not an MPI handle, so preserve
+            # that exact output address while the adjacent size uses the
+            # normal scalar_ref path.
+            if direction != "out" or ctype != "void *":
+                raise ValueError(f"{name}.{argname}: unsupported pointer-storage argument {ctype}/{direction}")
+            lines.append(f"  if (!{argname}) return MPI_ERR_ARG;")
+            call_args.append(argname)
+        else:
+            raise ValueError(f"{name}.{argname}: native conversion {conversion} needs an explicit adapter")
+    call = f"{name}({', '.join(call_args)})"
+    if result_type == "void":
+        lines += [f"  {call};", *post, "  return;"]
+    else:
+        lines.append(f"  {result_type} native_return_value = {call};")
+        lines += post
+        lines.append("  return (int32_t)native_return_value;" if result_type == "int" else "  return native_return_value;")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def render_native_adapter_body(functions, constants, versions):
     template = (DEVELOPMENT / "mpiwrap_implementation.cpp.inc.in").read_text()
     implemented = [function for function in functions
                    if function.get("native_adapter") == "implemented"]
+    manual = set(re.findall(r"static [^\n]+ plumed_mpiw_(MPI_[A-Za-z0-9_]+)\(", template))
+    generated_functions = []
+    for function in implemented:
+        name = function["name"]
+        route = function.get("provider_routes", {}).get("injected_real_mpi", {})
+        if route.get("status") == "unavailable" or function.get("callbacks"):
+            raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
+        if name not in manual:
+            generated_functions.append(render_native_adapter_function(function))
     function_rows = [
         "#define PLUMED_MPIW_ENTRY(name, id, version, fn) { (uint32_t)sizeof(plumed_mpiw_function_entry), PLUMED_MPIW_FUNCTION_REQUIRED, #name, id, version, (plumed_mpiw_generic_fn)(fn) }",
         "static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {",
@@ -617,8 +891,6 @@ def render_native_adapter_body(functions, constants, versions):
         route = function.get("provider_routes", {}).get("injected_real_mpi", {})
         if route.get("status") == "unavailable" or function.get("callbacks"):
             raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
-        if f"plumed_mpiw_{name}" not in template:
-            raise ValueError(f"{name}: native adapter marker lacks a typed implementation")
         identifier = int(hashlib.sha256(name.encode("ascii")).hexdigest()[:8], 16)
         comma = "," if index + 1 < len(implemented) else ""
         function_rows.append(
@@ -655,6 +927,7 @@ def render_native_adapter_body(functions, constants, versions):
                          ("," if index + 1 < len(implemented_constants) else "")
                          for index, constant in enumerate(implemented_constants)]
     replacements = {
+        "/* PLUMED_MPIW_GENERATED_FUNCTIONS */": "\n\n".join(generated_functions),
         "/* PLUMED_MPIW_FUNCTION_ENTRIES */": "\n".join(function_rows),
         "/* PLUMED_MPIW_CONSTANT_IMPLEMENTATIONS */": "\n".join(constant_impl),
         "/* PLUMED_MPIW_CONSTANT_ACCESSORS */": "\n".join(constant_accessors),

@@ -49,9 +49,9 @@ PLUMED_MPIW_HANDLE_TYPE defaults to uintptr_t, and
 PLUMED_MPIW_STATUS_CAPACITY defaults to 128 bytes. Providers must fit those
 configured representations, and installation validates the capacities and
 native scalar metadata before publishing callbacks. The frontend signatures
-follow MPI-5 const correctness. When the shared native adapter is completed,
-any compatibility cast for older native headers will be local to an input-only
-MPI call; callback types and writable arguments will keep their exact types.
+follow MPI-5 const correctness. The native adapter keeps any compatibility
+cast for older native headers local to an input-only MPI call; callback types
+and writable arguments retain their exact types.
 
 Internal launch is explicit and one-shot, and must happen before a PLUMED object
 is created. The launcher owns worker lifetime and finalization. A callback
@@ -74,9 +74,9 @@ All module files live directly in src/mpiwrap. The machine-readable inputs
 are support-matrix.tsv, argument-metadata.json, constant-metadata.json,
 type-metadata.json, signature-versions.json, and thread-mpi-api.tsv.
 Build the repository formatter once with make -C astyle. generate.py validates
-these inputs and generates the wrapper declarations,
-provider ABI, constant accessors, route tables, signature checks, and coverage
-reports in the same directory. The checked-in generated files are reproducible
+these inputs and generates the wrapper declarations, provider ABI, constant
+accessors, route tables, signature checks, and coverage reports in the same
+directory. The checked-in generated files are reproducible
 with:
 
     python3 src/mpiwrap/generate.py --check
@@ -85,9 +85,10 @@ The .cpp.in and .c.in files are compile-only tests and probes; the module's
 wildcard source build does not compile them. The implementation unity source
 mpiwrap.cpp is built only when thread-MPI is configured and includes provider
 registry, frontend, and internal adapter fragments. mpiwrap-launcher.cpp
-includes the internal rank launcher. The shared native adapter body has not yet
-been implemented; there is no mpiwrap_implementation.cpp. Imported
-thread-MPI sources remain a separate module at src/thread_mpi.
+includes the internal rank launcher. mpiwrap_implementation.cpp is an opt-in
+translation unit for a provider DSO; it is not compiled into ordinary PLUMED
+kernels. Imported thread-MPI sources remain a separate module at
+src/thread_mpi.
 
 ## Current implementation and limits
 
@@ -100,18 +101,21 @@ MPI_Pcontrol remains direct in native mode and unavailable through provider
 forwarding. Custom tMPI error handlers remain excluded as specified by the
 stable provider surface.
 
-The native adapter currently publishes the current-use non-lifecycle subset
-and selected constants, including communicator operations, collectives,
-point-to-point calls, status transport, and MPI_Comm_f2c when MPI_Fint is a
-signed 32-bit type. MPI_Init/Finalize and callback-taking entries are omitted
-from its descriptor until their lifecycle/callback routes are implemented.
-The mock-native probes exercise real provider handle/status sizes and exact
-adapter call-through without initializing MPI; they are not real MPI runtime
-communication tests. Native MPI startup and multi-process communication were
-blocked in the development sandbox by process-manager/socket permissions, so
-those semantics still need verification outside that environment. Future
-non-current-use entries remain unavailable until generated typed thunks and
-metadata are added. The pinned thread-MPI source has a one-rank
+The native adapter currently publishes 101 of the 118 retained function
+entries and all 80 constants. The omitted entries are MPI_Init/Finalize
+(lifecycle-owned), MPI_Pcontrol (variadic), MPI_Comm_create_errhandler and
+MPI_Op_create (callback bridges), and MPI_Gatherv, MPI_Scatterv,
+MPI_Alltoallv, MPI_Reduce_scatter, MPI_Graph_create, MPI_Graph_get,
+MPI_Cart_get, MPI_Cart_rank, MPI_Cart_coords, MPI_Graph_neighbors,
+MPI_Cart_sub, and MPI_Graph_map (array extents or output lengths need explicit
+conversion metadata).
+Their frontend declarations remain available and their inquiries report the
+missing provider capability. The mock-native probes compile against real
+provider headers and exercise call-through without initializing MPI; they are
+not real MPI runtime communication tests. Native MPI startup and multi-process
+communication were blocked in the development sandbox by process-manager and
+socket permissions, so those semantics still need verification outside that
+environment. The pinned thread-MPI source has a one-rank
 out-of-place Allreduce defect; the wrapper handles its size-one identity case
 without relying on that defective operation.
 
