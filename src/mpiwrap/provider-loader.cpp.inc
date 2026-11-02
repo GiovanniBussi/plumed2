@@ -11,6 +11,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <cerrno>
+#ifdef __APPLE__
+#include <fstream>
+#include <mach-o/loader.h>
+#include <mach-o/fat.h>
+#include <libkern/OSByteOrder.h>
+#endif
 extern char **environ;
 #endif
 
@@ -19,6 +25,72 @@ namespace mpiwrap_provider {
 namespace {
 
 #if defined(__PLUMED_HAS_DLOPEN)
+// dyld can open an executable compiler launcher as though it were a library.
+// Inspect its file type before dlopen, including universal Mach-O containers.
+bool isCompilerExecutable(const char *path) {
+#ifdef __APPLE__
+  std::ifstream input(path, std::ios::binary);
+  const auto executable_at = [&input](std::uint64_t offset) {
+    mach_header header{};
+    input.clear();
+    input.seekg(static_cast<std::streamoff>(offset));
+    if (!input.read(reinterpret_cast<char *>(&header), sizeof(header))) {
+      return false;
+    }
+    if (header.magic == MH_MAGIC || header.magic == MH_MAGIC_64) {
+      return header.filetype == MH_EXECUTE;
+    }
+    if (header.magic == MH_CIGAM || header.magic == MH_CIGAM_64) {
+      return OSSwapInt32(header.filetype) == MH_EXECUTE;
+    }
+    return false;
+  };
+  if (executable_at(0)) {
+    return true;
+  }
+  fat_header header{};
+  input.clear();
+  input.seekg(0);
+  if (!input.read(reinterpret_cast<char *>(&header), sizeof(header))) {
+    return false;
+  }
+  const bool swapped = header.magic == FAT_CIGAM || header.magic == FAT_CIGAM_64;
+  const bool wide = header.magic == FAT_MAGIC_64 || header.magic == FAT_CIGAM_64;
+  if (!swapped && header.magic != FAT_MAGIC && header.magic != FAT_MAGIC_64) {
+    return false;
+  }
+  const std::uint32_t count = swapped ? OSSwapInt32(header.nfat_arch) : header.nfat_arch;
+  if (!count || count > 128) {
+    return false;
+  }
+  for (std::uint32_t i = 0; i < count; ++i) {
+    input.clear();
+    input.seekg(sizeof(header) + i * (wide ? sizeof(fat_arch_64) : sizeof(fat_arch)));
+    std::uint64_t offset;
+    if (wide) {
+      fat_arch_64 arch{};
+      if (!input.read(reinterpret_cast<char *>(&arch), sizeof(arch))) {
+        return false;
+      }
+      offset = swapped ? OSSwapInt64(arch.offset) : arch.offset;
+    } else {
+      fat_arch arch{};
+      if (!input.read(reinterpret_cast<char *>(&arch), sizeof(arch))) {
+        return false;
+      }
+      offset = swapped ? OSSwapInt32(arch.offset) : arch.offset;
+    }
+    if (!executable_at(offset)) {
+      return false;
+    }
+  }
+  return true;
+#else
+  (void) path;
+  return false;
+#endif
+}
+
 struct ProviderBuildDirectory {
   std::string directory;
   std::string library;
@@ -65,7 +137,7 @@ void installProviderLibrary(Registry &registry, void *library) {
 }
 
 void compileSelectedProvider(const char *compiler, const std::string &output) {
-  std::string script = config::getPlumedRoot() + "/scripts/makempi.sh";
+  std::string script = config::getPlumedRoot() + "/scripts/mkmpi.sh";
   // Spawn an interpreter with literal arguments. Neither compiler paths nor
   // output paths are shell commands, even when they contain spaces or '$'.
   char *arguments[] = {
@@ -95,12 +167,13 @@ void installEnvironmentProvider(Registry &registry, const char *path) {
     throw std::runtime_error("PLUMED_MPI_WRAPPER requires an absolute library or compiler path");
   }
 #if defined(__PLUMED_HAS_DLOPEN)
-  void *library = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+  const bool executable = isCompilerExecutable(path);
+  void *library = executable ? nullptr : dlopen(path, RTLD_NOW | RTLD_LOCAL);
   if (library) {
     installProviderLibrary(registry, library);
     return;
   }
-  const char *message = dlerror();
+  const char *message = executable ? "selected file is an executable compiler" : dlerror();
   const std::string load_error = message ? message : "unknown loader error";
   const std::string selected(path);
   const std::string basename = selected.substr(selected.find_last_of('/') + 1);
