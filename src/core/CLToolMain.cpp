@@ -168,10 +168,10 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
         return 1;
       }
     } else if(a=="--has-thread-mpi") {
-#if defined(__PLUMED_HAS_MPI)
-      return 1;
-#else
+#if defined(__PLUMED_HAS_THREAD_MPI)
       return 0;
+#else
+      return 1;
 #endif
     } else if(a=="--has-cregex") {
       return (config::hasCregex()?0:1);
