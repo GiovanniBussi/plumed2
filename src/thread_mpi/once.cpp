@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 /*
    This source code file is part of thread_mpi.
    Written by Sander Pronk, Erik Lindahl, and possibly others.
@@ -200,3 +201,4 @@ void *tMPI_Shmalloc(tMPI_Comm comm, size_t size) {
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI

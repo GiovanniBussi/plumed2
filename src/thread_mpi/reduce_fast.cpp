@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 /*
    This source code file is part of thread_mpi.
    Written by Sander Pronk, Erik Lindahl, and possibly others.
@@ -125,3 +126,4 @@ void tMPI_Reduce_async(tMPI_Reduce_req *req,
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI

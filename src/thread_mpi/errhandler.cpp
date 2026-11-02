@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 /*
    This source code file is part of thread_mpi.
    Written by Sander Pronk, Erik Lindahl, and possibly others.
@@ -262,3 +263,4 @@ void tmpi_errors_return_fn(tMPI_Comm *comm, int *err) {
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI
