@@ -75,6 +75,13 @@ int MPI_Type_indexed(int count, const int blocklengths[], const int displacement
   called_type_indexed = 1;
   return MPI_SUCCESS;
 }
+int MPI_Group_range_incl(MPI_Group group, int n, int ranges[][3], MPI_Group *newgroup) {
+  assert(n == 2);
+  assert(ranges[0][0] == 0 && ranges[0][1] == 6 && ranges[0][2] == 2);
+  assert(ranges[1][0] == 3 && ranges[1][1] == 9 && ranges[1][2] == -1);
+  *newgroup = group;
+  return MPI_SUCCESS;
+}
 int MPI_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status array_of_statuses[]) {
   assert(incount == 3);
   assert(array_of_requests[0] == MPI_REQUEST_NULL);
@@ -115,6 +122,10 @@ int main(void) {
   plumed_mpiw_status ignored_status;
   plumed_mpiw_status ignored_status_before;
   plumed_mpiw_handle_storage datatype_storage;
+  MPI_Group group = MPI_GROUP_EMPTY;
+  plumed_mpiw_handle_storage group_storage;
+  plumed_mpiw_handle_storage newgroup_storage = 0;
+  int32_t ranges[2][3] = {{0, 6, 2}, {3, 9, -1}};
   int32_t blocklengths[2] = {1, 2};
   int32_t displacements[2] = {0, 1};
   plumed_mpiw_handle_storage newtype = 0;
@@ -156,6 +167,9 @@ int main(void) {
 
   assert(plumed_mpiw_MPI_Get_count(&status, plumed_mpiw_export_bytes(&datatype, sizeof(datatype)), &count) == MPI_SUCCESS);
   assert(count == 23);
+  memcpy(&group_storage, &group, sizeof(group));
+  assert(plumed_mpiw_MPI_Group_range_incl(group_storage, 2, ranges, &newgroup_storage) == MPI_SUCCESS);
+  assert(memcmp(&newgroup_storage, &group, sizeof(group)) == 0);
 
   memset(statuses, 0xa5, sizeof(statuses));
   for (int i = 0; i < 3; ++i) {

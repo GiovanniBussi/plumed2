@@ -608,14 +608,10 @@ def render_native_adapter_function(function):
     name = function["name"]
     result_type = function["return_type"]
     args = function["arguments"]
-    params = []
-    for argument in args:
-        ctype = argument["c_type"]
-        argname = argument["name"]
-        array = re.search(r"((?:\[[^]]*\])+)$", ctype)
-        declaration = (ctype[:array.start()].rstrip() + " " + argname + array.group(1)
-                       if array else ctype + " " + argname)
-        params.append(provider_argument(declaration))
+    _, parsed_name, raw_args = parse_signature(function["signature"])
+    if parsed_name != name:
+        raise ValueError(f"{name}: signature identifies {parsed_name}")
+    params = [provider_argument(argument) for argument in raw_args]
     if not params:
         params = ["void"]
     lines = [f"static {provider_result(result_type)} plumed_mpiw_{name}({', '.join(params)}) {{"]
@@ -742,7 +738,7 @@ def render_native_adapter_function(function):
                 allocated_arrays.append(local)
                 if direction in {"in", "inout"}:
                     rows = f"(({extent}) / {width})"
-                    lines.append(f"  for (int i = 0; i < {rows}; ++i) for (int j = 0; j < {width}; ++j) {local}[i][j] = (int){argname}[i * {width} + j];")
+                    lines.append(f"  for (int i = 0; i < {rows}; ++i) for (int j = 0; j < {width}; ++j) {local}[i][j] = (int){argname}[i][j];")
                 copy_count = extent
                 if direction in {"out", "inout"}:
                     condition = "1" if direction == "inout" else "native_return_value == MPI_SUCCESS"
@@ -896,6 +892,12 @@ def render_native_adapter_body(functions, constants, versions):
         function_rows.append(
             f"  PLUMED_MPIW_ENTRY({name}, 0x{identifier:08x}u, {versions[name]}u, plumed_mpiw_{name}){comma}")
     function_rows += ["};", "#undef PLUMED_MPIW_ENTRY"]
+    typed_checks = ["static void plumed_mpiw_verify_typed_functions(void) {"]
+    for function in implemented:
+        name = function["name"]
+        typed_checks += [f"  plumed_mpiw_{name}_fn typed_{name} = &plumed_mpiw_{name};",
+                         f"  (void)typed_{name};"]
+    typed_checks.append("}")
 
     implemented_constants = [constant for constant in constants
                              if constant.get("native_adapter") == "implemented"]
@@ -928,6 +930,7 @@ def render_native_adapter_body(functions, constants, versions):
                          for index, constant in enumerate(implemented_constants)]
     replacements = {
         "/* PLUMED_MPIW_GENERATED_FUNCTIONS */": "\n\n".join(generated_functions),
+        "/* PLUMED_MPIW_TYPED_FUNCTION_CHECKS */": "\n".join(typed_checks),
         "/* PLUMED_MPIW_FUNCTION_ENTRIES */": "\n".join(function_rows),
         "/* PLUMED_MPIW_CONSTANT_IMPLEMENTATIONS */": "\n".join(constant_impl),
         "/* PLUMED_MPIW_CONSTANT_ACCESSORS */": "\n".join(constant_accessors),
