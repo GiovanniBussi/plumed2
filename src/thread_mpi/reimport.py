@@ -11,19 +11,9 @@ import hashlib
 import io
 import posixpath
 import shlex
+import json
 
-PINNED = "6c69f720aa7378fddfee67f99d51aff21ccfb0a2"
-SOURCE_CPP = """alltoall.cpp atomic.cpp barrier.cpp bcast.cpp collective.cpp comm.cpp
-errhandler.cpp event.cpp gather.cpp group.cpp list.cpp lock.cpp numa_malloc.cpp
-once.cpp p2p_protocol.cpp p2p_send_recv.cpp p2p_wait.cpp profile.cpp
-pthreads.cpp reduce.cpp reduce_fast.cpp scan.cpp scatter.cpp tmpi_init.cpp
-tmpi_malloc.cpp topology.cpp type.cpp""".split()
-LEGACY_WRAPPERS = [f"plumed_{pathlib.Path(name).stem}.cpp" for name in SOURCE_CPP]
-COLLISION_NAMES = {
-    "include/thread_mpi/collective.h": "thread_mpi_collective.h",
-    "src/collective.h": "thread_mpi_internal_collective.h",
-    "include/thread_mpi/tmpi.h": "thread_mpi_tmpi.h",
-}
+PROVENANCE = pathlib.Path(__file__).resolve().with_name("UPSTREAM.json")
 
 
 def _project_root():
@@ -31,26 +21,81 @@ def _project_root():
 
 
 def _source_files(src):
-    files = [src / "include/tmpi.h", src / "include/thread_mpi.h"]
-    files += sorted((src / "include/thread_mpi").rglob("*.h"))
-    files += [src / "src" / name for name in SOURCE_CPP]
+    files = sorted((src / "include").rglob("*.h"))
+    files += sorted((src / "src").glob("*.cpp"))
     files += sorted((src / "src").glob("*.h"))
     return files
 
 
+def _collision_name(relative):
+    """Return a stable role-based name for a flattened-path collision."""
+    path = pathlib.PurePosixPath(relative)
+    if path.parts[0] == "src":
+        return "thread_mpi_internal_" + path.name
+    if path.parts[:2] == ("include", "thread_mpi"):
+        return "thread_mpi_" + path.name
+    return None
+
+
 def _flat_mapping(src):
+    paths = _source_files(src)
     mapping = {}
-    for path in _source_files(src):
+    for path in paths:
         relative = path.relative_to(src).as_posix()
-        mapping[relative] = COLLISION_NAMES.get(relative, pathlib.PurePosixPath(relative).name)
-    names = list(mapping.values())
-    if len(names) != len(set(names)):
-        raise ValueError("flat thread-MPI filename mapping contains an unresolved collision")
+        mapping[relative] = pathlib.PurePosixPath(relative).name
+
+    # Preserve the established names for public and private thread-MPI
+    # headers, while deriving them from each path instead of maintaining a
+    # file-by-file collision table.
+    by_name = {}
+    for relative, name in mapping.items():
+        by_name.setdefault(name, []).append(relative)
+    for name, relatives in by_name.items():
+        if len(relatives) < 2:
+            continue
+        for relative in relatives:
+            mapped = _collision_name(relative)
+            if mapped:
+                mapping[relative] = mapped
+
+    # If an upstream layout introduces another collision, include its
+    # relative directory in the name. This is deterministic and cannot
+    # silently overwrite an imported file.
+    while True:
+        by_name = {}
+        for relative, name in mapping.items():
+            by_name.setdefault(name, []).append(relative)
+        collisions = [relatives for relatives in by_name.values() if len(relatives) > 1]
+        if not collisions:
+            break
+        for relatives in collisions:
+            for relative in relatives:
+                path = pathlib.PurePosixPath(relative)
+                suffix = "_".join(path.parts[:-1])
+                stem, extension = posixpath.splitext(mapping[relative])
+                mapping[relative] = f"{stem}__{suffix}{extension}"
     return mapping
+
+
+def _provenance():
+    with PROVENANCE.open() as stream:
+        metadata = json.load(stream)
+    required = {"source", "tag", "commit", "path", "checksums"}
+    if not required.issubset(metadata) or set(metadata) - required - {"imported_files"}:
+        raise ValueError(f"{PROVENANCE} must contain {sorted(required)}")
+    return metadata
+
+
+def _write_provenance(path, metadata, checksums, imported_files):
+    updated = dict(metadata)
+    updated["checksums"] = dict(sorted(checksums.items()))
+    updated["imported_files"] = sorted(imported_files)
+    path.write_text(json.dumps(updated, indent=2) + "\n")
 
 
 def _rewrite_include(text, relative, mapping):
     pattern = re.compile(r'^(\s*#\s*include\s*)([<"])([^">]+)([">].*)$', re.MULTILINE)
+    internal_names = {pathlib.PurePosixPath(name).name for name in mapping}
 
     def rewrite(match):
         path = match.group(3)
@@ -68,6 +113,9 @@ def _rewrite_include(text, relative, mapping):
         for candidate in candidates:
             if candidate in mapping:
                 return match.group(1) + match.group(2) + mapping[candidate] + match.group(4)
+        if path.startswith(("../", "thread_mpi/", "atomic/")) or \
+                pathlib.PurePosixPath(path).name in internal_names:
+            raise ValueError(f"cannot resolve upstream include {path!r} from {relative}")
         return match.group(0)
 
     return pattern.sub(rewrite, text)
@@ -229,43 +277,42 @@ def guard_source(path):
         "\n#endif // __PLUMED_HAS_THREAD_MPI\n")
 
 
-def import_from(root, out, astyle, options):
-    archive = subprocess.check_output(["git", "-C", str(root), "archive", PINNED,
-                                       "src/external/thread_mpi"])
+def import_from(root, out, astyle, options, metadata):
+    upstream_path = metadata["path"]
+    archive = subprocess.check_output(["git", "-C", str(root), "archive",
+                                       metadata["commit"], upstream_path])
     with tempfile.TemporaryDirectory(prefix="plumed-thread-mpi-upstream-") as tmp:
         with tarfile.open(fileobj=io.BytesIO(archive)) as tf:
             tf.extractall(tmp)
-        src = pathlib.Path(tmp) / "src/external/thread_mpi"
+        src = pathlib.Path(tmp) / upstream_path
         out.mkdir(parents=True, exist_ok=True)
         mapping = _flat_mapping(src)
-        for name in mapping.values():
+        previous_manifest = out / "UPSTREAM.json"
+        previous_files = []
+        if previous_manifest.is_file():
+            with previous_manifest.open() as stream:
+                previous_files = json.load(stream).get("imported_files", [])
+        elif out.resolve() == PROVENANCE.parent:
+            # Migrate the original import layout, which predates the file list.
+            previous_files = [p.name for p in list(out.glob("*.cpp")) + list(out.glob("*.h"))]
+        elif list(out.glob("*.cpp")) or list(out.glob("*.h")):
+            raise SystemExit(
+                f"refusing to replace C++ files in {out} without an import manifest")
+        for name in previous_files:
             target = out / name
-            if target.exists() and target.is_file():
+            if target.parent == out and target.is_file():
                 target.unlink()
-        for name in LEGACY_WRAPPERS:
-            wrapper = out / name
-            if wrapper.exists():
-                wrapper.unlink()
-            object_file = out / (pathlib.Path(name).stem + ".o")
-            if object_file.exists():
-                object_file.unlink()
         for name in ("include", "src"):
             target = out / name
             if target.exists():
                 shutil.rmtree(target)
         (out / "LICENSE").write_bytes((src / "LICENSE").read_bytes())
         upstream_files = [src / "LICENSE"] + _source_files(src)
-        (out / "UPSTREAM.sha256").write_text("".join(
-            f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(src)}\n"
-            for p in upstream_files))
-        (out / "UPSTREAM.txt").write_text(
-            "Source: GROMACS 2026.4 (v2026.4)\n"
-            f"Commit: {PINNED}\n"
-            "Upstream path: src/external/thread_mpi\n"
-            "Import transform: reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope. Each imported translation unit is guarded by __PLUMED_HAS_THREAD_MPI.\n"
-            "Collision mapping: include/thread_mpi/collective.h -> thread_mpi_collective.h; src/collective.h -> thread_mpi_internal_collective.h; include/thread_mpi/tmpi.h -> thread_mpi_tmpi.h.\n"
-            "UPSTREAM.sha256 records the exact original source paths and bytes before these deterministic transformations.\n"
-        )
+        checksums = {
+            p.relative_to(src).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in upstream_files
+        }
+        _write_provenance(out / "UPSTREAM.json", metadata, checksums, mapping.values())
         for relative, name in mapping.items():
             source = src / relative
             text = _rewrite_include(source.read_text(), relative, mapping)
@@ -278,7 +325,7 @@ def import_from(root, out, astyle, options):
 
 
 def import_digest(path):
-    files = [path / "LICENSE", path / "UPSTREAM.txt", path / "UPSTREAM.sha256"]
+    files = [path / "LICENSE", path / "UPSTREAM.json"]
     files.extend(list(path.glob("*.cpp")) + list(path.glob("*.h")))
     return {p.relative_to(path).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in files if p.exists()}
@@ -297,9 +344,13 @@ def main():
     ap.add_argument("--check", action="store_true", help="verify current import is reproducible")
     args = ap.parse_args()
     root = args.gromacs.resolve()
-    rev = subprocess.check_output(["git", "-C", str(root), "rev-parse", "v2026.4^{commit}"], text=True).strip()
-    if rev != PINNED:
-        raise SystemExit(f"expected tag v2026.4 at {PINNED}, found {rev}")
+    metadata = _provenance()
+    rev = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", f"{metadata['tag']}^{{commit}}"],
+        text=True).strip()
+    if rev != metadata["commit"]:
+        raise SystemExit(
+            f"expected {metadata['tag']} at {metadata['commit']}, found {rev}")
     out = args.output.resolve()
     astyle = args.astyle.resolve()
     options = args.options.resolve()
@@ -308,13 +359,14 @@ def main():
     if args.check:
         with tempfile.TemporaryDirectory(prefix="plumed-thread-mpi-check-") as tmp:
             generated = pathlib.Path(tmp) / "tree"
-            import_from(root, generated, astyle, options)
+            import_from(root, generated, astyle, options, metadata)
             if import_digest(generated) != import_digest(out):
                 raise SystemExit("reimport check failed: generated tree differs from checked-in import")
-        print(f"reimport check passed for {PINNED}")
+        print(f"reimport check passed for {metadata['commit']}")
     else:
-        import_from(root, out, astyle, options)
-        print(f"imported {len(SOURCE_CPP)} C++ files and {len(list(out.glob('*.h')))} headers from {PINNED}")
+        import_from(root, out, astyle, options, metadata)
+        print(f"imported {len(list(out.glob('*.cpp')))} C++ files and "
+              f"{len(list(out.glob('*.h')))} headers from {metadata['commit']}")
 
 
 if __name__ == "__main__":
