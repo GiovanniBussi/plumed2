@@ -172,9 +172,12 @@ int runMain(int argc,char **argv) {
 #endif
     p.cmd("CLTool run",&ret);
 // end block deletes p also in case an exception occurs
+  } catch(const std::exception &error) {
+    std::fprintf(stderr,"ERROR: %s\n",error.what());
+    ret=1;
   } catch(...) {
-// exception is rethrown to the process boundary
-    throw;
+    std::fprintf(stderr,"ERROR: unknown exception while running PLUMED\n");
+    ret=1;
   }
 
 #ifdef __PLUMED_HAS_MPI
