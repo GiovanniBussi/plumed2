@@ -12,8 +12,10 @@ const void *forwardedProvider() {
 #define __PLUMED_WRAPPER_MPI_PROVIDER() ::PLMD::forwardedProvider()
 #include "../wrapper/Plumed.h"
 
+namespace PLMD {
 extern "C" plumed_symbol_table_type *plumed_symbol_table_reexport() {
   return nullptr;
+}
 }
 
 int main(int argc, char **argv) {

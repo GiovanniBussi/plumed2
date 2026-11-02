@@ -25,6 +25,7 @@
 #include "lepton/Exception.h"
 #if defined(__PLUMED_MPIWRAP)
 #include "../mpiwrap/provider-registry.hpp"
+#include "../mpiwrap/provider-selection.h"
 #include "../mpiwrap/thread-mpi-launcher.hpp"
 #endif
 #include <cstdlib>
@@ -525,6 +526,16 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   error="MPI provider injection is unavailable in a fully serial kernel";
 #else
   try {
+    if(PLMD::mpiwrap_provider::forceEnvironmentProvider()) {
+#if defined(__PLUMED_HAS_DLOPEN)
+      // Successful installation normally transfers this reference to the
+      // registry. A troubleshooting override deliberately bypasses it.
+      if(provider_library) {
+        dlclose(provider_library);
+      }
+#endif
+      return 0;
+    }
     if(!descriptor) {
       error="null MPI provider descriptor";
     } else if(PLMD::mpiwrap_provider::currentRegistry().install(

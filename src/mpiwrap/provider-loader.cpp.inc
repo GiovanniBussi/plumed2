@@ -3,6 +3,8 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <mutex>
+#include "provider-selection.h"
 #if defined(__PLUMED_HAS_DLOPEN)
 #include "../config/Config.h"
 #include <dlfcn.h>
@@ -203,5 +205,37 @@ void installEnvironmentProvider(Registry &registry, const char *path) {
 }
 
 } // namespace
+
+bool forceEnvironmentProvider() {
+  const char *force = std::getenv("PLUMED_MPI_WRAPPER_FORCE");
+  if (!force || !force[0] || std::strcmp(force, "0") == 0) {
+    return false;
+  }
+  if (std::strcmp(force, "1") != 0) {
+    throw std::runtime_error("PLUMED_MPI_WRAPPER_FORCE must be 0 or 1");
+  }
+  const char *path = std::getenv("PLUMED_MPI_WRAPPER");
+  if (!path || !path[0]) {
+    throw std::runtime_error("PLUMED_MPI_WRAPPER_FORCE=1 requires PLUMED_MPI_WRAPPER");
+  }
+  static std::mutex selection_mutex;
+  static std::string forced_path;
+  std::lock_guard<std::mutex> lock(selection_mutex);
+  Registry &registry = currentRegistry();
+  if (!forced_path.empty()) {
+    if (forced_path != path) {
+      throw std::runtime_error("cannot change PLUMED_MPI_WRAPPER after forced provider installation");
+    }
+    return true;
+  }
+  if (registry.installed()) {
+    throw std::runtime_error("PLUMED_MPI_WRAPPER_FORCE must be set before MPI provider installation");
+  }
+  std::string selected_path(path);
+  installEnvironmentProvider(registry, path);
+  forced_path.swap(selected_path);
+  return true;
+}
+
 } // namespace mpiwrap_provider
 } // namespace PLMD
