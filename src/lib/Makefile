@@ -295,6 +295,9 @@ endif
 	$(MAKE) install-html
 # copy patches and scripts
 	cd ../../ ; tar cf - patches scripts | tar xf - -C "$(DESTDIR)$(libdir)/$(program_name)/"
+# Keep the standalone provider build usable without the original source tree.
+	mkdir -p "$(DESTDIR)$(libdir)/$(program_name)/src/mpiwrap"
+	cp ../mpiwrap/mpiwrap_implementation.cpp ../mpiwrap/mpiwrap_implementation.cpp.inc ../mpiwrap/provider-abi.h ../mpiwrap/provider-callbacks.h "$(DESTDIR)$(libdir)/$(program_name)/src/mpiwrap/"
 # copy Template.cpp file (we leave it in src/colvar/ for backward compatibility)
 	cp ../colvar/Template.cpp "$(DESTDIR)$(libdir)/$(program_name)/src/colvar/"
 # copy compile_options.sh file (we leave it in src/colvar/ for backward compatibility)
