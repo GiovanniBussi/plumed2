@@ -121,6 +121,15 @@ shared-library suffixes are never executed as compiler commands. The kernel
 retains the loaded provider library; temporary build files are removed after
 loading. This selection does not initialize the host MPI runtime.
 
+For troubleshooting, set `PLUMED_MPI_WRAPPER_FORCE=1` together with
+`PLUMED_MPI_WRAPPER` before any provider is installed. This makes that
+environment-selected provider take precedence over an incoming injection.
+Without the force flag, injection retains priority. An absent provider path,
+an invalid force value, or a late attempt to replace an installed provider
+raises an error. A bypassed injected library reference is released after the
+forced provider is installed successfully; failure leaves ownership with the
+caller. Already published callbacks are never replaced.
+
 ## Generated interface and runtime files
 
 All module files live directly in src/mpiwrap. The machine-readable inputs
