@@ -604,6 +604,69 @@ def render_native_header_check():
     ])
 
 
+def render_native_adapter_body(functions, constants, versions):
+    template = (DEVELOPMENT / "mpiwrap_implementation.cpp.inc.in").read_text()
+    implemented = [function for function in functions
+                   if function.get("native_adapter") == "implemented"]
+    function_rows = [
+        "#define PLUMED_MPIW_ENTRY(name, id, version, fn) { (uint32_t)sizeof(plumed_mpiw_function_entry), PLUMED_MPIW_FUNCTION_REQUIRED, #name, id, version, (plumed_mpiw_generic_fn)(fn) }",
+        "static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {",
+    ]
+    for index, function in enumerate(implemented):
+        name = function["name"]
+        route = function.get("provider_routes", {}).get("injected_real_mpi", {})
+        if route.get("status") == "unavailable" or function.get("callbacks"):
+            raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
+        if f"plumed_mpiw_{name}" not in template:
+            raise ValueError(f"{name}: native adapter marker lacks a typed implementation")
+        identifier = int(hashlib.sha256(name.encode("ascii")).hexdigest()[:8], 16)
+        comma = "," if index + 1 < len(implemented) else ""
+        function_rows.append(
+            f"  PLUMED_MPIW_ENTRY({name}, 0x{identifier:08x}u, {versions[name]}u, plumed_mpiw_{name}){comma}")
+    function_rows += ["};", "#undef PLUMED_MPIW_ENTRY"]
+
+    implemented_constants = [constant for constant in constants
+                             if constant.get("native_adapter") == "implemented"]
+    constant_impl = []
+    constant_accessors = []
+    for constant in implemented_constants:
+        name = constant["standard_api_name"]
+        category = constant["class"]
+        native_type = constant.get("native_type")
+        if not native_type:
+            raise ValueError(f"{name}: implemented native constant lacks native_type")
+        if name == "MPI_STATUS_IGNORE":
+            constant_impl.append(
+                "static int32_t plumed_mpiw_value_MPI_STATUS_IGNORE(void *out, uint32_t cap) {\n"
+                "  void *value = (void *)0; /* Normalize native status-ignore to wrapper null. */\n"
+                "  return plumed_mpiw_store_constant(out, cap, &value, sizeof(value));\n"
+                "}")
+        elif category == "provider_handle":
+            constant_impl.append(f"PLUMED_MPIW_HANDLE_CONSTANT({name}, {native_type})")
+        elif category in {"provider_integer", "compile_time_integer"}:
+            constant_impl.append(f"PLUMED_MPIW_INTEGER_CONSTANT({name})")
+        elif category in {"buffer_sentinel", "status_sentinel"}:
+            constant_impl.append(f"PLUMED_MPIW_POINTER_CONSTANT({name})")
+        else:
+            raise ValueError(f"{name}: unsupported native constant class {category}")
+        constant_accessors.append(
+            f"static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_{name} = &plumed_mpiw_value_{name};")
+    constant_metadata = [f"  PLUMED_MPIW_VALUE({constant['standard_api_name']})" +
+                         ("," if index + 1 < len(implemented_constants) else "")
+                         for index, constant in enumerate(implemented_constants)]
+    replacements = {
+        "/* PLUMED_MPIW_FUNCTION_ENTRIES */": "\n".join(function_rows),
+        "/* PLUMED_MPIW_CONSTANT_IMPLEMENTATIONS */": "\n".join(constant_impl),
+        "/* PLUMED_MPIW_CONSTANT_ACCESSORS */": "\n".join(constant_accessors),
+        "/* PLUMED_MPIW_CONSTANT_METADATA */": "\n".join(constant_metadata),
+    }
+    for marker, replacement in replacements.items():
+        if marker not in template:
+            raise ValueError(f"native adapter template missing {marker}")
+        template = template.replace(marker, replacement)
+    return template
+
+
 def generate(output, write=True):
     args_doc = json.loads((DEVELOPMENT / "argument-metadata.json").read_text())
     constants_doc = json.loads((DEVELOPMENT / "constant-metadata.json").read_text())
@@ -654,6 +717,8 @@ def generate(output, write=True):
         "provider-unavailable-functions.inc": render_provider_unavailable(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
         "native-adapter-entries.inc": native_rows,
+        "mpiwrap_implementation.cpp.inc": render_native_adapter_body(
+            functions, constants_doc["constants"], versions),
         "signature-ids.tsv": "function\tsignature_id\tsignature_version\tcanonical_type_sha256\n" + "".join(
             f"{function['name']}\t0x{int(hashlib.sha256(function['name'].encode('ascii')).hexdigest()[:8], 16):08x}\t{versions[function['name']]}\t{canonical_signature_fingerprint(function['signature'])}\n"
             for function in functions),

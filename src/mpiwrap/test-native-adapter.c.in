@@ -1,0 +1,100 @@
+/* Mock-native adapter semantics using the actual provider MPI header. */
+#include <mpi.h>
+#include "provider-abi.h"
+#include "provider-callbacks.h"
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
+#include "mpiwrap_implementation.cpp.inc"
+
+static int saw_status_ignore;
+static int saw_status_raw;
+
+int MPI_Comm_rank(MPI_Comm comm, int *rank) {
+  (void)comm;
+  *rank = 37;
+  return MPI_SUCCESS;
+}
+int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm) {
+  *newcomm = comm;
+  return MPI_SUCCESS;
+}
+int MPI_Initialized(int *flag) {
+  *flag = 1;
+  return MPI_SUCCESS;
+}
+int MPI_Wait(MPI_Request *request, MPI_Status *status) {
+  *request = MPI_REQUEST_NULL;
+  if (status == MPI_STATUS_IGNORE) {
+    saw_status_ignore = 1;
+  } else {
+    memset(status, 0, sizeof(*status));
+    status->MPI_SOURCE = 4;
+    status->MPI_TAG = 19;
+    saw_status_raw = 1;
+  }
+  return MPI_SUCCESS;
+}
+int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) {
+  (void)datatype;
+  assert(status->MPI_SOURCE == 4);
+  assert(status->MPI_TAG == 19);
+  *count = 23;
+  return MPI_SUCCESS;
+}
+
+int main(void) {
+  plumed_mpiw_handle_storage comm_storage = 0;
+  plumed_mpiw_handle_storage request_storage = 0;
+  plumed_mpiw_status status;
+  int32_t rank = -1;
+  int32_t initialized = -1;
+  int32_t count = -1;
+  MPI_Comm world = MPI_COMM_WORLD;
+  MPI_Request request = MPI_REQUEST_NULL;
+  MPI_Datatype datatype = MPI_INT;
+  MPI_Comm duplicate = MPI_COMM_NULL;
+  plumed_mpiw_constant_accessor_fn status_ignore_accessor = NULL;
+  void *status_ignore = (void *)1;
+  memset(&status, 0xa5, sizeof(status));
+  memcpy(&comm_storage, &world, sizeof(world));
+  assert(plumed_mpiw_MPI_Comm_rank(comm_storage, &rank) == MPI_SUCCESS);
+  assert(plumed_mpiw_MPI_Comm_dup(comm_storage, &request_storage) == MPI_SUCCESS);
+  memcpy(&duplicate, &request_storage, sizeof(duplicate));
+  assert(memcmp(&duplicate, &world, sizeof(world)) == 0);
+  /* Resolve by name, as the provider registry does. */
+  for (uint64_t i = 0; i < plumed_mpiw_descriptor.metadata_count; ++i) {
+    if (strcmp(plumed_mpiw_descriptor.metadata[i].name, "value:MPI_STATUS_IGNORE") == 0) {
+      memcpy(&status_ignore_accessor, plumed_mpiw_descriptor.metadata[i].value, sizeof(status_ignore_accessor));
+      break;
+    }
+  }
+  assert(status_ignore_accessor != NULL);
+#if defined(PLUMED_MPIW_EXPECT_NONNULL_STATUS_IGNORE)
+  assert(MPI_STATUS_IGNORE != NULL);
+#endif
+  assert(status_ignore_accessor(&status_ignore, sizeof(status_ignore)) == MPI_SUCCESS);
+  assert(status_ignore == NULL);
+  assert(rank == 37);
+  assert(plumed_mpiw_MPI_Initialized(&initialized) == MPI_SUCCESS);
+  assert(initialized == 1);
+  memcpy(&request_storage, &request, sizeof(request));
+  assert(plumed_mpiw_MPI_Wait(&request_storage, NULL) == MPI_SUCCESS);
+  assert(saw_status_ignore);
+  memcpy(&request_storage, &request, sizeof(request));
+  assert(plumed_mpiw_MPI_Wait(&request_storage, &status) == MPI_SUCCESS);
+  assert(saw_status_raw);
+  assert(status.raw_size == sizeof(MPI_Status));
+  assert(status.source == 4 && status.tag == 19 && status.error == 0);
+  status.raw_size = 0;
+  count = -1;
+  assert(plumed_mpiw_MPI_Get_count(&status, plumed_mpiw_export_bytes(&datatype, sizeof(datatype)), &count) == MPI_ERR_ARG);
+  assert(count == -1);
+  status.raw_size = (uint32_t)sizeof(MPI_Status);
+
+  assert(plumed_mpiw_MPI_Get_count(&status, plumed_mpiw_export_bytes(&datatype, sizeof(datatype)), &count) == MPI_SUCCESS);
+  assert(count == 23);
+  assert(plumed_mpiw_get_descriptor()->native_status_size == sizeof(MPI_Status));
+  assert(plumed_mpiw_get_descriptor()->native_comm_size == sizeof(MPI_Comm));
+  return 0;
+}
