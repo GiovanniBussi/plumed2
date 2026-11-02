@@ -4,7 +4,7 @@ set -eu
 gromacs_repo=${GROMACS_REPO:-/Users/bussi/plumed-codex/gromacs}
 work=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiw-layout-probe.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
-repo=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 
 cat > "$work/mpi-layout.cpp" <<'EOF'
 #include <mpi.h>
@@ -61,10 +61,10 @@ for provider in mpich openmpi; do
   fi
 done
 
-${CXX:-c++} -std=c++17 -Wall -Wextra "$repo/src/mpiwrap/development/probe-abi.cpp" \
-  -I"$repo/src/mpiwrap/development" -o "$work/probe-abi-cxx"
-${CC:-clang} -std=c11 -Wall -Wextra "$repo/src/mpiwrap/development/probe-abi-c.c" \
-  -I"$repo/src/mpiwrap/development" -o "$work/probe-abi-c"
+${CXX:-c++} -std=c++17 -Wall -Wextra -x c++ "$repo/src/mpiwrap/probe-abi.cpp.in" \
+  -I"$repo/src/mpiwrap" -o "$work/probe-abi-cxx"
+${CC:-clang} -std=c11 -Wall -Wextra -x c "$repo/src/mpiwrap/probe-abi-c.c.in" \
+  -I"$repo/src/mpiwrap" -o "$work/probe-abi-c"
 "$work/probe-abi-cxx" | sed -n -e '/^status /p' -e '/^descriptor /p' \
   -e '/^function-entry /p' -e '/^metadata-entry /p' -e '/^native-C-int /p' > "$work/layout-cxx.txt"
 "$work/probe-abi-c" > "$work/layout-c.txt"
