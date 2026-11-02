@@ -25,31 +25,31 @@ static_assert(std::is_same<int, std::int32_t>::value,
 
 thread_mpi::tMPI_Comm decode_comm(plumed_mpiw_handle_storage storage) {
   thread_mpi::tMPI_Comm native{};
-  std::memcpy(&native, &storage, sizeof(native));
+  std::memcpy(&native, storage.bytes, sizeof(native));
   return native;
 }
 
 thread_mpi::tMPI_Datatype decode_datatype(plumed_mpiw_handle_storage storage) {
   thread_mpi::tMPI_Datatype native{};
-  std::memcpy(&native, &storage, sizeof(native));
+  std::memcpy(&native, storage.bytes, sizeof(native));
   return native;
 }
 
 thread_mpi::tMPI_Op decode_op(plumed_mpiw_handle_storage storage) {
   thread_mpi::tMPI_Op native{};
-  std::memcpy(&native, &storage, sizeof(native));
+  std::memcpy(&native, storage.bytes, sizeof(native));
   return native;
 }
 
 thread_mpi::tMPI_Request decode_request(plumed_mpiw_handle_storage storage) {
   thread_mpi::tMPI_Request native{};
-  std::memcpy(&native, &storage, sizeof(native));
+  std::memcpy(&native, storage.bytes, sizeof(native));
   return native;
 }
 
 plumed_mpiw_handle_storage encode_request(thread_mpi::tMPI_Request request) {
-  plumed_mpiw_handle_storage storage = 0;
-  std::memcpy(&storage, &request, sizeof(request));
+  plumed_mpiw_handle_storage storage{};
+  std::memcpy(storage.bytes, &request, sizeof(request));
   return storage;
 }
 
@@ -201,8 +201,8 @@ std::int32_t comm_dup(plumed_mpiw_handle_storage comm,
   thread_mpi::tMPI_Comm native_newcomm{};
   const int result = thread_mpi::tMPI_Comm_dup(decode_comm(comm), &native_newcomm);
   if (result == thread_mpi::TMPI_SUCCESS) {
-    *newcomm = 0;
-    std::memcpy(newcomm, &native_newcomm, sizeof(native_newcomm));
+    std::memset(newcomm, 0, sizeof(*newcomm));
+    std::memcpy(newcomm->bytes, &native_newcomm, sizeof(native_newcomm));
   }
   return result;
 }
@@ -214,8 +214,8 @@ std::int32_t comm_free(plumed_mpiw_handle_storage *comm) {
   thread_mpi::tMPI_Comm native_comm = decode_comm(*comm);
   const int result = thread_mpi::tMPI_Comm_free(&native_comm);
   if (result == thread_mpi::TMPI_SUCCESS) {
-    *comm = 0;
-    std::memcpy(comm, &native_comm, sizeof(native_comm));
+    std::memset(comm, 0, sizeof(*comm));
+    std::memcpy(comm->bytes, &native_comm, sizeof(native_comm));
   }
   return result;
 }
@@ -230,8 +230,8 @@ std::int32_t comm_split(plumed_mpiw_handle_storage comm, std::int32_t color,
   const int result = thread_mpi::tMPI_Comm_split(
                        decode_comm(comm), color, key, &native_newcomm);
   if (result == thread_mpi::TMPI_SUCCESS) {
-    *newcomm = 0;
-    std::memcpy(newcomm, &native_newcomm, sizeof(native_newcomm));
+    std::memset(newcomm, 0, sizeof(*newcomm));
+    std::memcpy(newcomm->bytes, &native_newcomm, sizeof(native_newcomm));
   }
   return result;
 }
@@ -633,7 +633,7 @@ int32_t get_self(void *output, uint32_t capacity) {
   if (!output || capacity != sizeof(plumed_mpiw_handle_storage)) {
     return -1;
   }
-  plumed_mpiw_handle_storage storage = 0;
+  plumed_mpiw_handle_storage storage{};
   int initialized = 0;
   if (thread_mpi::tMPI_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
       !initialized) {
@@ -641,7 +641,7 @@ int32_t get_self(void *output, uint32_t capacity) {
     return 0;
   }
   const thread_mpi::tMPI_Comm value = thread_mpi::tMPI_Get_comm_self();
-  std::memcpy(&storage, &value, sizeof(value));
+  std::memcpy(storage.bytes, &value, sizeof(value));
   std::memcpy(output, &storage, sizeof(storage));
   return 0;
 }
@@ -654,9 +654,9 @@ int32_t exportHandle(void *output, uint32_t capacity, Handle value) {
       sizeof(Handle) > sizeof(plumed_mpiw_handle_storage)) {
     return -1;
   }
-  plumed_mpiw_handle_storage storage = 0;
+  plumed_mpiw_handle_storage storage{};
   if constexpr (!std::is_same<Handle, std::nullptr_t>::value) {
-    std::memcpy(&storage, &value, sizeof(value));
+    std::memcpy(storage.bytes, &value, sizeof(value));
   }
   std::memcpy(output, &storage, sizeof(storage));
   return 0;
@@ -811,7 +811,7 @@ static const plumed_mpiw_metadata_entry metadata[] = {
 };
 
 static const plumed_mpiw_provider_descriptor descriptor = {
-  sizeof(plumed_mpiw_provider_descriptor), 1, 0,
+  sizeof(plumed_mpiw_provider_descriptor), PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0,
   PLUMED_MPIW_RUNTIME_THREAD_MPI,
   0, {0, 0, 0, 0},
   sizeof(thread_mpi::tMPI_Comm), sizeof(thread_mpi::tMPI_Group),

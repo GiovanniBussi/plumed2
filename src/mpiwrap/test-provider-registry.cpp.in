@@ -16,7 +16,9 @@ namespace mpiwrap_provider_test {
 
 std::int32_t fakeRank(plumed_mpiw_handle_storage communicator,
                       std::int32_t *rank) {
-  *rank = static_cast<std::int32_t>(communicator + 42);
+  std::uint64_t value = 0;
+  std::memcpy(&value, communicator.bytes, sizeof(value));
+  *rank = static_cast<std::int32_t>(value + 42);
   return 0;
 }
 
@@ -30,7 +32,8 @@ std::int32_t fakeRankAlternative(plumed_mpiw_handle_storage,
 
 std::int32_t fakeOpCreate(plumed_mpiw_user_callback *,
                           std::int32_t, plumed_mpiw_handle_storage *operation) {
-  *operation = 17;
+  std::memset(operation, 0, sizeof(*operation));
+  operation->bytes[0] = 17;
   return 0;
 }
 
@@ -43,14 +46,14 @@ std::int32_t fakeSuccessConstant(void *output, std::uint32_t capacity) {
   return 0;
 }
 
-plumed_mpiw_handle_storage observed_datatype = 0;
+plumed_mpiw_handle_storage observed_datatype{};
 int observed_callback_length = 0;
 void fakeUserFunction(void *, void *, int *length, PLMD::MPI_Datatype *datatype) {
   observed_callback_length = *length;
   observed_datatype = datatype->storage;
 }
 
-plumed_mpiw_handle_storage observed_communicator = 0;
+plumed_mpiw_handle_storage observed_communicator{};
 int observed_error_code = 0;
 void fakeCommErrorHandler(PLMD::MPI_Comm *communicator, int *error_code, ...) {
   observed_communicator = communicator->storage;
@@ -62,7 +65,7 @@ plumed_mpiw_provider_descriptor makeDescriptor(
   plumed_mpiw_generic_fn rank_anchor) {
   plumed_mpiw_provider_descriptor descriptor{};
   descriptor.struct_size = sizeof(descriptor);
-  descriptor.abi_major = 1;
+  descriptor.abi_major = PLUMED_MPIW_PROVIDER_ABI_MAJOR;
   descriptor.abi_minor = 0;
   descriptor.runtime_kind = PLUMED_MPIW_RUNTIME_PROCESS_MPI;
   descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage);
@@ -111,6 +114,12 @@ int run() {
   late_provider.markObjectCreated();
   assert(!late_provider.install(&descriptor, error));
   assert(error.find("before the first PLUMED object") != std::string::npos);
+  plumed_mpiw_provider_descriptor legacy_integer_descriptor = descriptor;
+  legacy_integer_descriptor.abi_major = 1;
+  error.clear();
+  assert(!registry.install(&legacy_integer_descriptor, error));
+  assert(error.find("ABI major") != std::string::npos);
+  assert(!registry.installed());
   error.clear();
   descriptor.native_comm_size = sizeof(plumed_mpiw_handle_storage) + 1;
   assert(!registry.install(&descriptor, error));
@@ -136,16 +145,20 @@ int run() {
                           "MPI_Comm_rank", UINT32_C(0x4e7672aa), 1);
   assert(callback);
   std::int32_t rank = -1;
-  assert(callback(7, &rank) == 0);
+  plumed_mpiw_handle_storage rank_comm{};
+  const std::uint64_t rank_comm_value = 7;
+  std::memcpy(rank_comm.bytes, &rank_comm_value, sizeof(rank_comm_value));
+  assert(callback(rank_comm, &rank) == 0);
   assert(rank == 49);
   assert(registry.bindings().MPI_Comm_rank_pointer == callback);
   const std::uint64_t raw_communicator = UINT64_C(0x12345678);
   const PLMD::MPI_Comm imported = PLMD::mpiwrap_provider::importComm(
                                     registry, &raw_communicator);
-  assert(imported.storage == raw_communicator);
-  plumed_mpiw_handle_storage exported = 0;
+  assert(std::memcmp(imported.storage.bytes, &raw_communicator,
+                     sizeof(raw_communicator)) == 0);
+  plumed_mpiw_handle_storage exported{};
   assert(PLMD::mpiwrap_provider::exportComm(registry, imported, &exported));
-  assert(exported == imported.storage);
+  assert(std::memcmp(&exported, &imported.storage, sizeof(exported)) == 0);
   plumed_mpiw_provider_descriptor mpich_descriptor = descriptor;
   mpich_descriptor.native_comm_size = sizeof(std::uint32_t);
   Registry mpich_registry;
@@ -153,7 +166,8 @@ int run() {
   const std::uint32_t mpich_communicator = UINT32_C(0x1234abcd);
   const PLMD::MPI_Comm imported_mpich = PLMD::mpiwrap_provider::importComm(
                                           mpich_registry, &mpich_communicator);
-  assert(imported_mpich.storage == mpich_communicator);
+  assert(std::memcmp(imported_mpich.storage.bytes, &mpich_communicator,
+                     sizeof(mpich_communicator)) == 0);
   std::uint32_t forwarded_mpich_communicator = 0;
   std::memcpy(&forwarded_mpich_communicator, &imported_mpich,
               mpich_registry.nativeCommSize());
@@ -191,7 +205,7 @@ int run() {
                            &fakeRankAlternative);
   assert(registry.install(&conflict, error));
   rank = -1;
-  assert(callback(7, &rank) == 0);
+  assert(callback(rank_comm, &rank) == 0);
   assert(rank == 49);  // Equivalent adapter thunk does not replace published code.
 
   plumed_mpiw_function_entry mismatched_entry = valid_entry;
@@ -278,29 +292,37 @@ int run() {
                               sizeof(wrong_constant_size)));
   const auto op_create = callbacks.function<plumed_mpiw_MPI_Op_create_fn>(
                            "MPI_Op_create", UINT32_C(0x891a52d1), 2);
-  plumed_mpiw_handle_storage operation = 0;
-  assert(op_create(nullptr, 1, &operation) == 0 && operation == 17);
+  plumed_mpiw_handle_storage operation{};
+  assert(op_create(nullptr, 1, &operation) == 0 && operation.bytes[0] == 17);
 
   const auto callback_record = PLMD::mpiwrap_provider::make_user_callback(
                                  &fakeUserFunction);
   const std::uint32_t mpich_datatype = UINT32_C(0x1234abcd);
-  std::uint64_t imported_mpich_datatype = 0;
-  std::memcpy(&imported_mpich_datatype, &mpich_datatype, sizeof(mpich_datatype));
+  plumed_mpiw_handle_storage imported_mpich_datatype{};
+  std::memcpy(imported_mpich_datatype.bytes, &mpich_datatype, sizeof(mpich_datatype));
   callback_record.invoke(callback_record.function, nullptr, nullptr, 3,
                          imported_mpich_datatype);
-  assert(observed_datatype == imported_mpich_datatype);
+  assert(std::memcmp(&observed_datatype, &imported_mpich_datatype,
+                     sizeof(observed_datatype)) == 0);
   assert(observed_callback_length == 3);
-  const std::uint64_t openmpi_datatype = UINT64_C(0x123456789abcdef0);
+  plumed_mpiw_handle_storage openmpi_datatype{};
+  const std::uint64_t openmpi_value = UINT64_C(0x123456789abcdef0);
+  std::memcpy(openmpi_datatype.bytes, &openmpi_value, sizeof(openmpi_value));
   callback_record.invoke(callback_record.function, nullptr, nullptr, 5,
                          openmpi_datatype);
-  assert(observed_datatype == openmpi_datatype);
+  assert(std::memcmp(&observed_datatype, &openmpi_datatype,
+                     sizeof(observed_datatype)) == 0);
   assert(observed_callback_length == 5);
 
   const auto error_callback_record =
     PLMD::mpiwrap_provider::make_comm_errhandler_callback(&fakeCommErrorHandler);
+  plumed_mpiw_handle_storage error_comm{};
+  const std::uint64_t error_comm_value = UINT64_C(0x87654321);
+  std::memcpy(error_comm.bytes, &error_comm_value, sizeof(error_comm_value));
   error_callback_record.invoke(error_callback_record.function,
-                               UINT64_C(0x87654321), 9);
-  assert(observed_communicator == UINT64_C(0x87654321));
+                               error_comm, 9);
+  assert(std::memcmp(&observed_communicator, &error_comm,
+                     sizeof(error_comm)) == 0);
   assert(observed_error_code == 9);
 
   plumed_mpiw_metadata_entry invalid_metadata[] = {

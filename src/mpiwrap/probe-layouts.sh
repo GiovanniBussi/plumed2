@@ -66,7 +66,8 @@ ${CXX:-c++} -std=c++17 -Wall -Wextra -x c++ "$repo/src/mpiwrap/probe-abi.cpp.in"
 ${CC:-clang} -std=c11 -Wall -Wextra -x c "$repo/src/mpiwrap/probe-abi-c.c.in" \
   -I"$repo/src/mpiwrap" -o "$work/probe-abi-c"
 "$work/probe-abi-cxx" | sed -n -e '/^status /p' -e '/^descriptor /p' \
-  -e '/^function-entry /p' -e '/^metadata-entry /p' -e '/^native-C-int /p' > "$work/layout-cxx.txt"
+  -e '/^function-entry /p' -e '/^metadata-entry /p' -e '/^native-C-int /p' \
+  -e '/^pointer=/p' > "$work/layout-cxx.txt"
 "$work/probe-abi-c" > "$work/layout-c.txt"
 diff -u "$work/layout-c.txt" "$work/layout-cxx.txt"
 echo "[provider-abi] C11 and C++17 descriptor layouts match"

@@ -116,7 +116,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
   if (descriptor->struct_size < sizeof(*descriptor)) {
     return setError(error, "MPI provider descriptor is shorter than the required ABI prefix");
   }
-  if (descriptor->abi_major != 1) {
+  if (descriptor->abi_major != PLUMED_MPIW_PROVIDER_ABI_MAJOR) {
     return setError(error, "unsupported MPI provider ABI major");
   }
   if (descriptor->runtime_kind != PLUMED_MPIW_RUNTIME_PROCESS_MPI &&
@@ -141,7 +141,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
   for (std::size_t i = 0; i < sizeof(handle_sizes) / sizeof(handle_sizes[0]); ++i) {
     if (handle_sizes[i] == 0 || handle_sizes[i] > sizeof(plumed_mpiw_handle_storage)) {
       return setError(error, std::string("MPI provider native ") + handle_names[i] +
-                      " handle exceeds configured integer storage");
+                      " handle exceeds configured byte storage");
     }
   }
   if (descriptor->native_status_size == 0 ||

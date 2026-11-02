@@ -65,19 +65,28 @@ void rank_work(const void *) {
       imported_rank != rank || imported_size != size) {
     failures.fetch_add(1);
   }
-  if (!float_type.storage || !double_type.storage || !char_type.storage ||
-      !unsigned_type.storage || !unsigned_long_type.storage ||
-      !unsigned_long_long_type.storage || !long_double_type.storage ||
-      null_comm.storage != 0 || ignore_status != nullptr || product == sum ||
+  if (mpiwrap_handle_storage_is_zero(float_type.storage) ||
+      mpiwrap_handle_storage_is_zero(double_type.storage) ||
+      mpiwrap_handle_storage_is_zero(char_type.storage) ||
+      mpiwrap_handle_storage_is_zero(unsigned_type.storage) ||
+      mpiwrap_handle_storage_is_zero(unsigned_long_type.storage) ||
+      mpiwrap_handle_storage_is_zero(unsigned_long_long_type.storage) ||
+      mpiwrap_handle_storage_is_zero(long_double_type.storage) ||
+      !mpiwrap_handle_storage_is_zero(null_comm.storage) || ignore_status != nullptr || product == sum ||
       maximum == minimum || mpiwrap_ANY_SOURCE() != -1 ||
       mpiwrap_ANY_TAG() != -1) {
-    std::cerr << "rank " << rank << " provider constants failed: null="
-              << null_comm.storage << " status-ignore=" << ignore_status
-              << " type-handles=" << float_type.storage << ',' << double_type.storage
-              << ',' << char_type.storage << ',' << unsigned_type.storage << ','
-              << unsigned_long_type.storage << ',' << unsigned_long_long_type.storage
-              << ',' << long_double_type.storage << " op-handles=" << product.storage
-              << ',' << maximum.storage << ',' << minimum.storage
+    std::cerr << "rank " << rank << " provider constants failed: null-byte="
+              << static_cast<unsigned>(null_comm.storage.bytes[0]) << " status-ignore=" << ignore_status
+              << " type-handle-bytes=" << static_cast<unsigned>(float_type.storage.bytes[0]) << ','
+              << static_cast<unsigned>(double_type.storage.bytes[0])
+              << ',' << static_cast<unsigned>(char_type.storage.bytes[0]) << ','
+              << static_cast<unsigned>(unsigned_type.storage.bytes[0]) << ','
+              << static_cast<unsigned>(unsigned_long_type.storage.bytes[0]) << ','
+              << static_cast<unsigned>(unsigned_long_long_type.storage.bytes[0])
+              << ',' << static_cast<unsigned>(long_double_type.storage.bytes[0])
+              << " op-handle-bytes=" << static_cast<unsigned>(product.storage.bytes[0])
+              << ',' << static_cast<unsigned>(maximum.storage.bytes[0]) << ','
+              << static_cast<unsigned>(minimum.storage.bytes[0])
               << " any-source=" << mpiwrap_ANY_SOURCE()
               << " any-tag=" << mpiwrap_ANY_TAG() << '\n';
     failures.fetch_add(1);
@@ -362,17 +371,21 @@ void rank_work(const void *) {
                     &waitall_requests[3]) != thread_mpi::TMPI_SUCCESS ||
       mpiwrap_Waitall(4, waitall_requests, waitall_statuses) !=
       thread_mpi::TMPI_SUCCESS || waitall_recv0 != previous + 81 ||
-      waitall_recv1 != previous + 91 || waitall_requests[0].storage != 0 ||
-      waitall_requests[1].storage != 0 || waitall_requests[2].storage != 0 ||
-      waitall_requests[3].storage != 0 ||
+      waitall_recv1 != previous + 91 ||
+      !mpiwrap_handle_storage_is_zero(waitall_requests[0].storage) ||
+      !mpiwrap_handle_storage_is_zero(waitall_requests[1].storage) ||
+      !mpiwrap_handle_storage_is_zero(waitall_requests[2].storage) ||
+      !mpiwrap_handle_storage_is_zero(waitall_requests[3].storage) ||
       waitall_statuses[0].MPI_SOURCE != previous ||
       waitall_statuses[0].MPI_TAG != 76 ||
       waitall_statuses[1].MPI_SOURCE != previous ||
       waitall_statuses[1].MPI_TAG != 77) {
     std::cerr << "rank " << rank << " Waitall array semantics failed: received="
               << waitall_recv0 << ',' << waitall_recv1 << " requests="
-              << waitall_requests[0].storage << ',' << waitall_requests[1].storage
-              << ',' << waitall_requests[2].storage << ',' << waitall_requests[3].storage
+              << static_cast<unsigned>(waitall_requests[0].storage.bytes[0]) << ','
+              << static_cast<unsigned>(waitall_requests[1].storage.bytes[0]) << ','
+              << static_cast<unsigned>(waitall_requests[2].storage.bytes[0]) << ','
+              << static_cast<unsigned>(waitall_requests[3].storage.bytes[0])
               << " statuses=" << waitall_statuses[0].MPI_SOURCE << ':'
               << waitall_statuses[0].MPI_TAG << ',' << waitall_statuses[1].MPI_SOURCE
               << ':' << waitall_statuses[1].MPI_TAG << '\n';
@@ -400,7 +413,8 @@ void rank_work(const void *) {
     bool seen_some_requests[2] = {false, false};
     int total_some_completed = 0;
     int some_attempts = 0;
-    while ((some_requests[0].storage || some_requests[1].storage) &&
+    while ((!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
+            !mpiwrap_handle_storage_is_zero(some_requests[1].storage)) &&
            some_attempts++ < 100000) {
       if (mpiwrap_Testsome(2, some_requests, &some_outcount, some_indices,
                            some_statuses) != thread_mpi::TMPI_SUCCESS) {
@@ -435,7 +449,8 @@ void rank_work(const void *) {
     if (some_received0 != previous + 101 || some_received1 != previous + 102) {
       failures.fetch_add(1);
     }
-    if (some_requests[0].storage || some_requests[1].storage ||
+    if (!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
+        !mpiwrap_handle_storage_is_zero(some_requests[1].storage) ||
         some_statuses[0].raw_size == 0 || some_statuses[1].raw_size == 0) {
       failures.fetch_add(1);
     }
@@ -457,7 +472,8 @@ void rank_work(const void *) {
     failures.fetch_add(1);
     std::cerr << "rank " << rank << " Waitsome failed: outcount=" << wait_some_outcount
               << " requests="
-              << wait_some_requests[0].storage << ',' << wait_some_requests[1].storage
+              << static_cast<unsigned>(wait_some_requests[0].storage.bytes[0]) << ','
+              << static_cast<unsigned>(wait_some_requests[1].storage.bytes[0])
               << '\n';
   } else {
     bool receive_completed_by_some = false;
@@ -480,7 +496,8 @@ void rank_work(const void *) {
                 << ',' << wait_some_statuses[1].MPI_SOURCE << ':'
                 << wait_some_statuses[1].MPI_TAG << '\n';
     }
-    if (wait_some_requests[0].storage || wait_some_requests[1].storage) {
+    if (!mpiwrap_handle_storage_is_zero(wait_some_requests[0].storage) ||
+        !mpiwrap_handle_storage_is_zero(wait_some_requests[1].storage)) {
       MPI_Status remaining_statuses[2] {};
       if (mpiwrap_Waitall(2, wait_some_requests, remaining_statuses) !=
           thread_mpi::TMPI_SUCCESS) {
@@ -540,9 +557,10 @@ int run(int ranks) {
     return 1;
   }
   MPI_Comm imported_world = mpiwrap_Comm_from_native(&thread_mpi::TMPI_COMM_WORLD);
-  plumed_mpiw_handle_storage exported_world = 0;
+  plumed_mpiw_handle_storage exported_world{};
   if (!mpiwrap_Comm_export_storage(imported_world, &exported_world) ||
-      exported_world != imported_world.storage) {
+      std::memcmp(&exported_world, &imported_world.storage,
+                  sizeof(exported_world)) != 0) {
     std::cerr << "public native communicator import/export failed\n";
     return 1;
   }
@@ -553,7 +571,7 @@ int run(int ranks) {
                                  sizeof(native_world))) {
     native_roundtrip = mpiwrap_Comm_from_native(native_world);
   }
-  if (native_roundtrip.storage != imported_world.storage) {
+  if (native_roundtrip != imported_world) {
     std::cerr << "public native communicator byte export/import failed\n";
     return 1;
   }
