@@ -23,8 +23,10 @@
 #include "PlumedMain.h"
 #include "tools/Exception.h"
 #include "lepton/Exception.h"
+#if defined(__PLUMED_MPIWRAP)
 #include "../mpiwrap/runtime/provider-registry.hpp"
 #include "../mpiwrap/runtime/thread-mpi-launcher.hpp"
+#endif
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -513,7 +515,12 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   std::string error;
 #if defined(__PLUMED_HAS_MPI)
   (void) descriptor;
+  (void) provider_library;
   error="MPI provider injection is disabled in native-MPI kernels";
+#elif !defined(__PLUMED_MPIWRAP)
+  (void) descriptor;
+  (void) provider_library;
+  error="MPI provider injection is unavailable in a fully serial kernel";
 #else
   try {
     if(!descriptor) {
@@ -542,8 +549,24 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
 extern "C" int plumed_plumedmain_launch_internal_threads(
   int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
   int (*report)(void*,int,const char*,const char*), void*report_context) {
+#if defined(__PLUMED_HAS_THREAD_MPI)
   return PLMD::mpiwrap_provider::launchInternalThreadMPI(
            ranks, callback, callback_context, result, report, report_context);
+#else
+  (void) ranks;
+  (void) callback;
+  (void) callback_context;
+  (void) result;
+  if(report) {
+    try {
+      report(report_context,1,"plumed_kernel_launch_internal_threads",
+             "internal thread-MPI support is disabled in this build");
+    } catch(...) {
+      // A C error callback must not unwind through the kernel boundary.
+    }
+  }
+  return 1;
+#endif
 }
 
 // values here should be consistent with those in plumed_symbol_table_init !!!!

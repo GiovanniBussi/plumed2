@@ -100,7 +100,22 @@ if test -z "$mpi" ; then
 fi
 mpi="$mpi -np $mpiprocs"
 
-if ! $plumed_nompi config -q has mpi
+real_mpi_config=$($plumed_nompi config has real_mpi 2>/dev/null || true)
+if [[ "$real_mpi_config" = *"real_mpi on"* ]]; then
+  has_real_mpi=yes
+elif [[ "$real_mpi_config" = *"real_mpi off"* ]]; then
+  has_real_mpi=no
+else
+  # Older executables do not report real_mpi separately; preserve their
+  # historical has-mpi query, which represented native MPI.
+  if $plumed_nompi config -q has mpi ; then
+    has_real_mpi=yes
+  else
+    has_real_mpi=no
+  fi
+fi
+
+if [[ "$has_real_mpi" = no ]]
 then
   if [[ "$type" = driver && "$plumed_thread_mpi" = no ]] && $plumed_nompi --has-thread-mpi ; then
     if [[ "${plumed_chdir:-no}" = yes ]]; then
