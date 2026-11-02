@@ -1328,7 +1328,7 @@
           "registration": "returned handler retains callback until handler and all communicator attachments are released according to MPI; exceptions must never unwind across the C callback boundary",
           "provider_handle_conversion": "comm is a pointer to a native communicator local; convert around callback invocation",
           "required_bridge": "exact variadic typed trampoline plus callback registry and native ownership tracking",
-          "provider_mode": "unavailable for injected providers initially; custom tMPI registration explicitly unavailable because its callback is void(tMPI_Comm *, int *) and registration expects pointer-to-function-pointer"
+          "provider_mode": "initially unavailable in all generated providers by owner decision; future draft-based support requires typed native trampolines and safe registration lifetime"
         }
       ],
       "provider_behavior": "native MPI direct; injected real-MPI provider may supply a supported entry; internal tMPI unavailable: custom error handlers are explicitly unavailable for provider mode; tMPI callback ABI differs and has no safe bridge",
@@ -1345,8 +1345,8 @@
           "status": "callback-bridge-required",
           "native_callback": "exact MPI-5 callback type must be restored before invocation",
           "provider_trampoline": "typed adapter trampoline required; callback context and native handle pointer conversion are scoped to active registrations",
-          "before_step4": "report unavailable; never cast and invoke through an incompatible function-pointer type",
-          "missing": "throw unavailable-function exception"
+          "missing": "throw unavailable-function exception",
+          "initial_scope": "Owner-approved deferral: unavailable in all generated providers initially; retain clear unavailable-function exceptions. Future support may build on mpiw_old_draft after preserving standard callback types and solving registration lifetime."
         },
         "semantic_test": "thread-mpi-error-handler-unavailable"
       }
@@ -4312,7 +4312,7 @@
           "registration": "callback can be invoked during reductions until the operation handle is freed; caller must keep callback code and context alive through MPI_Op_free",
           "provider_handle_conversion": "datatype pointer denotes a native callback-local MPI_Datatype; convert to wrapper storage only while callback is in progress",
           "required_bridge": "exactly typed trampoline and callback registry/lifetime handling; do not transport/invoke generic function pointer directly",
-          "provider_mode": "unavailable until safe callback bridge is implemented"
+          "provider_mode": "initially unavailable in all generated providers by owner decision; future draft-based support requires typed native trampolines and safe registration lifetime"
         }
       ],
       "provider_behavior": "native MPI direct; injected real-MPI provider may supply a supported entry; internal tMPI unavailable: custom reduction callbacks are unavailable until a typed trampoline and lifetime bridge exists",
@@ -4329,8 +4329,8 @@
           "status": "callback-bridge-required",
           "native_callback": "exact MPI-5 callback type must be restored before invocation",
           "provider_trampoline": "typed adapter trampoline required; callback context and native handle pointer conversion are scoped to active registrations",
-          "before_step4": "report unavailable; never cast and invoke through an incompatible function-pointer type",
-          "missing": "throw unavailable-function exception"
+          "missing": "throw unavailable-function exception",
+          "initial_scope": "Owner-approved deferral: unavailable in all generated providers initially; retain clear unavailable-function exceptions. Future support may build on mpiw_old_draft after preserving standard callback types and solving registration lifetime."
         },
         "semantic_test": "dedicated MPI-1 API test required if retained"
       }
