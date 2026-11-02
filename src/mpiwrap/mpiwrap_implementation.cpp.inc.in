@@ -246,6 +246,7 @@ static plumed_mpiw_handle_storage plumed_mpiw_MPI_Comm_f2c(int32_t comm) {
 
 
 /* PLUMED_MPIW_GENERATED_FUNCTIONS */
+/* PLUMED_MPIW_TYPED_FUNCTION_CHECKS */
 /* PLUMED_MPIW_FUNCTION_ENTRIES */
 
 static int32_t plumed_mpiw_store_constant(void *output, uint32_t capacity, const void *value, size_t size) {
@@ -295,5 +296,6 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 #undef PLUMED_MPIW_VALUE
 #undef PLUMED_MPIW_ENTRY
 static inline const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
+  plumed_mpiw_verify_typed_functions();
   return &plumed_mpiw_descriptor;
 }
