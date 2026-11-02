@@ -45,10 +45,13 @@ generic carrier via byte copying and are restored to their exact typed
 signature before invocation. Integer values use explicit fixed-width and native
 conversion.
 
-PLUMED_MPIW_HANDLE_TYPE defaults to uintptr_t, and
-PLUMED_MPIW_STATUS_CAPACITY defaults to 128 bytes. Providers must fit those
-configured representations, and installation validates the capacities and
-native scalar metadata before publishing callbacks. The frontend signatures
+PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *)); builds may
+override it with a positive byte count. Handle storage is a zero-filled
+byte-array POD, and provider ABI major 2 rejects older integer-storage ABI 1
+descriptors before reading their function entries. PLUMED_MPIW_STATUS_CAPACITY
+defaults to 128 bytes. Providers must fit those configured representations,
+and installation validates the capacities and native scalar metadata before
+publishing callbacks. The frontend signatures
 follow MPI-5 const correctness. The native adapter keeps any compatibility
 cast for older native headers local to an input-only MPI call; callback types
 and writable arguments retain their exact types.

@@ -5,8 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef PLUMED_MPIW_HANDLE_TYPE
-#define PLUMED_MPIW_HANDLE_TYPE uintptr_t
+#ifndef PLUMED_MPIW_HANDLE_CAPACITY
+#define PLUMED_MPIW_HANDLE_CAPACITY ((sizeof(void *) > 8U) ? sizeof(void *) : 8U)
 #endif
 #ifndef PLUMED_MPIW_STATUS_CAPACITY
 #define PLUMED_MPIW_STATUS_CAPACITY 128
@@ -17,7 +17,12 @@
 #define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
 #endif
 
-typedef PLUMED_MPIW_HANDLE_TYPE plumed_mpiw_handle_storage;
+/* Native handle bytes occupy this zero-initialized, byte-addressable prefix. */
+typedef struct {
+  unsigned char bytes[PLUMED_MPIW_HANDLE_CAPACITY];
+} plumed_mpiw_handle_storage;
+
+#define PLUMED_MPIW_PROVIDER_ABI_MAJOR UINT32_C(2)
 
 #define PLUMED_MPIW_FUNCTION_REQUIRED UINT32_C(1)
 #define PLUMED_MPIW_METADATA_REQUIRED UINT32_C(1)

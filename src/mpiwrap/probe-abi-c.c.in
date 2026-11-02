@@ -24,6 +24,9 @@ int main(void) {
          offsetof(plumed_mpiw_metadata_entry, name),
          offsetof(plumed_mpiw_metadata_entry, value_size),
          offsetof(plumed_mpiw_metadata_entry, value));
+  printf("pointer=%zu wrapper-handle=%zu handle-capacity=%zu wrapper-status-capacity=%u\n",
+         sizeof(void *), sizeof(plumed_mpiw_handle_storage),
+         (size_t)PLUMED_MPIW_HANDLE_CAPACITY, 128U);
   printf("native-C-int sizeof=%zu signed=%d MPI_Fint metadata=provider-reported\n",
          sizeof(int), ((int)-1 < 0) ? 1 : 0);
   return 0;

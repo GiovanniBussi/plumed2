@@ -37,10 +37,10 @@ static int waitall_result;
 static int testall_result;
 
 static void assert_request_null(plumed_mpiw_handle_storage storage) {
-  plumed_mpiw_handle_storage expected = 0;
+  plumed_mpiw_handle_storage expected = { { 0 } };
   MPI_Request request = MPI_REQUEST_NULL;
-  memcpy(&expected, &request, sizeof(request));
-  assert(storage == expected);
+  memcpy(expected.bytes, &request, sizeof(request));
+  assert(memcmp(&storage, &expected, sizeof(storage)) == 0);
 }
 
 int MPI_Comm_rank(MPI_Comm comm, int *rank) {
@@ -169,8 +169,8 @@ int MPI_Testany(int count, MPI_Request array_of_requests[], int *indx, int *flag
 }
 
 int main(void) {
-  plumed_mpiw_handle_storage comm_storage = 0;
-  plumed_mpiw_handle_storage request_storage = 0;
+  plumed_mpiw_handle_storage comm_storage = { { 0 } };
+  plumed_mpiw_handle_storage request_storage = { { 0 } };
   plumed_mpiw_status status;
   int32_t rank = -1;
   int32_t initialized = -1;
@@ -182,7 +182,7 @@ int main(void) {
   MPI_Comm duplicate = MPI_COMM_NULL;
   plumed_mpiw_constant_accessor_fn status_ignore_accessor = NULL;
   void *status_ignore = (void *)1;
-  plumed_mpiw_handle_storage request_array[3] = {0, 0, 0};
+  plumed_mpiw_handle_storage request_array[3] = {{{0}}, {{0}}, {{0}}};
   plumed_mpiw_status statuses[3];
   plumed_mpiw_status two_statuses[2];
   int32_t indices[3] = {-7, -7, -7};
@@ -202,7 +202,7 @@ int main(void) {
   plumed_mpiw_status ignored_status_before;
   MPI_Group group = MPI_GROUP_EMPTY;
   plumed_mpiw_handle_storage group_storage;
-  plumed_mpiw_handle_storage newgroup_storage = 0;
+  plumed_mpiw_handle_storage newgroup_storage = { { 0 } };
   int32_t ranges[2][3] = {{0, 6, 2}, {3, 9, -1}};
   memset(&status, 0xa5, sizeof(status));
   memcpy(&comm_storage, &world, sizeof(world));
@@ -264,7 +264,7 @@ int main(void) {
   assert(statuses[1].raw_size == UINT32_C(0x5a5a5a5a));
   waitsome_result = MPI_SUCCESS;
 
-  request_array[0] = request_array[1] = 0;
+  memset(request_array, 0, 2 * sizeof(request_array[0]));
   memset(two_statuses, 0xa5, sizeof(two_statuses));
   assert(plumed_mpiw_MPI_Waitall(2, request_array, two_statuses) == waitall_result);
   assert_request_null(request_array[0]);
@@ -273,13 +273,13 @@ int main(void) {
   assert(two_statuses[1].raw_size == sizeof(MPI_Status));
 
   waitall_result = MPI_ERR_IN_STATUS;
-  request_array[0] = request_array[1] = 0;
+  memset(request_array, 0, 2 * sizeof(request_array[0]));
   memset(two_statuses, 0, sizeof(two_statuses));
   assert(plumed_mpiw_MPI_Waitall(2, request_array, two_statuses) == MPI_ERR_IN_STATUS);
   assert(two_statuses[0].source == 12 && two_statuses[0].tag == 34);
   waitall_result = MPI_SUCCESS;
 
-  request_array[0] = request_array[1] = 0;
+  memset(request_array, 0, 2 * sizeof(request_array[0]));
   memset(two_statuses, 0x5a, sizeof(two_statuses));
   assert(plumed_mpiw_MPI_Testall(2, request_array, &flag, two_statuses) == MPI_SUCCESS);
   assert(flag == 0);
@@ -288,7 +288,7 @@ int main(void) {
   assert(two_statuses[0].raw_size == UINT32_C(0x5a5a5a5a));
 
   testall_result = MPI_ERR_IN_STATUS;
-  request_array[0] = request_array[1] = 0;
+  memset(request_array, 0, 2 * sizeof(request_array[0]));
   memset(two_statuses, 0, sizeof(two_statuses));
   flag = -1;
   assert(plumed_mpiw_MPI_Testall(2, request_array, &flag, two_statuses) == MPI_ERR_IN_STATUS);

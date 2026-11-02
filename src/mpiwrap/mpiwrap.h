@@ -24,8 +24,8 @@ inline bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_stora
   if constexpr (sizeof(MPI_Comm) > sizeof(plumed_mpiw_handle_storage)) {
     return false;
   }
-  *storage = 0;
-  std::memcpy(storage, &value, sizeof(value));
+  std::memset(storage, 0, sizeof(*storage));
+  std::memcpy(storage->bytes, &value, sizeof(value));
   return true;
 }
 inline bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity) {
@@ -89,7 +89,7 @@ namespace PLMD {
 struct MPI_Comm {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Comm &a, const MPI_Comm &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Comm &a, const MPI_Comm &b) {
     return !(a == b);
@@ -99,12 +99,11 @@ static_assert(std::is_trivial<MPI_Comm>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Comm>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Comm, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Comm) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Datatype {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Datatype &a, const MPI_Datatype &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Datatype &a, const MPI_Datatype &b) {
     return !(a == b);
@@ -114,12 +113,11 @@ static_assert(std::is_trivial<MPI_Datatype>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Datatype>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Datatype, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Datatype) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Errhandler {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Errhandler &a, const MPI_Errhandler &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Errhandler &a, const MPI_Errhandler &b) {
     return !(a == b);
@@ -129,12 +127,11 @@ static_assert(std::is_trivial<MPI_Errhandler>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Errhandler>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Errhandler, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Errhandler) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Group {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Group &a, const MPI_Group &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Group &a, const MPI_Group &b) {
     return !(a == b);
@@ -144,12 +141,11 @@ static_assert(std::is_trivial<MPI_Group>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Group>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Group, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Group) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Op {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Op &a, const MPI_Op &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Op &a, const MPI_Op &b) {
     return !(a == b);
@@ -159,12 +155,11 @@ static_assert(std::is_trivial<MPI_Op>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Op>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Op, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Op) == sizeof(plumed_mpiw_handle_storage), "handle storage");
 struct MPI_Request {
   plumed_mpiw_handle_storage storage;
   friend bool operator==(const MPI_Request &a, const MPI_Request &b) {
-    return a.storage == b.storage;
+    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Request &a, const MPI_Request &b) {
     return !(a == b);
@@ -174,8 +169,14 @@ static_assert(std::is_trivial<MPI_Request>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Request>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Request, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, "unsigned handle storage");
 static_assert(sizeof(MPI_Request) == sizeof(plumed_mpiw_handle_storage), "handle storage");
+inline bool mpiwrap_handle_storage_is_zero(const plumed_mpiw_handle_storage &value) {
+  for (std::size_t i = 0; i < sizeof(value.bytes); ++i)
+    if (value.bytes[i]) {
+      return false;
+    }
+  return true;
+}
 struct MPI_Status {
   std::int32_t MPI_SOURCE;
   std::int32_t MPI_TAG;
@@ -191,6 +192,9 @@ static_assert(offsetof(MPI_Status, MPI_TAG) == 4, "status tag offset");
 static_assert(offsetof(MPI_Status, MPI_ERROR) == 8, "status error offset");
 static_assert(offsetof(MPI_Status, raw_size) == 12, "status raw-size offset");
 static_assert(offsetof(MPI_Status, raw) == 16, "status bytes offset");
+static_assert(sizeof(plumed_mpiw_handle_storage) == PLUMED_MPIW_HANDLE_CAPACITY, "handle byte capacity");
+static_assert(std::is_trivial<plumed_mpiw_handle_storage>::value, "handle byte storage must be POD");
+static_assert(std::is_standard_layout<plumed_mpiw_handle_storage>::value, "handle byte storage layout");
 MPI_Comm mpiwrap_Comm_from_native(const void *native);
 bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);
 bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);

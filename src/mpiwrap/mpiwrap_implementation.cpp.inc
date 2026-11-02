@@ -20,6 +20,8 @@ PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Comm)
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Datatype), "Datatype storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Request), "Request storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Op), "Op storage too small");
+PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) == PLUMED_MPIW_HANDLE_CAPACITY, "handle storage capacity mismatch");
+PLUMED_MPIW_STATIC_ASSERT(offsetof(plumed_mpiw_handle_storage, bytes) == 0, "handle byte prefix offset");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(MPI_Status) <= PLUMED_MPIW_STATUS_CAPACITY, "Status storage too small");
 PLUMED_MPIW_STATIC_ASSERT(sizeof(MPI_Fint) == sizeof(int32_t), "MPI_Fint transport requires int32_t");
 PLUMED_MPIW_STATIC_ASSERT(((MPI_Fint)-1) < 0, "MPI_Fint must be signed");
@@ -61,8 +63,9 @@ static MPI_Request plumed_mpiw_import_request(plumed_mpiw_handle_storage value) 
   return result;
 }
 static plumed_mpiw_handle_storage plumed_mpiw_export_bytes(const void *value, size_t size) {
-  plumed_mpiw_handle_storage result = (plumed_mpiw_handle_storage)0;
-  memcpy(&result, value, size);
+  plumed_mpiw_handle_storage result;
+  memset(&result, 0, sizeof(result));
+  memcpy(result.bytes, value, size);
   return result;
 }
 static void plumed_mpiw_export_status(const MPI_Status *source, plumed_mpiw_status *target) {
@@ -2641,7 +2644,7 @@ typedef struct {
   MPI_Status value;
 } plumed_mpiw_status_alignment;
 static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
-  (uint32_t)sizeof(plumed_mpiw_provider_descriptor), 1u, 0u,
+  (uint32_t)sizeof(plumed_mpiw_provider_descriptor), PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0u,
   PLUMED_MPIW_RUNTIME_PROCESS_MPI, 0u, {0u, 0u, 0u, 0u},
   (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),
   (uint32_t)sizeof(MPI_Datatype), (uint32_t)sizeof(MPI_Request),

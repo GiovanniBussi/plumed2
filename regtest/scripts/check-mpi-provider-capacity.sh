@@ -12,7 +12,9 @@ compiler=$1
 arguments=(-x c++ -std=c++98 -DPLUMED_MPIW_NATIVE_ADAPTER \
   -I"$ROOT/src/mpiwrap" -c "$ROOT/src/mpiwrap/mpiwrap_implementation.cpp")
 "$compiler" "${arguments[@]}" -o "$TASK_DIR/valid.o"
-if "$compiler" "${arguments[@]}" -DPLUMED_MPIW_HANDLE_TYPE=uint8_t \
+"$compiler" "${arguments[@]}" -DPLUMED_MPIW_HANDLE_CAPACITY=16 \
+  -o "$TASK_DIR/capacity16.o"
+if "$compiler" "${arguments[@]}" -DPLUMED_MPIW_HANDLE_CAPACITY=1 \
     -o "$TASK_DIR/invalid.o" > "$TASK_DIR/error.log" 2>&1; then
   echo 'native provider accepted undersized handle storage' >&2; exit 1
 fi
@@ -20,4 +22,4 @@ if ! grep -F 'storage too small' "$TASK_DIR/error.log" >/dev/null; then
   cat "$TASK_DIR/error.log" >&2
   echo 'native provider failed without a handle-capacity diagnostic' >&2; exit 1
 fi
-echo 'native provider rejects undersized configured handle storage at build time'
+echo 'native provider builds with default and 16-byte storage and rejects undersized byte storage'
