@@ -100,12 +100,18 @@ MPI_Pcontrol remains direct in native mode and unavailable through provider
 forwarding. Custom tMPI error handlers remain excluded as specified by the
 stable provider surface.
 
-The shared native adapter body and real-MPI injection path are not complete.
-Native MPI calls are unchanged in native builds, and installed MPICH/Open MPI
-headers are used for signature/layout checks. Native MPI startup and real
-multi-process communication were blocked in the development sandbox by process
-manager/socket permissions, so those runtime semantics still need verification
-outside that environment. The pinned thread-MPI source has a one-rank
+The native adapter currently publishes the current-use non-lifecycle subset
+and selected constants, including communicator operations, collectives,
+point-to-point calls, status transport, and MPI_Comm_f2c when MPI_Fint is a
+signed 32-bit type. MPI_Init/Finalize and callback-taking entries are omitted
+from its descriptor until their lifecycle/callback routes are implemented.
+The mock-native probes exercise real provider handle/status sizes and exact
+adapter call-through without initializing MPI; they are not real MPI runtime
+communication tests. Native MPI startup and multi-process communication were
+blocked in the development sandbox by process-manager/socket permissions, so
+those semantics still need verification outside that environment. Future
+non-current-use entries remain unavailable until generated typed thunks and
+metadata are added. The pinned thread-MPI source has a one-rank
 out-of-place Allreduce defect; the wrapper handles its size-one identity case
 without relying on that defective operation.
 
@@ -118,6 +124,7 @@ The focused checks can be run from the repository root:
     sh src/mpiwrap/check-provider-registry.sh
     bash src/mpiwrap/check-kernel-lifecycle.sh
     bash src/mpiwrap/check-regtest-runner.sh
+    bash src/mpiwrap/check-native-adapter.sh
 
 Header and generated signature checks for local MPICH, Open MPI, and pinned
 tMPI use:
