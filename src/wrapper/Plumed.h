@@ -4085,7 +4085,7 @@ typedef struct {
     ABI; this symbol-table version only advertises that the entry is present.
   */
   int (*install_mpi_provider)(const void*,int (*)(void*,int,const char*,const char*),void*,void*);
-  /** Runs one callback on each internal thread-MPI rank; available with version>=6. */
+  /** Runs one callback on each internal thread-MPI rank; available with version>=5. */
   int (*launch_internal_threads)(int,plumed_kernel_rank_callback,void*,int*,
                                  int (*)(void*,int,const char*,const char*),void*);
 } plumed_symbol_table_type;
@@ -4964,7 +4964,7 @@ int plumed_kernel_launch_internal_threads(
     return plumed_kernel_report(report,context,PLUMED_KERNEL_ERROR,
                                 "plumed_kernel_launch_internal_threads","invalid kernel handle");
   }
-  if(kernel->table->version<6 || !kernel->table->launch_internal_threads) {
+  if(kernel->table->version<5 || !kernel->table->launch_internal_threads) {
     return plumed_kernel_report(report,context,PLUMED_KERNEL_UNSUPPORTED,
                                 "plumed_kernel_launch_internal_threads","kernel lacks internal launcher support");
   }
