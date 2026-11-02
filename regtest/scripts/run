@@ -107,24 +107,33 @@ if test -z "$mpi" ; then
 fi
 mpi="$mpi -np $mpiprocs"
 
-real_mpi_config=$($plumed_nompi config has real_mpi 2>/dev/null || true)
-if [[ "$real_mpi_config" = *"real_mpi on"* ]]; then
-  has_real_mpi=yes
-elif [[ "$real_mpi_config" = *"real_mpi off"* ]]; then
-  has_real_mpi=no
+if $plumed --has-mpi >/dev/null 2>&1 ; then
+  has_mpi=yes
 else
-  # Older executables do not report real_mpi separately; preserve their
-  # historical has-mpi query, which represented native MPI.
-  if $plumed_nompi config -q has mpi ; then
-    has_real_mpi=yes
-  else
-    has_real_mpi=no
-  fi
+  has_mpi=no
 fi
 
-if [[ "$has_real_mpi" = no ]]
-then
-  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" = no ]] && $plumed_nompi --has-thread-mpi ; then
+# Older executables may not recognize this option. Treat that as unavailable
+# for internal launching; --has-mpi above still selects their native path.
+if $plumed_nompi --has-thread-mpi >/dev/null 2>&1 ; then
+  has_thread_mpi=yes
+else
+  has_thread_mpi=no
+fi
+
+if [[ "$has_mpi" = no ]]; then
+  if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
+    if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
+      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+    else
+      echo "SKIP_ON_TRAVIS found!"
+    fi
+  else
+    echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+  fi
+  exit 0
+elif [[ "$has_thread_mpi" = yes ]]; then
+  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" = no ]]; then
     if [[ "${plumed_chdir:-no}" = yes ]]; then
       echo "NOT_APPLICABLE (CHDIR is unsupported with thread-MPI)"
     else
@@ -132,9 +141,9 @@ then
     fi
     exit 0
   fi
-  # The launcher dispatches CLTools, including generic command tests such as
-  # benchmark. External engines still require their native MPI launcher.
-  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]] && $plumed_nompi --has-thread-mpi ; then
+  # The launcher dispatches PLUMED CLTools, including generic commands such as
+  # benchmark. External engines need a native-MPI PLUMED build.
+  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]]; then
     echo "++ Using PLUMED internal thread-MPI with $mpiprocs ranks"
     mpi=env
     plumed="$plumed --tmpi-threads $mpiprocs"
@@ -149,7 +158,9 @@ then
     else
       echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
     fi
-    exit 0;
+  fi
+  if [[ "$plumed_internal_launch" != yes ]]; then
+    exit 0
   fi
 fi
 
