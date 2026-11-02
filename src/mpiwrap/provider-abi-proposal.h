@@ -69,8 +69,6 @@ typedef struct plumed_mpiw_provider_descriptor {
   const plumed_mpiw_metadata_entry *metadata;
 } plumed_mpiw_provider_descriptor;
 
-typedef int (*plumed_mpiw_error_fn)(void *context, int32_t code,
-                                    const char *function, const char *message);
 typedef const plumed_mpiw_provider_descriptor *(*plumed_mpiw_factory_fn)(void);
 
 #endif
