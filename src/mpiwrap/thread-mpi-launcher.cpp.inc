@@ -3,7 +3,7 @@
 #include "provider-registry.hpp"
 
 #include "provider-abi.h"
-#include <thread_mpi/tmpi.h>
+#include <thread_mpi_tmpi.h>
 
 #include <cstdio>
 #include <cstddef>

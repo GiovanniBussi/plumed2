@@ -1,4 +1,4 @@
-#include "../include/thread_mpi/tmpi.h"
+#include <thread_mpi_tmpi.h>
 #include "../../mpiwrap/thread-mpi-launcher.hpp"
 #include "../../mpiwrap/provider-registry.hpp"
 #include "../../mpiwrap/mpiwrap.h"
