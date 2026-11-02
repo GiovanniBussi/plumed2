@@ -95,7 +95,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "initialized-query"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_dup",
@@ -135,7 +136,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "comm-dup"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_free",
@@ -168,7 +170,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "comm-free"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_rank",
@@ -208,7 +211,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "comm-rank"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_size",
@@ -248,7 +252,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "comm-size"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Comm_split",
@@ -302,7 +307,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "comm-split"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Abort",
@@ -341,7 +347,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "abort-child"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Bcast",
@@ -402,7 +409,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "bcast-data"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Scatter",
@@ -486,7 +494,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "scatter-root"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Gather",
@@ -570,7 +579,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "gather-root"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Allreduce",
@@ -642,7 +652,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "allreduce-in-place"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Isend",
@@ -719,7 +730,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "isend-wait"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Wait",
@@ -763,7 +775,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "wait-status"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Allgather",
@@ -852,7 +865,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "allgather"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Allgatherv",
@@ -950,7 +964,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "allgatherv"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Recv",
@@ -1030,7 +1045,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "recv-status"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Barrier",
@@ -1062,7 +1078,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "barrier"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Get_count",
@@ -1113,7 +1130,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "get-count"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Sendrecv",
@@ -1229,7 +1247,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "sendrecv-status"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Error_string",
@@ -1360,7 +1379,8 @@
           "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
         },
         "semantic_test": "fint-communicator-import"
-      }
+      },
+      "native_adapter": "implemented"
     },
     {
       "name": "MPI_Send",

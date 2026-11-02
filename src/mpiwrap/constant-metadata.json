@@ -11,7 +11,9 @@
         "binding": "TMPI_FLOAT"
       },
       "semantic_test": "constant:MPI_FLOAT",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -23,7 +25,9 @@
         "binding": "TMPI_DOUBLE"
       },
       "semantic_test": "constant:MPI_DOUBLE",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -35,7 +39,9 @@
         "binding": "TMPI_INT"
       },
       "semantic_test": "constant:MPI_INT",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -47,7 +53,9 @@
         "binding": "TMPI_CHAR"
       },
       "semantic_test": "constant:MPI_CHAR",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -59,7 +67,9 @@
         "binding": "TMPI_UNSIGNED"
       },
       "semantic_test": "constant:MPI_UNSIGNED",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -71,7 +81,9 @@
         "binding": "TMPI_UNSIGNED_LONG"
       },
       "semantic_test": "constant:MPI_UNSIGNED_LONG",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -83,7 +95,9 @@
         "binding": "TMPI_UNSIGNED_LONG_LONG"
       },
       "semantic_test": "constant:MPI_UNSIGNED_LONG_LONG",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -95,7 +109,9 @@
         "binding": "TMPI_LONG_DOUBLE"
       },
       "semantic_test": "constant:MPI_LONG_DOUBLE",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     },
     {
       "class": "provider_handle",
@@ -107,7 +123,9 @@
         "binding": "TMPI_COMM_WORLD"
       },
       "semantic_test": "constant:MPI_COMM_WORLD",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Comm"
     },
     {
       "class": "provider_handle",
@@ -119,7 +137,9 @@
         "binding": "TMPI_COMM_SELF (direct tMPI accessor, not standard-name macro)"
       },
       "semantic_test": "constant:MPI_COMM_SELF",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Comm"
     },
     {
       "class": "provider_handle",
@@ -131,7 +151,9 @@
         "binding": "TMPI_COMM_NULL"
       },
       "semantic_test": "constant:MPI_COMM_NULL",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Comm"
     },
     {
       "class": "buffer_sentinel",
@@ -143,7 +165,9 @@
         "binding": "TMPI_IN_PLACE"
       },
       "semantic_test": "constant:MPI_IN_PLACE",
-      "translation": "recognize before buffer conversion; pass provider sentinel via accessor"
+      "translation": "recognize before buffer conversion; pass provider sentinel via accessor",
+      "native_adapter": "implemented",
+      "native_type": "void *"
     },
     {
       "class": "provider_handle",
@@ -155,7 +179,9 @@
         "binding": "TMPI_SUM"
       },
       "semantic_test": "constant:MPI_SUM",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Op"
     },
     {
       "class": "provider_handle",
@@ -167,7 +193,9 @@
         "binding": "TMPI_PROD"
       },
       "semantic_test": "constant:MPI_PROD",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Op"
     },
     {
       "class": "provider_handle",
@@ -179,7 +207,9 @@
         "binding": "TMPI_MAX"
       },
       "semantic_test": "constant:MPI_MAX",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Op"
     },
     {
       "class": "provider_handle",
@@ -191,7 +221,9 @@
         "binding": "TMPI_MIN"
       },
       "semantic_test": "constant:MPI_MIN",
-      "translation": "typed opaque handle bytes through accessor; never numeric-convert"
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Op"
     },
     {
       "class": "status_sentinel",
@@ -203,7 +235,9 @@
         "binding": "TMPI_STATUS_IGNORE"
       },
       "semantic_test": "constant:MPI_STATUS_IGNORE",
-      "translation": "provider-facing MPI_STATUS_IGNORE is normalized to null; adapter maps null to its native ignore sentinel before the call"
+      "translation": "provider-facing MPI_STATUS_IGNORE is normalized to null; adapter maps null to its native ignore sentinel before the call",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Status *"
     },
     {
       "class": "provider_handle",
@@ -575,7 +609,9 @@
         "binding": "TMPI_UNDEFINED"
       },
       "semantic_test": "constant:MPI_UNDEFINED",
-      "translation": "checked numeric conversion using provider-reported native C int size/signedness"
+      "translation": "checked numeric conversion using provider-reported native C int size/signedness",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     },
     {
       "class": "provider_integer",
@@ -587,7 +623,9 @@
         "binding": "TMPI_ANY_SOURCE"
       },
       "semantic_test": "constant:MPI_ANY_SOURCE",
-      "translation": "checked numeric conversion using provider-reported native C int size/signedness"
+      "translation": "checked numeric conversion using provider-reported native C int size/signedness",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     },
     {
       "class": "provider_integer",
@@ -599,7 +637,9 @@
         "binding": "TMPI_ANY_TAG"
       },
       "semantic_test": "constant:MPI_ANY_TAG",
-      "translation": "checked numeric conversion using provider-reported native C int size/signedness"
+      "translation": "checked numeric conversion using provider-reported native C int size/signedness",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     },
     {
       "class": "provider_integer",
@@ -611,7 +651,9 @@
         "binding": null
       },
       "semantic_test": "constant:MPI_PROC_NULL",
-      "translation": "checked numeric conversion using provider-reported native C int size/signedness"
+      "translation": "checked numeric conversion using provider-reported native C int size/signedness",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     },
     {
       "class": "provider_integer",
@@ -731,7 +773,9 @@
         "binding": "TMPI_SUCCESS"
       },
       "semantic_test": "constant:MPI_SUCCESS",
-      "translation": "standard compile-time value; no provider lookup"
+      "translation": "standard compile-time value; no provider lookup",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     },
     {
       "class": "provider_integer",
@@ -959,7 +1003,9 @@
         "binding": null
       },
       "semantic_test": "constant:MPI_BOTTOM",
-      "translation": "recognize before buffer conversion; pass provider sentinel via accessor"
+      "translation": "recognize before buffer conversion; pass provider sentinel via accessor",
+      "native_adapter": "implemented",
+      "native_type": "void *"
     }
   ]
 }
