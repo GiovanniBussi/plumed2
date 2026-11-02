@@ -71,6 +71,30 @@ the object with plumed_finalize and release the handle with the matching
 plumed_kernel_release. Releasing a handle does not finalize an object.
 C++ users can use the PLMD::Kernel RAII convenience API.
 
+## Inject the host MPI from Plumed.h
+
+When the host needs to inject the MPI implementation already used by its MD
+code, define `PLUMED_MPIW_HOST_ADAPTER` and
+`__PLUMED_WRAPPER_IMPLEMENTATION` in exactly one translation unit before
+including `Plumed.h`. Include the host MPI bindings first. For GROMACS
+thread-MPI, include `thread_mpi/mpi_bindings.h` first and ensure
+`GMX_THREAD_MPI` has its numeric build value; the adapter records the GROMACS
+version when `GMX_VERSION_STRING` is available. This opt-in header embeds the
+same generated adapter body, so it does not need a separate provider source or
+provider library.
+
+Open the specific kernel, call `plumed_kernel_inject_native_mpi` before
+creating its first object, then create the object from that kernel handle.
+The helper takes its descriptor from the MPI bindings included in that
+translation unit. Existing `setMPIComm` callers can continue passing the
+address of their native communicator: PLUMED imports the provider-sized bytes
+into zero-filled wrapper storage, whose native byte prefix has the same
+layout. This byte-copy contract is why the wrapper representation preserves
+the original communicator pointer path without caller-side export buffers.
+The generated adapter omits thread-MPI functions and constants unavailable in
+the selected GROMACS headers; PLUMED reports calls to omitted functions as a
+clear runtime error.
+
 ## Build a native provider
 
 Use `plumed makempi --compiler /absolute/path/to/mpicc --out provider.so`
