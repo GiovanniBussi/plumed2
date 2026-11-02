@@ -413,6 +413,13 @@ std::int32_t irecv(void *buffer, std::int32_t count,
   return result;
 }
 
+std::int32_t send(const void *buffer, std::int32_t count,
+                  plumed_mpiw_handle_storage datatype, std::int32_t dest,
+                  std::int32_t tag, plumed_mpiw_handle_storage comm) {
+  return thread_mpi::tMPI_Send(buffer, count, decode_datatype(datatype), dest,
+                               tag, decode_comm(comm));
+}
+
 std::int32_t isend(const void *buffer, std::int32_t count,
                    plumed_mpiw_handle_storage datatype, std::int32_t dest,
                    std::int32_t tag, plumed_mpiw_handle_storage comm,
@@ -430,6 +437,23 @@ std::int32_t isend(const void *buffer, std::int32_t count,
   return result;
 }
 
+std::int32_t rsend(const void *buffer, std::int32_t count,
+                   plumed_mpiw_handle_storage datatype, std::int32_t dest,
+                   std::int32_t tag, plumed_mpiw_handle_storage comm) {
+  // Ready sends require a matching receive to be posted before this call.
+  // For valid callers, standard tMPI_Send preserves the required transfer.
+  return send(buffer, count, datatype, dest, tag, comm);
+}
+
+std::int32_t irsend(const void *buffer, std::int32_t count,
+                    plumed_mpiw_handle_storage datatype, std::int32_t dest,
+                    std::int32_t tag, plumed_mpiw_handle_storage comm,
+                    plumed_mpiw_handle_storage *request) {
+  // As with rsend(), the caller must have posted the matching receive.
+  // tMPI_Isend returns an ordinary request with standard send completion.
+  return isend(buffer, count, datatype, dest, tag, comm, request);
+}
+
 std::int32_t wait(plumed_mpiw_handle_storage *request,
                   plumed_mpiw_status *status) {
   if (!request) {
@@ -439,7 +463,10 @@ std::int32_t wait(plumed_mpiw_handle_storage *request,
   thread_mpi::tMPI_Status native_status{};
   const int result = thread_mpi::tMPI_Wait(
                        &native_request, status ? &native_status : nullptr);
-  *request = encode_request(native_request);
+  // tMPI_Wait releases a completed request but leaves its input pointer
+  // unchanged; MPI_Wait must return MPI_REQUEST_NULL on completion.
+  *request = encode_request(result == thread_mpi::TMPI_SUCCESS ?
+                            thread_mpi::tMPI_Request{} : native_request);
   if (result == thread_mpi::TMPI_SUCCESS && status) {
     export_status(native_status, status);
   }
@@ -726,8 +753,20 @@ static const plumed_mpiw_function_entry functions[] = {
     1, reinterpret_cast<plumed_mpiw_generic_fn>(&irecv)
   },
   {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Send", 0xbd2b6912,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&send)
+  },
+  {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Isend", 0xf5e9d915,
     1, reinterpret_cast<plumed_mpiw_generic_fn>(&isend)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Rsend", 0xbfa09b06,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&rsend)
+  },
+  {
+    sizeof(plumed_mpiw_function_entry), 0, "MPI_Irsend", 0xb13d1d70,
+    1, reinterpret_cast<plumed_mpiw_generic_fn>(&irsend)
   },
   {
     sizeof(plumed_mpiw_function_entry), 0, "MPI_Wait", 0x4b15813d,

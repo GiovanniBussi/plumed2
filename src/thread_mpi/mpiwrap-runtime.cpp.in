@@ -355,6 +355,88 @@ void rank_work(const void *) {
     failures.fetch_add(1);
   }
 
+  // Ready sends are valid here because every rank posts its matching receive
+  // before entering the blocking send.
+  int ready_input = rank + 121;
+  int ready_output = -1;
+  MPI_Request ready_receive{};
+  MPI_Status ready_status{};
+  const bool ready_available = mpiwrap_has_Rsend();
+  const int ready_irecv_result = mpiwrap_Irecv(
+                                   &ready_output, 1, integer, previous, 81,
+                                   world, &ready_receive);
+  const int ready_barrier_result = ready_irecv_result == thread_mpi::TMPI_SUCCESS ?
+                                   mpiwrap_Barrier(world) : -1;
+  const int ready_send_result =
+    ready_available && ready_irecv_result == thread_mpi::TMPI_SUCCESS &&
+    ready_barrier_result == thread_mpi::TMPI_SUCCESS ?
+    mpiwrap_Rsend(&ready_input, 1, integer, next,
+                  81, world) : -1;
+  const int ready_wait_result = ready_irecv_result == thread_mpi::TMPI_SUCCESS ?
+                                mpiwrap_Wait(&ready_receive, &ready_status) : -1;
+  if (!ready_available || ready_irecv_result != thread_mpi::TMPI_SUCCESS ||
+      ready_barrier_result != thread_mpi::TMPI_SUCCESS ||
+      ready_send_result != thread_mpi::TMPI_SUCCESS ||
+      ready_wait_result != thread_mpi::TMPI_SUCCESS ||
+      ready_output != previous + 121 || ready_status.MPI_SOURCE != previous ||
+      ready_status.MPI_TAG != 81 ||
+      !mpiwrap_handle_storage_is_zero(ready_receive.storage)) {
+    std::cerr << "rank " << rank << " ready-send posted-receive semantics failed: "
+              << "available=" << ready_available << " results="
+              << ready_irecv_result << ',' << ready_barrier_result << ','
+              << ready_send_result << ','
+              << ready_wait_result << " value=" << ready_output << " status="
+              << ready_status.MPI_SOURCE << ':' << ready_status.MPI_TAG
+              << " request=" << static_cast<unsigned>(ready_receive.storage.bytes[0])
+              << '\n';
+    failures.fetch_add(1);
+  }
+
+  // The nonblocking ready send also follows a posted matching receive. Wait
+  // on both requests to verify ordinary Isend request/completion behavior.
+  int iready_input = rank + 131;
+  int iready_output = -1;
+  MPI_Request iready_receive{};
+  MPI_Request iready_send{};
+  MPI_Status iready_status{};
+  const bool iready_available = mpiwrap_has_Irsend();
+  const int iready_irecv_result = mpiwrap_Irecv(
+                                    &iready_output, 1, integer, previous, 82,
+                                    world, &iready_receive);
+  const int iready_barrier_result =
+    iready_irecv_result == thread_mpi::TMPI_SUCCESS ? mpiwrap_Barrier(world) : -1;
+  const int iready_send_result =
+    iready_available && iready_irecv_result == thread_mpi::TMPI_SUCCESS &&
+    iready_barrier_result == thread_mpi::TMPI_SUCCESS ?
+    mpiwrap_Irsend(&iready_input, 1, integer, next,
+                   82, world, &iready_send) : -1;
+  const int iready_receive_wait_result =
+    iready_irecv_result == thread_mpi::TMPI_SUCCESS ?
+    mpiwrap_Wait(&iready_receive, &iready_status) : -1;
+  const int iready_send_wait_result = iready_send_result == thread_mpi::TMPI_SUCCESS ?
+                                      mpiwrap_Wait(&iready_send, MPI_STATUS_IGNORE) : -1;
+  if (!iready_available || iready_irecv_result != thread_mpi::TMPI_SUCCESS ||
+      iready_barrier_result != thread_mpi::TMPI_SUCCESS ||
+      iready_send_result != thread_mpi::TMPI_SUCCESS ||
+      iready_receive_wait_result != thread_mpi::TMPI_SUCCESS ||
+      iready_send_wait_result != thread_mpi::TMPI_SUCCESS ||
+      iready_output != previous + 131 || iready_status.MPI_SOURCE != previous ||
+      iready_status.MPI_TAG != 82 ||
+      !mpiwrap_handle_storage_is_zero(iready_receive.storage) ||
+      !mpiwrap_handle_storage_is_zero(iready_send.storage)) {
+    std::cerr << "rank " << rank << " nonblocking ready-send request completion failed: "
+              << "available=" << iready_available << " results="
+              << iready_irecv_result << ',' << iready_barrier_result << ','
+              << iready_send_result << ','
+              << iready_receive_wait_result << ',' << iready_send_wait_result
+              << " value=" << iready_output << " status="
+              << iready_status.MPI_SOURCE << ':' << iready_status.MPI_TAG
+              << " requests="
+              << static_cast<unsigned>(iready_receive.storage.bytes[0]) << ','
+              << static_cast<unsigned>(iready_send.storage.bytes[0]) << '\n';
+    failures.fetch_add(1);
+  }
+
   int waitall_recv0 = -1;
   int waitall_recv1 = -1;
   int waitall_send0 = rank + 81;
@@ -531,6 +613,7 @@ int run(int ranks) {
       !mpiwrap_has_Barrier() || !mpiwrap_has_Irecv() ||
       !mpiwrap_has_Isend() || !mpiwrap_has_Wait() ||
       !mpiwrap_has_Get_count() || !mpiwrap_has_Sendrecv() ||
+      !mpiwrap_has_Send() || !mpiwrap_has_Rsend() || !mpiwrap_has_Irsend() ||
       !mpiwrap_has_Initialized() || !mpiwrap_has_Comm_dup() ||
       !mpiwrap_has_Comm_free() || !mpiwrap_has_Comm_split() ||
       !mpiwrap_has_Abort() || !mpiwrap_has_Recv() || !mpiwrap_has_Scatter() ||
@@ -542,6 +625,38 @@ int run(int ranks) {
   if (mpiwrap_has_Waitall() == false || mpiwrap_has_Waitsome() == false ||
       mpiwrap_has_Testsome() == false || mpiwrap_has_Testall()) {
     std::cerr << "request-array provider routes are inconsistent\n";
+    return 1;
+  }
+  if (mpiwrap_has_Bsend() || mpiwrap_has_Ssend() || mpiwrap_has_Issend()) {
+    std::cerr << "unsupported buffered or synchronous send mode was exposed\n";
+    return 1;
+  }
+  const auto expect_send_mode_unavailable = [](const char *name, auto call) {
+    try {
+      call();
+    } catch (const std::runtime_error &error) {
+      if (std::string(error.what()).find(name) != std::string::npos) {
+        return true;
+      }
+      std::cerr << name << " unavailable diagnostic omitted function name: "
+                << error.what() << '\n';
+    }
+    return false;
+  };
+  const MPI_Comm world = mpiwrap_COMM_WORLD();
+  const MPI_Datatype integer = mpiwrap_INT();
+  MPI_Request unsupported_request{};
+  if (!expect_send_mode_unavailable("MPI_Bsend", [&]() {
+  mpiwrap_Bsend(nullptr, 0, integer, 0, 0, world);
+  }) ||
+  !expect_send_mode_unavailable("MPI_Ssend", [&]() {
+    mpiwrap_Ssend(nullptr, 0, integer, 0, 0, world);
+  }) ||
+  !expect_send_mode_unavailable("MPI_Issend", [&]() {
+    mpiwrap_Issend(nullptr, 0, integer, 0, 0, world,
+                   &unsupported_request);
+  })) {
+    std::cerr << "unsupported send mode did not fail cleanly\n";
     return 1;
   }
   bool testall_threw = false;

@@ -26,12 +26,12 @@ MPI_Comm_f2c	fint-communicator-import	direct	optional-entry	unavailable	fint-com
 MPI_Send	mpi-api:MPI_Send	direct	optional-entry	direct	mpi-api:MPI_Send
 MPI_Bsend	mpi-api:MPI_Bsend	direct	optional-entry	unavailable	mpi-api:MPI_Bsend
 MPI_Ssend	mpi-api:MPI_Ssend	direct	optional-entry	unavailable	mpi-api:MPI_Ssend
-MPI_Rsend	mpi-api:MPI_Rsend	direct	optional-entry	unavailable	mpi-api:MPI_Rsend
+MPI_Rsend	ready-send-posted-receive	direct	optional-entry	emulated	ready-send-posted-receive
 MPI_Buffer_attach	mpi-api:MPI_Buffer_attach	direct	optional-entry	unavailable	mpi-api:MPI_Buffer_attach
 MPI_Buffer_detach	mpi-api:MPI_Buffer_detach	direct	optional-entry	unavailable	mpi-api:MPI_Buffer_detach
 MPI_Ibsend	mpi-api:MPI_Ibsend	direct	optional-entry	unavailable	mpi-api:MPI_Ibsend
 MPI_Issend	mpi-api:MPI_Issend	direct	optional-entry	unavailable	mpi-api:MPI_Issend
-MPI_Irsend	mpi-api:MPI_Irsend	direct	optional-entry	unavailable	mpi-api:MPI_Irsend
+MPI_Irsend	iready-send-request-completion	direct	optional-entry	emulated	iready-send-request-completion
 MPI_Irecv	mpi-api:MPI_Irecv	direct	optional-entry	direct	mpi-api:MPI_Irecv
 MPI_Test	mpi-api:MPI_Test	direct	optional-entry	direct	mpi-api:MPI_Test
 MPI_Request_free	mpi-api:MPI_Request_free	direct	optional-entry	unavailable	mpi-api:MPI_Request_free
