@@ -1,363 +1,102 @@
-/* Native process-MPI adapter body. C-compatible implementation. */
+/* Minimal native-MPI provider adapter. All conversions happen in the kernel. */
+
+/* PLUMED_MPIW_GROMACS_VERSION_GUARD */
 
 #define PLUMED_MPIW_JOIN_INNER(a, b) a##b
 #define PLUMED_MPIW_JOIN(a, b) PLUMED_MPIW_JOIN_INNER(a, b)
 #define PLUMED_MPIW_STATIC_ASSERT(c, m) \
   typedef char PLUMED_MPIW_JOIN(plumed_mpiw_static_assert_, __LINE__)[(c) ? 1 : -1]
 
-PLUMED_MPIW_STATIC_ASSERT(sizeof(int) == sizeof(int32_t), "MPI C int transport requires int32_t");
-PLUMED_MPIW_STATIC_ASSERT(((int)-1) < 0, "MPI C int transport requires signed int");
-#if defined(__cplusplus)
-extern "C" {
-#endif
-/* These compatible redeclarations enforce int32_t == int without a helper call. */
-void plumed_mpiw_verify_native_int(int *value);
-void plumed_mpiw_verify_native_int(int32_t *value);
-#if defined(__cplusplus)
-}
-#endif
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Comm), "Comm storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Group), "Group storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Datatype), "Datatype storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Request), "Request storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Op), "Op storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) >= sizeof(MPI_Errhandler), "Errhandler storage too small");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(plumed_mpiw_handle_storage) == PLUMED_MPIW_HANDLE_CAPACITY, "handle storage capacity mismatch");
-PLUMED_MPIW_STATIC_ASSERT(offsetof(plumed_mpiw_handle_storage, bytes) == 0, "handle byte prefix offset");
-PLUMED_MPIW_STATIC_ASSERT(sizeof(MPI_Status) <= PLUMED_MPIW_STATUS_CAPACITY, "Status storage too small");
-#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)
-PLUMED_MPIW_STATIC_ASSERT(sizeof(MPI_Fint) == sizeof(int32_t), "MPI_Fint transport requires int32_t");
-PLUMED_MPIW_STATIC_ASSERT(((MPI_Fint)-1) < 0, "MPI_Fint must be signed");
-#endif
-
-#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-#define PLUMED_MPIW_ADAPTER_RUNTIME_KIND PLUMED_MPIW_RUNTIME_THREAD_MPI
-#define PLUMED_MPIW_ADAPTER_PROVIDER_NAME "gromacs-thread-mpi"
-#define PLUMED_MPIW_ERROR_ARG MPI_ERR_UNKNOWN
-#define PLUMED_MPIW_ERROR_COUNT MPI_ERR_UNKNOWN
-#define PLUMED_MPIW_ERROR_NO_MEM MPI_ERR_UNKNOWN
-#if !defined(__cplusplus) && !defined(nullptr)
-#define PLUMED_MPIW_UNDEFINE_NULLPTR
-#define nullptr ((void *)0)
-#endif
-#if defined(GMX_VERSION_STRING)
-#define PLUMED_MPIW_ADAPTER_PROVIDER_VERSION GMX_VERSION_STRING
-#else
-#define PLUMED_MPIW_ADAPTER_PROVIDER_VERSION "gromacs-version-unspecified"
-#endif
-#ifndef MPI_COMM_SELF
-#define PLUMED_MPIW_UNDEFINE_MPI_COMM_SELF
-#define MPI_COMM_SELF TMPI_COMM_SELF
-#endif
-#else
-#define PLUMED_MPIW_ADAPTER_RUNTIME_KIND PLUMED_MPIW_RUNTIME_PROCESS_MPI
-#define PLUMED_MPIW_ADAPTER_PROVIDER_NAME "native-mpi"
-#define PLUMED_MPIW_ADAPTER_PROVIDER_VERSION "header-abi"
-#define PLUMED_MPIW_ERROR_ARG MPI_ERR_ARG
-#define PLUMED_MPIW_ERROR_COUNT MPI_ERR_COUNT
-#define PLUMED_MPIW_ERROR_NO_MEM MPI_ERR_NO_MEM
-#endif
-
-static MPI_Comm plumed_mpiw_import_comm(plumed_mpiw_handle_storage value) {
-  MPI_Comm result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static MPI_Datatype plumed_mpiw_import_datatype(plumed_mpiw_handle_storage value) {
-  MPI_Datatype result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static MPI_Op plumed_mpiw_import_op(plumed_mpiw_handle_storage value) {
-  MPI_Op result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static MPI_Group plumed_mpiw_import_group(plumed_mpiw_handle_storage value) {
-  MPI_Group result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static MPI_Errhandler plumed_mpiw_import_errhandler(plumed_mpiw_handle_storage value) {
-  MPI_Errhandler result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static MPI_Request plumed_mpiw_import_request(plumed_mpiw_handle_storage value) {
-  MPI_Request result;
-  memset(&result, 0, sizeof(result));
-  memcpy(&result, &value, sizeof(result));
-  return result;
-}
-static plumed_mpiw_handle_storage plumed_mpiw_export_bytes(const void *value, size_t size) {
-  plumed_mpiw_handle_storage result;
-  memset(&result, 0, sizeof(result));
-  memcpy(result.bytes, value, size);
-  return result;
-}
-static void plumed_mpiw_export_status(const MPI_Status *source, plumed_mpiw_status *target) {
-  if (!target) {
-    return;
-  }
-  memset(target, 0, sizeof(*target));
-  target->source = (int32_t)source->MPI_SOURCE;
-  target->tag = (int32_t)source->MPI_TAG;
-  target->error = (int32_t)source->MPI_ERROR;
-  target->raw_size = (uint32_t)sizeof(*source);
-  memcpy(target->raw, source, sizeof(*source));
-}
-static int plumed_mpiw_import_status(const plumed_mpiw_status *source, MPI_Status *target) {
-  if (!source || source->raw_size != sizeof(*target)) {
-    return 0;
-  }
-  memcpy(target, source->raw, sizeof(*target));
-  return 1;
-}
-
-static int32_t plumed_mpiw_MPI_Initialized(int32_t *flag) {
-  int native_flag = 0;
-  int result;
-  if (!flag) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  result = MPI_Initialized(&native_flag);
-  if (result == MPI_SUCCESS) {
-    *flag = (int32_t)native_flag;
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Comm_dup(plumed_mpiw_handle_storage comm, plumed_mpiw_handle_storage *newcomm) {
-  MPI_Comm native_result;
-  int result;
-  if (!newcomm) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  memset(&native_result, 0, sizeof(native_result));
-  result = MPI_Comm_dup(plumed_mpiw_import_comm(comm), &native_result);
-  if (result == MPI_SUCCESS) {
-    *newcomm = plumed_mpiw_export_bytes(&native_result, sizeof(native_result));
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Comm_free(plumed_mpiw_handle_storage *comm) {
-  MPI_Comm native_comm;
-  int result;
-  if (!comm) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  native_comm = plumed_mpiw_import_comm(*comm);
-  result = MPI_Comm_free(&native_comm);
-  *comm = plumed_mpiw_export_bytes(&native_comm, sizeof(native_comm));
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Comm_rank(plumed_mpiw_handle_storage comm, int32_t *rank) {
-  int native_rank = 0;
-  int result;
-  if (!rank) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  result = MPI_Comm_rank(plumed_mpiw_import_comm(comm), &native_rank);
-  if (result == MPI_SUCCESS) {
-    *rank = (int32_t)native_rank;
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Comm_size(plumed_mpiw_handle_storage comm, int32_t *size) {
-  int native_size = 0;
-  int result;
-  if (!size) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  result = MPI_Comm_size(plumed_mpiw_import_comm(comm), &native_size);
-  if (result == MPI_SUCCESS) {
-    *size = (int32_t)native_size;
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Comm_split(plumed_mpiw_handle_storage comm, int32_t color, int32_t key, plumed_mpiw_handle_storage *newcomm) {
-  MPI_Comm native_result;
-  int result;
-  if (!newcomm) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  memset(&native_result, 0, sizeof(native_result));
-  result = MPI_Comm_split(plumed_mpiw_import_comm(comm), (int)color, (int)key, &native_result);
-  if (result == MPI_SUCCESS) {
-    *newcomm = plumed_mpiw_export_bytes(&native_result, sizeof(native_result));
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Abort(plumed_mpiw_handle_storage comm, int32_t errorcode) {
-  return (int32_t)MPI_Abort(plumed_mpiw_import_comm(comm), (int)errorcode);
-}
-static int32_t plumed_mpiw_MPI_Bcast(void *buffer, int32_t count, plumed_mpiw_handle_storage datatype, int32_t root, plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Bcast(buffer, (int)count, plumed_mpiw_import_datatype(datatype), (int)root, plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Scatter(const void *sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void *recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, int32_t root, plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Scatter((void *)sendbuf, (int)sendcount, plumed_mpiw_import_datatype(sendtype), recvbuf, (int)recvcount, plumed_mpiw_import_datatype(recvtype), (int)root, plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Gather(const void *sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void *recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, int32_t root, plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Gather((void *)sendbuf, (int)sendcount, plumed_mpiw_import_datatype(sendtype), recvbuf, (int)recvcount, plumed_mpiw_import_datatype(recvtype), (int)root, plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Allreduce(const void *sendbuf, void *recvbuf, int32_t count, plumed_mpiw_handle_storage datatype, plumed_mpiw_handle_storage op, plumed_mpiw_handle_storage comm) {
-  /* Old MPI headers may lack MPI-5 input const qualifiers; this is input-only. */
-  return (int32_t)MPI_Allreduce((void *)sendbuf, recvbuf, (int)count, plumed_mpiw_import_datatype(datatype), plumed_mpiw_import_op(op), plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Isend(const void *buf, int32_t count, plumed_mpiw_handle_storage datatype, int32_t dest, int32_t tag, plumed_mpiw_handle_storage comm, plumed_mpiw_handle_storage *request) {
-  MPI_Request native_request;
-  int result;
-  if (!request) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  memset(&native_request, 0, sizeof(native_request));
-  result = MPI_Isend((void *)buf, (int)count, plumed_mpiw_import_datatype(datatype), (int)dest, (int)tag, plumed_mpiw_import_comm(comm), &native_request);
-  if (result == MPI_SUCCESS) {
-    *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Wait(plumed_mpiw_handle_storage *request, plumed_mpiw_status *status) {
-  MPI_Request native_request;
-  MPI_Status native_status;
-  int result;
-  if (!request) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  native_request = plumed_mpiw_import_request(*request);
-  memset(&native_status, 0, sizeof(native_status));
-  result = MPI_Wait(&native_request, status ? &native_status : MPI_STATUS_IGNORE);
-  *request = plumed_mpiw_export_bytes(&native_request, sizeof(native_request));
-  if (result == MPI_SUCCESS && status) {
-    plumed_mpiw_export_status(&native_status, status);
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Allgather(const void *sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void *recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Allgather((void *)sendbuf, (int)sendcount, plumed_mpiw_import_datatype(sendtype), recvbuf, (int)recvcount, plumed_mpiw_import_datatype(recvtype), plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Allgatherv(const void *sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, void *recvbuf, const int32_t recvcounts[], const int32_t displs[], plumed_mpiw_handle_storage recvtype, plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Allgatherv((void *)sendbuf, (int)sendcount, plumed_mpiw_import_datatype(sendtype), recvbuf, (const int *)recvcounts, (const int *)displs, plumed_mpiw_import_datatype(recvtype), plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Recv(void *buf, int32_t count, plumed_mpiw_handle_storage datatype, int32_t source, int32_t tag, plumed_mpiw_handle_storage comm, plumed_mpiw_status *status) {
-  MPI_Status native_status;
-  int result;
-  memset(&native_status, 0, sizeof(native_status));
-  result = MPI_Recv(buf, (int)count, plumed_mpiw_import_datatype(datatype), (int)source, (int)tag, plumed_mpiw_import_comm(comm), status ? &native_status : MPI_STATUS_IGNORE);
-  if (result == MPI_SUCCESS && status) {
-    plumed_mpiw_export_status(&native_status, status);
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Barrier(plumed_mpiw_handle_storage comm) {
-  return (int32_t)MPI_Barrier(plumed_mpiw_import_comm(comm));
-}
-static int32_t plumed_mpiw_MPI_Get_count(const plumed_mpiw_status *status, plumed_mpiw_handle_storage datatype, int32_t *count) {
-  MPI_Status native_status;
-  int native_count = 0;
-  int result;
-  if (!status || !count) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  if (!plumed_mpiw_import_status(status, &native_status)) {
-    return PLUMED_MPIW_ERROR_ARG;
-  }
-  result = MPI_Get_count(&native_status, plumed_mpiw_import_datatype(datatype), &native_count);
-  if (result == MPI_SUCCESS) {
-    *count = (int32_t)native_count;
-  }
-  return (int32_t)result;
-}
-static int32_t plumed_mpiw_MPI_Sendrecv(const void *sendbuf, int32_t sendcount, plumed_mpiw_handle_storage sendtype, int32_t dest, int32_t sendtag, void *recvbuf, int32_t recvcount, plumed_mpiw_handle_storage recvtype, int32_t source, int32_t recvtag, plumed_mpiw_handle_storage comm, plumed_mpiw_status *status) {
-  MPI_Status native_status;
-  int result;
-  memset(&native_status, 0, sizeof(native_status));
-  result = MPI_Sendrecv((void *)sendbuf, (int)sendcount, plumed_mpiw_import_datatype(sendtype), (int)dest, (int)sendtag, recvbuf, (int)recvcount, plumed_mpiw_import_datatype(recvtype), (int)source, (int)recvtag, plumed_mpiw_import_comm(comm), status ? &native_status : MPI_STATUS_IGNORE);
-  if (result == MPI_SUCCESS && status) {
-    plumed_mpiw_export_status(&native_status, status);
-  }
-  return (int32_t)result;
-}
-static plumed_mpiw_handle_storage plumed_mpiw_MPI_Comm_f2c(int32_t comm) {
-  MPI_Comm native_comm = MPI_Comm_f2c((MPI_Fint)comm);
-  return plumed_mpiw_export_bytes(&native_comm, sizeof(native_comm));
-}
-
-
 /* PLUMED_MPIW_GENERATED_FUNCTIONS */
-/* PLUMED_MPIW_TYPED_FUNCTION_CHECKS */
 /* PLUMED_MPIW_FUNCTION_ENTRIES */
 
-static int32_t plumed_mpiw_store_constant(void *output, uint32_t capacity, const void *value, size_t size) {
-  if (!output || capacity < size) {
-    return (int32_t)PLUMED_MPIW_ERROR_ARG;
-  }
-  memset(output, 0, capacity);
-  memcpy(output, value, size);
-  return (int32_t)MPI_SUCCESS;
-}
 #define PLUMED_MPIW_HANDLE_CONSTANT(name, type) \
-  static int32_t plumed_mpiw_value_##name(void *out, uint32_t cap) { type value = name; return plumed_mpiw_store_constant(out, cap, &value, sizeof(value)); }
+  static void plumed_mpiw_value_##name(void *out) { \
+    type value = name; \
+    memcpy(out, &value, sizeof(value)); \
+  }
 #define PLUMED_MPIW_INTEGER_CONSTANT(name) \
-  static int32_t plumed_mpiw_value_##name(void *out, uint32_t cap) { int32_t value = (int32_t)(name); return plumed_mpiw_store_constant(out, cap, &value, sizeof(value)); }
+  static void plumed_mpiw_value_##name(void *out) { \
+    int value = (int)(name); \
+    memcpy(out, &value, sizeof(value)); \
+  }
 #define PLUMED_MPIW_POINTER_CONSTANT(name) \
-  static int32_t plumed_mpiw_value_##name(void *out, uint32_t cap) { void *value = (void *)(name); return plumed_mpiw_store_constant(out, cap, &value, sizeof(value)); }
+  static void plumed_mpiw_value_##name(void *out) { \
+    void *value = (void *)(name); \
+    memcpy(out, &value, sizeof(value)); \
+  }
 /* PLUMED_MPIW_CONSTANT_IMPLEMENTATIONS */
 #undef PLUMED_MPIW_HANDLE_CONSTANT
 #undef PLUMED_MPIW_INTEGER_CONSTANT
 #undef PLUMED_MPIW_POINTER_CONSTANT
 
 /* PLUMED_MPIW_CONSTANT_ACCESSORS */
-#define PLUMED_MPIW_VALUE(name) \
-  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0u, 0u, "value:" #name, sizeof(plumed_mpiw_constant_accessor_fn), (const void *)&plumed_mpiw_accessor_##name }
+#define PLUMED_MPIW_VALUE(name, type) \
+  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, \
+    0u, "value:" #name, sizeof(plumed_mpiw_constant_accessor_fn), sizeof(type), \
+    (const void *)&plumed_mpiw_accessor_##name }
 static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
   /* PLUMED_MPIW_CONSTANT_METADATA */
 };
 
+typedef union {
+  long double long_double_value;
+  long long long_long_value;
+  void *pointer_value;
+} plumed_mpiw_scratch_alignment;
 typedef struct {
   char c;
-  MPI_Status value;
-} plumed_mpiw_status_alignment;
+  plumed_mpiw_scratch_alignment value;
+} plumed_mpiw_scratch_alignment_offset;
+#define PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(type) \
+  typedef struct { char c; type value; } \
+  PLUMED_MPIW_JOIN(plumed_mpiw_native_align_, type); \
+  PLUMED_MPIW_STATIC_ASSERT(offsetof(PLUMED_MPIW_JOIN(plumed_mpiw_native_align_, type), value) <= \
+                            offsetof(plumed_mpiw_scratch_alignment_offset, value), \
+                            "native MPI type over-aligns provider scratch")
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Comm);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Group);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Datatype);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Request);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Op);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Errhandler);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Status);
+PLUMED_MPIW_STATIC_ASSERT(sizeof(int) == sizeof(int32_t) && (int)-1 < 0,
+                          "native MPI int must be signed 32-bit");
 static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
-  (uint32_t)sizeof(plumed_mpiw_provider_descriptor), PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0u,
-  PLUMED_MPIW_ADAPTER_RUNTIME_KIND, 0u, {0u, 0u, 0u, 0u},
+  (uint32_t)sizeof(plumed_mpiw_provider_descriptor),
+  PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0u,
+  (uint32_t)(
+#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
+    1u
+#else
+    0u
+#endif
+  ),
+  "PLUMED native MPI adapter",
   (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),
   (uint32_t)sizeof(MPI_Datatype), (uint32_t)sizeof(MPI_Request),
   (uint32_t)sizeof(MPI_Op), (uint32_t)sizeof(MPI_Errhandler),
-  (uint32_t)sizeof(MPI_Status), (uint32_t)offsetof(plumed_mpiw_status_alignment, value),
-  (uint32_t)sizeof(int), 1u,
+  (uint32_t)sizeof(MPI_Status),
+  (uint32_t)offsetof(MPI_Status, MPI_SOURCE),
+  (uint32_t)offsetof(MPI_Status, MPI_TAG),
+  (uint32_t)offsetof(MPI_Status, MPI_ERROR),
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
   0u, 0u,
 #else
   (uint32_t)sizeof(MPI_Fint), 1u,
 #endif
-  (uint32_t)sizeof(plumed_mpiw_handle_storage), PLUMED_MPIW_STATUS_CAPACITY,
-  {0u, 0u, 0u, 0u, 0u, 0u}, PLUMED_MPIW_ADAPTER_PROVIDER_NAME, PLUMED_MPIW_ADAPTER_PROVIDER_VERSION,
-  (uint64_t)(sizeof(plumed_mpiw_functions) / sizeof(plumed_mpiw_functions[0])), plumed_mpiw_functions,
-  (uint64_t)(sizeof(plumed_mpiw_metadata) / sizeof(plumed_mpiw_metadata[0])), plumed_mpiw_metadata,
-  (plumed_mpiw_generic_fn)(&MPI_Comm_rank), (plumed_mpiw_generic_fn)(&MPI_Initialized), 0
+  (uint64_t)(sizeof(plumed_mpiw_functions) / sizeof(plumed_mpiw_functions[0])),
+  plumed_mpiw_functions,
+  (uint64_t)(sizeof(plumed_mpiw_metadata) / sizeof(plumed_mpiw_metadata[0])),
+  plumed_mpiw_metadata
 };
+#undef PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT
 #undef PLUMED_MPIW_VALUE
-#undef PLUMED_MPIW_ENTRY
-static inline const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
-  plumed_mpiw_verify_typed_functions();
+#undef PLUMED_MPIW_STATIC_ASSERT
+#undef PLUMED_MPIW_JOIN
+#undef PLUMED_MPIW_JOIN_INNER
+
+static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
   return &plumed_mpiw_descriptor;
 }
-#ifdef PLUMED_MPIW_UNDEFINE_MPI_COMM_SELF
-#undef MPI_COMM_SELF
-#undef PLUMED_MPIW_UNDEFINE_MPI_COMM_SELF
-#endif
-#undef PLUMED_MPIW_ADAPTER_RUNTIME_KIND
-#undef PLUMED_MPIW_ADAPTER_PROVIDER_NAME
-#undef PLUMED_MPIW_ADAPTER_PROVIDER_VERSION
-#undef PLUMED_MPIW_ERROR_ARG
-#undef PLUMED_MPIW_ERROR_COUNT
-#undef PLUMED_MPIW_ERROR_NO_MEM
-#ifdef PLUMED_MPIW_UNDEFINE_NULLPTR
-#undef nullptr
-#undef PLUMED_MPIW_UNDEFINE_NULLPTR
-#endif

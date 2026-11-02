@@ -21,12 +21,12 @@ for provider in mpich openmpi; do
   for capacity in default 16; do
     capacity_flag=
     if [ "$capacity" = 16 ]; then capacity_flag=-DPLUMED_MPIW_HANDLE_CAPACITY=16; fi
-    "$cc" -std=c99 -Wall -Wextra -Werror $extra_cflags $capacity_flag -I"$module_dir" -x c \
+    "$cc" -std=c99 -Wall -Wextra -Werror $extra_cflags $capacity_flag -x c \
       "$module_dir/test-native-adapter.c.in" -o "$tmp/test-$provider-$capacity-c"
     "$tmp/test-$provider-$capacity-c"
-    "$cc" -x c -std=c99 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -I"$module_dir" -c \
+    "$cc" -x c -std=c99 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-c99.o"
-    "$cxx" -std=c++98 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -I"$module_dir" -c \
+    "$cxx" -std=c++98 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-cxx98.o"
     for host_language in c cxx98; do
       case $host_language in
@@ -35,7 +35,7 @@ for provider in mpich openmpi; do
       esac
       "$host_compiler" -std="$host_standard" -Wall -Wextra -Werror $capacity_flag \
         -D__PLUMED_WRAPPER_IMPLEMENTATION=1 -DPLUMED_MPIW_HOST_ADAPTER=1 \
-        -D__PLUMED_HAS_DLOPEN=1 -I"$module_dir" -x "$host_input_language" -c \
+        -D__PLUMED_HAS_DLOPEN=1 -iquote "$module_dir" -x "$host_input_language" -c \
         "$module_dir/test-host-header-adapter.c.in" \
         -o "$tmp/host-$provider-$capacity-$host_language.o"
     done
@@ -49,10 +49,11 @@ if [ -n "${GMX_THREAD_MPI_INCLUDE:-}" ]; then
       cxx98) host_compiler=$clang_cxx; host_standard=c++98; host_input_language=c++ ;;
     esac
     "$host_compiler" -std="$host_standard" -Wall -Wextra -Werror \
-      -DGMX_THREAD_MPI=1 -DPLUMED_MPIW_TEST_THREAD_MPI=1 \
+      -DGMX_THREAD_MPI=1 -DPLUMED_MPIW_GROMACS_VERSION=20260000 \
+      -DPLUMED_MPIW_TEST_THREAD_MPI=1 \
       -DSIZEOF_LONG_LONG_INT=8 -D__PLUMED_WRAPPER_IMPLEMENTATION=1 \
       -DPLUMED_MPIW_HOST_ADAPTER=1 -D__PLUMED_HAS_DLOPEN=1 \
-      -I"$GMX_THREAD_MPI_INCLUDE" -I"$module_dir" -x "$host_input_language" -c \
+      -I"$GMX_THREAD_MPI_INCLUDE" -iquote "$module_dir" -x "$host_input_language" -c \
       "$module_dir/test-host-header-adapter.c.in" \
       -o "$tmp/host-thread-mpi-$host_language.o"
   done

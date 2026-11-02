@@ -4,6 +4,7 @@
 
 #include <thread_mpi_tmpi.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -723,149 +724,404 @@ int32_t exportPointer(void *output, uint32_t capacity, Pointer value) {
   return 0;
 }
 
+template<typename NativeHandle>
+plumed_mpiw_handle_storage import_handle(const void *native) {
+  plumed_mpiw_handle_storage storage{};
+  if (native) std::memcpy(storage.bytes, native, sizeof(NativeHandle));
+  return storage;
+}
+
+template<typename NativeHandle>
+void export_handle(void *native, plumed_mpiw_handle_storage storage) {
+  if (native) std::memcpy(native, storage.bytes, sizeof(NativeHandle));
+}
+
+void store_result(void *result, int value) {
+  if (result) std::memcpy(result, &value, sizeof(value));
+}
+
+plumed_mpiw_status import_native_status(const void *native) {
+  plumed_mpiw_status status{};
+  if (native) {
+    thread_mpi::tMPI_Status value{};
+    std::memcpy(&value, native, sizeof(value));
+    export_status(value, &status);
+  }
+  return status;
+}
+
+void export_native_status(void *native, const plumed_mpiw_status &status) {
+  if (native && status.raw_size == sizeof(thread_mpi::tMPI_Status)) {
+    std::memcpy(native, status.raw, sizeof(thread_mpi::tMPI_Status));
+  }
+}
+
+std::vector<plumed_mpiw_handle_storage> import_requests(void *native,
+                                                        int count) {
+  std::vector<plumed_mpiw_handle_storage> requests(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    std::memcpy(requests[static_cast<std::size_t>(i)].bytes,
+                static_cast<unsigned char *>(native) +
+                static_cast<std::size_t>(i) * sizeof(thread_mpi::tMPI_Request),
+                sizeof(thread_mpi::tMPI_Request));
+  }
+  return requests;
+}
+
+void export_requests(void *native,
+                     const std::vector<plumed_mpiw_handle_storage> &requests) {
+  for (std::size_t i = 0; i < requests.size(); ++i) {
+    std::memcpy(static_cast<unsigned char *>(native) +
+                i * sizeof(thread_mpi::tMPI_Request),
+                requests[i].bytes, sizeof(thread_mpi::tMPI_Request));
+  }
+}
+
+std::vector<plumed_mpiw_status> import_statuses(void *native, int count) {
+  std::vector<plumed_mpiw_status> statuses;
+  if (native) {
+    statuses.resize(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+      statuses[static_cast<std::size_t>(i)] = import_native_status(
+        static_cast<unsigned char *>(native) +
+        static_cast<std::size_t>(i) * sizeof(thread_mpi::tMPI_Status));
+    }
+  }
+  return statuses;
+}
+
+void export_statuses(void *native,
+                     const std::vector<plumed_mpiw_status> &statuses,
+                     int count) {
+  if (native) {
+    const int available = std::min(count, static_cast<int>(statuses.size()));
+    for (int i = 0; i < available; ++i) {
+      export_native_status(static_cast<unsigned char *>(native) +
+                           static_cast<std::size_t>(i) * sizeof(thread_mpi::tMPI_Status),
+                           statuses[static_cast<std::size_t>(i)]);
+    }
+  }
+}
+
+static void fixed_comm_rank(void *comm, void *rank, void *result) {
+  store_result(result, comm_rank(import_handle<thread_mpi::tMPI_Comm>(comm),
+                                 static_cast<std::int32_t *>(rank)));
+}
+static void fixed_comm_size(void *comm, void *size, void *result) {
+  store_result(result, comm_size(import_handle<thread_mpi::tMPI_Comm>(comm),
+                                 static_cast<std::int32_t *>(size)));
+}
+static void fixed_bcast(void *buffer, void *count, void *datatype, void *root,
+                        void *comm, void *result) {
+  store_result(result, bcast(buffer, *static_cast<std::int32_t *>(count),
+                             import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                             *static_cast<std::int32_t *>(root),
+                             import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_allreduce(void *sendbuf, void *recvbuf, void *count,
+                            void *datatype, void *op, void *comm, void *result) {
+  store_result(result, allreduce(sendbuf, recvbuf, *static_cast<std::int32_t *>(count),
+                                 import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                                 import_handle<thread_mpi::tMPI_Op>(op),
+                                 import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_barrier(void *comm, void *result) {
+  store_result(result, barrier(import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_irecv(void *buffer, void *count, void *datatype, void *source,
+                        void *tag, void *comm, void *request, void *result) {
+  plumed_mpiw_handle_storage value{};
+  const int rc = irecv(buffer, *static_cast<std::int32_t *>(count),
+                       import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                       *static_cast<std::int32_t *>(source),
+                       *static_cast<std::int32_t *>(tag),
+                       import_handle<thread_mpi::tMPI_Comm>(comm), &value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Request>(request, value);
+  store_result(result, rc);
+}
+static void fixed_send(void *buffer, void *count, void *datatype, void *dest,
+                       void *tag, void *comm, void *result) {
+  store_result(result, send(buffer, *static_cast<std::int32_t *>(count),
+                            import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                            *static_cast<std::int32_t *>(dest),
+                            *static_cast<std::int32_t *>(tag),
+                            import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_isend(void *buffer, void *count, void *datatype, void *dest,
+                        void *tag, void *comm, void *request, void *result) {
+  plumed_mpiw_handle_storage value{};
+  const int rc = isend(buffer, *static_cast<std::int32_t *>(count),
+                       import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                       *static_cast<std::int32_t *>(dest),
+                       *static_cast<std::int32_t *>(tag),
+                       import_handle<thread_mpi::tMPI_Comm>(comm), &value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Request>(request, value);
+  store_result(result, rc);
+}
+static void fixed_rsend(void *buffer, void *count, void *datatype, void *dest,
+                        void *tag, void *comm, void *result) {
+  store_result(result, rsend(buffer, *static_cast<std::int32_t *>(count),
+                             import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                             *static_cast<std::int32_t *>(dest),
+                             *static_cast<std::int32_t *>(tag),
+                             import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_irsend(void *buffer, void *count, void *datatype, void *dest,
+                         void *tag, void *comm, void *request, void *result) {
+  plumed_mpiw_handle_storage value{};
+  const int rc = irsend(buffer, *static_cast<std::int32_t *>(count),
+                        import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                        *static_cast<std::int32_t *>(dest),
+                        *static_cast<std::int32_t *>(tag),
+                        import_handle<thread_mpi::tMPI_Comm>(comm), &value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Request>(request, value);
+  store_result(result, rc);
+}
+static void fixed_wait(void *request, void *status, void *result) {
+  plumed_mpiw_handle_storage value = import_handle<thread_mpi::tMPI_Request>(request);
+  plumed_mpiw_status status_value = import_native_status(status);
+  const int rc = wait(&value, status ? &status_value : nullptr);
+  export_handle<thread_mpi::tMPI_Request>(request, value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_native_status(status, status_value);
+  store_result(result, rc);
+}
+static void fixed_waitall(void *count, void *requests, void *statuses, void *result) {
+  const int n = *static_cast<std::int32_t *>(count);
+  if (n < 0 || (n > 0 && !requests)) {
+    store_result(result, thread_mpi::TMPI_ERR_REQUESTS);
+    return;
+  }
+  try {
+    std::vector<plumed_mpiw_handle_storage> request_values = import_requests(requests, n);
+    std::vector<plumed_mpiw_status> status_values = import_statuses(statuses, n);
+    const int rc = waitall(n, n ? request_values.data() : nullptr,
+                           statuses ? status_values.data() : nullptr);
+    if (n) export_requests(requests, request_values);
+    if (rc == thread_mpi::TMPI_SUCCESS || rc == thread_mpi::TMPI_ERR_IN_STATUS) {
+      export_statuses(statuses, status_values, n);
+    }
+    store_result(result, rc);
+  } catch (const std::bad_alloc &) {
+    store_result(result, thread_mpi::TMPI_ERR_NO_MEM);
+  }
+}
+static void fixed_waitsome(void *incount, void *requests, void *outcount,
+                           void *indices, void *statuses, void *result) {
+  const int n = *static_cast<std::int32_t *>(incount);
+  if (n < 0 || (n > 0 && !requests)) {
+    store_result(result, thread_mpi::TMPI_ERR_REQUESTS);
+    return;
+  }
+  try {
+    std::vector<plumed_mpiw_handle_storage> request_values = import_requests(requests, n);
+    std::vector<plumed_mpiw_status> status_values = import_statuses(statuses, n);
+    const int rc = waitsome(n, n ? request_values.data() : nullptr,
+                            static_cast<std::int32_t *>(outcount),
+                            static_cast<std::int32_t *>(indices),
+                            statuses ? status_values.data() : nullptr);
+    if (n) export_requests(requests, request_values);
+    if (rc == thread_mpi::TMPI_SUCCESS && outcount &&
+        *static_cast<std::int32_t *>(outcount) > 0) {
+      export_statuses(statuses, status_values, *static_cast<std::int32_t *>(outcount));
+    }
+    store_result(result, rc);
+  } catch (const std::bad_alloc &) {
+    store_result(result, thread_mpi::TMPI_ERR_NO_MEM);
+  }
+}
+static void fixed_testsome(void *incount, void *requests, void *outcount,
+                           void *indices, void *statuses, void *result) {
+  const int n = *static_cast<std::int32_t *>(incount);
+  if (n < 0 || (n > 0 && !requests)) {
+    store_result(result, thread_mpi::TMPI_ERR_REQUESTS);
+    return;
+  }
+  try {
+    std::vector<plumed_mpiw_handle_storage> request_values = import_requests(requests, n);
+    std::vector<plumed_mpiw_status> status_values = import_statuses(statuses, n);
+    const int rc = testsome(n, n ? request_values.data() : nullptr,
+                            static_cast<std::int32_t *>(outcount),
+                            static_cast<std::int32_t *>(indices),
+                            statuses ? status_values.data() : nullptr);
+    if (n) export_requests(requests, request_values);
+    if (rc == thread_mpi::TMPI_SUCCESS && outcount &&
+        *static_cast<std::int32_t *>(outcount) > 0) {
+      export_statuses(statuses, status_values, *static_cast<std::int32_t *>(outcount));
+    }
+    store_result(result, rc);
+  } catch (const std::bad_alloc &) {
+    store_result(result, thread_mpi::TMPI_ERR_NO_MEM);
+  }
+}
+static void fixed_get_count(void *status, void *datatype, void *count, void *result) {
+  plumed_mpiw_status status_value = import_native_status(status);
+  store_result(result, get_count(&status_value,
+                                 import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                                 static_cast<std::int32_t *>(count)));
+}
+static void fixed_sendrecv(void *sendbuf, void *sendcount, void *sendtype,
+                           void *dest, void *sendtag, void *recvbuf,
+                           void *recvcount, void *recvtype, void *source,
+                           void *recvtag, void *comm, void *status, void *result) {
+  plumed_mpiw_status status_value = import_native_status(status);
+  const int rc = sendrecv(sendbuf, *static_cast<std::int32_t *>(sendcount),
+                          import_handle<thread_mpi::tMPI_Datatype>(sendtype),
+                          *static_cast<std::int32_t *>(dest),
+                          *static_cast<std::int32_t *>(sendtag), recvbuf,
+                          *static_cast<std::int32_t *>(recvcount),
+                          import_handle<thread_mpi::tMPI_Datatype>(recvtype),
+                          *static_cast<std::int32_t *>(source),
+                          *static_cast<std::int32_t *>(recvtag),
+                          import_handle<thread_mpi::tMPI_Comm>(comm),
+                          status ? &status_value : nullptr);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_native_status(status, status_value);
+  store_result(result, rc);
+}
+static void fixed_initialized(void *flag, void *result) {
+  store_result(result, initialized(static_cast<std::int32_t *>(flag)));
+}
+static void fixed_comm_dup(void *comm, void *newcomm, void *result) {
+  plumed_mpiw_handle_storage value{};
+  const int rc = comm_dup(import_handle<thread_mpi::tMPI_Comm>(comm), &value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Comm>(newcomm, value);
+  store_result(result, rc);
+}
+static void fixed_comm_free(void *comm, void *result) {
+  plumed_mpiw_handle_storage value = import_handle<thread_mpi::tMPI_Comm>(comm);
+  const int rc = comm_free(&value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Comm>(comm, value);
+  store_result(result, rc);
+}
+static void fixed_comm_split(void *comm, void *color, void *key, void *newcomm,
+                             void *result) {
+  plumed_mpiw_handle_storage value{};
+  const int rc = comm_split(import_handle<thread_mpi::tMPI_Comm>(comm),
+                            *static_cast<std::int32_t *>(color),
+                            *static_cast<std::int32_t *>(key), &value);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_handle<thread_mpi::tMPI_Comm>(newcomm, value);
+  store_result(result, rc);
+}
+static void fixed_abort(void *comm, void *code, void *result) {
+  store_result(result, abort_comm(import_handle<thread_mpi::tMPI_Comm>(comm),
+                                  *static_cast<std::int32_t *>(code)));
+}
+static void fixed_recv(void *buffer, void *count, void *datatype, void *source,
+                       void *tag, void *comm, void *status, void *result) {
+  plumed_mpiw_status status_value = import_native_status(status);
+  const int rc = recv(buffer, *static_cast<std::int32_t *>(count),
+                      import_handle<thread_mpi::tMPI_Datatype>(datatype),
+                      *static_cast<std::int32_t *>(source),
+                      *static_cast<std::int32_t *>(tag),
+                      import_handle<thread_mpi::tMPI_Comm>(comm),
+                      status ? &status_value : nullptr);
+  if (rc == thread_mpi::TMPI_SUCCESS) export_native_status(status, status_value);
+  store_result(result, rc);
+}
+static void fixed_scatter(void *sendbuf, void *sendcount, void *sendtype,
+                          void *recvbuf, void *recvcount, void *recvtype,
+                          void *root, void *comm, void *result) {
+  store_result(result, scatter(sendbuf, *static_cast<std::int32_t *>(sendcount),
+                               import_handle<thread_mpi::tMPI_Datatype>(sendtype),
+                               recvbuf, *static_cast<std::int32_t *>(recvcount),
+                               import_handle<thread_mpi::tMPI_Datatype>(recvtype),
+                               *static_cast<std::int32_t *>(root),
+                               import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_gather(void *sendbuf, void *sendcount, void *sendtype,
+                         void *recvbuf, void *recvcount, void *recvtype,
+                         void *root, void *comm, void *result) {
+  store_result(result, gather(sendbuf, *static_cast<std::int32_t *>(sendcount),
+                              import_handle<thread_mpi::tMPI_Datatype>(sendtype),
+                              recvbuf, *static_cast<std::int32_t *>(recvcount),
+                              import_handle<thread_mpi::tMPI_Datatype>(recvtype),
+                              *static_cast<std::int32_t *>(root),
+                              import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_allgather(void *sendbuf, void *sendcount, void *sendtype,
+                            void *recvbuf, void *recvcount, void *recvtype,
+                            void *comm, void *result) {
+  store_result(result, allgather(sendbuf, *static_cast<std::int32_t *>(sendcount),
+                                 import_handle<thread_mpi::tMPI_Datatype>(sendtype),
+                                 recvbuf, *static_cast<std::int32_t *>(recvcount),
+                                 import_handle<thread_mpi::tMPI_Datatype>(recvtype),
+                                 import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+static void fixed_allgatherv(void *sendbuf, void *sendcount, void *sendtype,
+                             void *recvbuf, void *recvcounts, void *displs,
+                             void *recvtype, void *comm, void *result) {
+  store_result(result, allgatherv(sendbuf, *static_cast<std::int32_t *>(sendcount),
+                                  import_handle<thread_mpi::tMPI_Datatype>(sendtype),
+                                  recvbuf, static_cast<std::int32_t *>(recvcounts),
+                                  static_cast<std::int32_t *>(displs),
+                                  import_handle<thread_mpi::tMPI_Datatype>(recvtype),
+                                  import_handle<thread_mpi::tMPI_Comm>(comm)));
+}
+
 using namespace thread_mpi;
 #include "thread-mpi-constant-accessors.inc"
 
 static const char callback_unavailable[] = PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE;
 static const plumed_mpiw_function_entry functions[] = {
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_rank", 0x4e7672aa,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_rank)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_size", 0xda2369ec,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_size)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Bcast", 0xe809e1ca,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&bcast)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Allreduce", 0x788900db,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&allreduce)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Barrier", 0xe7a052f4,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&barrier)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Irecv", 0xb69a0083,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&irecv)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Send", 0xbd2b6912,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&send)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Isend", 0xf5e9d915,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&isend)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Rsend", 0xbfa09b06,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&rsend)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Irsend", 0xb13d1d70,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&irsend)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Wait", 0x4b15813d,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&wait)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Waitall", 0x7a57ae23,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&waitall)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Waitsome", 0xb6562e1a,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&waitsome)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Testsome", 0x5a87d17b,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&testsome)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Get_count", 0x71967a66,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&get_count)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Sendrecv", 0xb09a6fc1,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&sendrecv)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Initialized", 0xd4498369,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&initialized)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_dup", 0xf0dc6608,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_dup)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_free", 0x4da4e1b2,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_free)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Comm_split", 0x97f1adf0,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&comm_split)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Abort", 0x84f458d6,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&abort_comm)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Recv", 0xdd56a4bc,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&recv)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Scatter", 0xb2fa0f58,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&scatter)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Gather", 0xb1f903d9,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&gather)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Allgather", 0xab8b26c9,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&allgather)
-  },
-  {
-    sizeof(plumed_mpiw_function_entry), 0, "MPI_Allgatherv", 0x0f1b22f3,
-    1, reinterpret_cast<plumed_mpiw_generic_fn>(&allgatherv)
-  },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Abort", 0x84f458d6, 1, 2, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_abort) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Comm_rank", 0x4e7672aa, 1, 2, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_comm_rank) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Comm_size", 0xda2369ec, 1, 2, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_comm_size) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Bcast", 0xe809e1ca, 1, 5, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_bcast) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Allreduce", 0x788900db, 1, 6, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_allreduce) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Barrier", 0xe7a052f4, 1, 1, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_barrier) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Irecv", 0xb69a0083, 1, 7, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_irecv) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Send", 0xbd2b6912, 1, 6, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_send) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Isend", 0xf5e9d915, 1, 7, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_isend) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Rsend", 0xbfa09b06, 1, 6, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_rsend) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Irsend", 0xb13d1d70, 1, 7, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_irsend) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Wait", 0x4b15813d, 1, 2, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_wait) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Waitall", 0x7a57ae23, 1, 3, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_waitall) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Waitsome", 0xb6562e1a, 1, 5, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_waitsome) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Testsome", 0x5a87d17b, 1, 5, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_testsome) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Get_count", 0x71967a66, 1, 3, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_get_count) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Sendrecv", 0xb09a6fc1, 1, 12, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_sendrecv) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Initialized", 0xd4498369, 1, 1, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_initialized) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Comm_dup", 0xf0dc6608, 1, 2, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_comm_dup) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Comm_free", 0x4da4e1b2, 1, 1, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_comm_free) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Comm_split", 0x97f1adf0, 1, 4, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_comm_split) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Recv", 0xdd56a4bc, 1, 7, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_recv) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Scatter", 0xb2fa0f58, 1, 8, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_scatter) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Gather", 0xb1f903d9, 1, 8, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_gather) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Allgather", 0xab8b26c9, 1, 7, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_allgather) },
+  { sizeof(plumed_mpiw_function_entry), "MPI_Allgatherv", 0x0f1b22f3, 1, 8, reinterpret_cast<plumed_mpiw_generic_fn>(&fixed_allgatherv) },
 };
 static const plumed_mpiw_metadata_entry metadata[] = {
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,
-    PLUMED_MPIW_METADATA_REQUIRED, 0,
+    PLUMED_MPIW_METADATA_REQUIRED,
     PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI,
-    sizeof(callback_unavailable), callback_unavailable
+    sizeof(callback_unavailable), 0, callback_unavailable
   },
 #include "thread-mpi-constant-metadata.inc"
   {
     sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8,
-    PLUMED_MPIW_METADATA_REQUIRED, 0,
+    PLUMED_MPIW_METADATA_REQUIRED,
     PLUMED_MPIW_METADATA_MPI_ERRHANDLER_FUNCTION_ABI,
-    sizeof(callback_unavailable), callback_unavailable
+    sizeof(callback_unavailable), 0, callback_unavailable
+  },
+  {
+    sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_OPAQUE, 0,
+    "identity:runtime", sizeof(void *), 0, &thread_mpi::TMPI_COMM_WORLD
   },
 };
 
 static const plumed_mpiw_provider_descriptor descriptor = {
   sizeof(plumed_mpiw_provider_descriptor), PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0,
-  PLUMED_MPIW_RUNTIME_THREAD_MPI,
-  0, {0, 0, 0, 0},
+  1, "PLUMED embedded GROMACS thread-MPI 2026.4",
   sizeof(thread_mpi::tMPI_Comm), sizeof(thread_mpi::tMPI_Group),
   sizeof(thread_mpi::tMPI_Datatype), sizeof(thread_mpi::tMPI_Request),
   sizeof(thread_mpi::tMPI_Op), sizeof(thread_mpi::tMPI_Errhandler),
-  sizeof(thread_mpi::tMPI_Status), alignof(thread_mpi::tMPI_Status),
-  sizeof(int), 1, 0, 0,
-  sizeof(plumed_mpiw_handle_storage), PLUMED_MPIW_STATUS_CAPACITY,
-  {0, 0, 0, 0, 0, 0},
-  "PLUMED embedded thread-MPI", "GROMACS v2026.4",
+  sizeof(thread_mpi::tMPI_Status),
+  offsetof(thread_mpi::tMPI_Status, TMPI_SOURCE),
+  offsetof(thread_mpi::tMPI_Status, TMPI_TAG),
+  offsetof(thread_mpi::tMPI_Status, TMPI_ERROR),
+  0, 0,
   sizeof(functions) / sizeof(functions[0]), functions,
-  sizeof(metadata) / sizeof(metadata[0]), metadata,
-  reinterpret_cast<plumed_mpiw_generic_fn>(&thread_mpi::tMPI_Comm_rank),
-  reinterpret_cast<plumed_mpiw_generic_fn>(&thread_mpi::tMPI_Initialized),
-  &thread_mpi::TMPI_COMM_WORLD
+  sizeof(metadata) / sizeof(metadata[0]), metadata
 };
 
 } // namespace thread_mpi_adapter

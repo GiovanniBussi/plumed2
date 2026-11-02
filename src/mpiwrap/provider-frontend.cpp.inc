@@ -7,6 +7,23 @@
 
 namespace PLMD {
 
+bool mpiwrap_provider_installed() {
+  return mpiwrap_provider::currentRegistry().installed();
+}
+
+bool mpiwrap_is_thread_mpi_active() {
+  auto &registry = mpiwrap_provider::currentRegistry();
+  if (!registry.installed() ||
+      registry.runtimeKind() != PLUMED_MPIW_RUNTIME_THREAD_MPI) {
+    return false;
+  }
+  // Inspect the installed provider directly. Calling the public wrapper here
+  // could select a provider, which this inquiry must never do.
+  const auto initialized = pointers::Initialized;
+  int flag = 0;
+  return initialized && initialized(&flag) == 0 && flag != 0;
+}
+
 void mpiwrap_ensure_provider_selected() {
   if (pointers::ready.load(std::memory_order_acquire)) {
     return;
@@ -29,8 +46,11 @@ void mpiwrap_ensure_provider_selected() {
                            mpiwrap_provider::currentRegistry().providerName() + ")")
 #define PLUMED_MPIW_PROVIDER_HANDLE(name, suffix, type) \
   type mpiwrap_##suffix() { \
-    mpiwrap_ensure_provider_selected(); \
+    mpiwrap_provider::ensureProviderSelected(); \
+    auto &registry = mpiwrap_provider::currentRegistry(); \
+    registry.markProviderValueUsed(); \
     type value{}; \
+    if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || \
         pointers::constant_##suffix(&value.storage, sizeof(value.storage)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
@@ -39,8 +59,11 @@ void mpiwrap_ensure_provider_selected() {
   }
 #define PLUMED_MPIW_PROVIDER_INTEGER(name, suffix, type) \
   type mpiwrap_##suffix() { \
-    mpiwrap_ensure_provider_selected(); \
+    mpiwrap_provider::ensureProviderSelected(); \
+    auto &registry = mpiwrap_provider::currentRegistry(); \
+    registry.markProviderValueUsed(); \
     type value{}; \
+    if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \
@@ -50,8 +73,11 @@ void mpiwrap_ensure_provider_selected() {
   type mpiwrap_##suffix() { return type{}; }
 #define PLUMED_MPIW_PROVIDER_POINTER(name, suffix, type) \
   type mpiwrap_##suffix() { \
-    mpiwrap_ensure_provider_selected(); \
+    mpiwrap_provider::ensureProviderSelected(); \
+    auto &registry = mpiwrap_provider::currentRegistry(); \
+    registry.markProviderValueUsed(); \
     type value{}; \
+    if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \

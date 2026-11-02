@@ -5,71 +5,33 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef PLUMED_MPIW_HANDLE_CAPACITY
-#define PLUMED_MPIW_HANDLE_CAPACITY ((sizeof(void *) > 8U) ? sizeof(void *) : 8U)
-#endif
-#ifndef PLUMED_MPIW_STATUS_CAPACITY
-#define PLUMED_MPIW_STATUS_CAPACITY 128
-#endif
-
 /* The sole factory symbol resolved by plumed_kernel_load_mpi_wrapper. */
 #ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
 #define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
 #endif
 
-/* Native handle bytes occupy this zero-initialized, byte-addressable prefix. */
-typedef struct {
-  unsigned char bytes[PLUMED_MPIW_HANDLE_CAPACITY];
-} plumed_mpiw_handle_storage;
+#define PLUMED_MPIW_PROVIDER_ABI_MAJOR UINT32_C(3)
 
-#define PLUMED_MPIW_PROVIDER_ABI_MAJOR UINT32_C(2)
-
-#define PLUMED_MPIW_FUNCTION_REQUIRED UINT32_C(1)
 #define PLUMED_MPIW_METADATA_REQUIRED UINT32_C(1)
 #define PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI "callback:MPI_User_function"
 #define PLUMED_MPIW_METADATA_MPI_ERRHANDLER_FUNCTION_ABI "callback:MPI_Comm_errhandler_function"
 #define PLUMED_MPIW_CALLBACK_ABI_MPI5_C_V1 "mpi5-c-v1"
 #define PLUMED_MPIW_CALLBACK_ABI_UNAVAILABLE "unavailable"
-#define PLUMED_MPIW_VALUE_I32 UINT32_C(1)
-#define PLUMED_MPIW_VALUE_U32 UINT32_C(2)
-#define PLUMED_MPIW_VALUE_I64 UINT32_C(3)
-#define PLUMED_MPIW_VALUE_U64 UINT32_C(4)
 #define PLUMED_MPIW_VALUE_UTF8 UINT32_C(5)
-#define PLUMED_MPIW_VALUE_OPAQUE UINT32_C(6)
 #define PLUMED_MPIW_VALUE_ACCESSOR UINT32_C(7)
+#define PLUMED_MPIW_VALUE_OPAQUE UINT32_C(8)
 
-#define PLUMED_MPIW_RUNTIME_PROCESS_MPI UINT32_C(1)
-#define PLUMED_MPIW_RUNTIME_THREAD_MPI UINT32_C(2)
-
-#define PLUMED_MPIW_SIG_COMM_RANK UINT32_C(0x00010001)
-#define PLUMED_MPIW_SIG_WAIT UINT32_C(0x00010002)
-#define PLUMED_MPIW_SIG_HANDLE_VALUE UINT32_C(0x00010003)
-
+/* Function table entries erase the exact per-function transport signature.
+   Callers must cast back to that generated signature before invoking it. */
 typedef void (*plumed_mpiw_generic_fn)(void);
-typedef int32_t (*plumed_mpiw_constant_accessor_fn)(void *output,
-    uint32_t capacity);
-
-/* Public status fields plus raw storage for the provider-native status bytes. */
-typedef struct {
-  int32_t source;
-  int32_t tag;
-  int32_t error;
-  uint32_t raw_size;
-  unsigned char raw[PLUMED_MPIW_STATUS_CAPACITY];
-} plumed_mpiw_status;
-
-typedef int32_t (*plumed_mpiw_comm_rank_v1_fn)(plumed_mpiw_handle_storage comm,
-    int32_t *rank);
-typedef int32_t (*plumed_mpiw_wait_v1_fn)(plumed_mpiw_handle_storage *request,
-    plumed_mpiw_status *status);
-typedef int32_t (*plumed_mpiw_handle_value_v1_fn)(plumed_mpiw_handle_storage *storage);
+typedef void (*plumed_mpiw_constant_accessor_fn)(void *output);
 
 typedef struct {
   uint32_t struct_size;      /* fixed entry layout within one ABI major */
-  uint32_t flags;
   const char *name;          /* NUL-terminated; borrowed until install returns */
   uint32_t signature_id;
   uint32_t signature_version;
+  uint32_t argument_count;
   plumed_mpiw_generic_fn function;
 } plumed_mpiw_function_entry;
 
@@ -77,19 +39,18 @@ typedef struct {
   uint32_t struct_size;      /* fixed entry layout within one ABI major */
   uint32_t value_type;
   uint32_t flags;
-  uint32_t reserved;
   const char *name;          /* NUL-terminated; borrowed until install returns */
-  uint64_t value_size;
-  const void *value;         /* copied by installer for recognized metadata */
+  uint64_t value_size;       /* exact payload byte count at value */
+  uint64_t native_value_size; /* accessor result width; zero for other values */
+  const void *value;         /* payload copied by installer before install returns */
 } plumed_mpiw_metadata_entry;
 
 typedef struct plumed_mpiw_provider_descriptor {
   uint32_t struct_size;
   uint32_t abi_major;
   uint32_t abi_minor;
-  uint32_t runtime_kind;
-  uint64_t flags;
-  uint64_t capabilities[4];
+  uint32_t ranks_are_threads;
+  const char *description;   /* optional, NUL-terminated and borrowed */
   uint32_t native_comm_size;
   uint32_t native_group_size;
   uint32_t native_datatype_size;
@@ -97,23 +58,15 @@ typedef struct plumed_mpiw_provider_descriptor {
   uint32_t native_op_size;
   uint32_t native_errhandler_size;
   uint32_t native_status_size;
-  uint32_t native_status_align;
-  uint32_t native_c_int_size;
-  uint32_t native_c_int_signed;
+  uint32_t native_status_source_offset;
+  uint32_t native_status_tag_offset;
+  uint32_t native_status_error_offset;
   uint32_t native_fint_size;
   uint32_t native_fint_signed;
-  uint32_t wrapper_handle_size;
-  uint32_t wrapper_status_capacity;
-  uint32_t reserved[6];
-  const char *provider_name;
-  const char *provider_version;
   uint64_t function_count;
   const plumed_mpiw_function_entry *functions;
   uint64_t metadata_count;
   const plumed_mpiw_metadata_entry *metadata;
-  plumed_mpiw_generic_fn identity_comm_rank;
-  plumed_mpiw_generic_fn identity_initialized;
-  const void *host_runtime_token;
 } plumed_mpiw_provider_descriptor;
 
 typedef int (*plumed_mpiw_error_fn)(void *context, int32_t code,
