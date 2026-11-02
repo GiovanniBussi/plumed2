@@ -120,6 +120,18 @@ plumed_mpiw_function_entry finalizedEntry(plumed_mpiw_generic_fn function) {
 
 int run() {
   using PLMD::mpiwrap_provider::Registry;
+
+  Registry &current = PLMD::mpiwrap_provider::currentRegistry();
+  assert(!current.installed());
+  assert(!PLMD::pointers::ready.load(std::memory_order_acquire));
+#define PLUMED_MPIW_PROVIDER_POINTER(name, suffix) assert(!PLMD::mpiwrap_has_##suffix());
+#define PLUMED_MPIW_PROVIDER_CONSTANT(name, suffix, bridge)
+#include "provider-pointer-publish.inc"
+#undef PLUMED_MPIW_PROVIDER_CONSTANT
+#undef PLUMED_MPIW_PROVIDER_POINTER
+  assert(!current.installed());
+  assert(!PLMD::pointers::ready.load(std::memory_order_acquire));
+
   plumed_mpiw_function_entry functions[] = {
     rankEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank)),
     commDupEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeCommDup)),
