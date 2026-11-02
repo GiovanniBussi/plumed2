@@ -583,8 +583,7 @@ inline int mpiwrap_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_dup() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_dup != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_dup != nullptr;
 }
 inline int mpiwrap_Comm_free(MPI_Comm *comm) {
   mpiwrap_ensure_provider_selected();
@@ -603,8 +602,7 @@ inline int mpiwrap_Comm_free(MPI_Comm *comm) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_free != nullptr;
 }
 inline int mpiwrap_Comm_rank(MPI_Comm comm, int *rank) {
   mpiwrap_ensure_provider_selected();
@@ -622,8 +620,7 @@ inline int mpiwrap_Comm_rank(MPI_Comm comm, int *rank) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_rank() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_rank != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_rank != nullptr;
 }
 inline int mpiwrap_Comm_size(MPI_Comm comm, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -641,8 +638,7 @@ inline int mpiwrap_Comm_size(MPI_Comm comm, int *size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_size() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_size != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_size != nullptr;
 }
 inline int mpiwrap_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) {
   mpiwrap_ensure_provider_selected();
@@ -660,8 +656,7 @@ inline int mpiwrap_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newco
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_split() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_split != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_split != nullptr;
 }
 inline int mpiwrap_Abort(MPI_Comm comm, int errorcode) {
   mpiwrap_ensure_provider_selected();
@@ -672,8 +667,7 @@ inline int mpiwrap_Abort(MPI_Comm comm, int errorcode) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Abort() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Abort != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Abort != nullptr;
 }
 inline int mpiwrap_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -684,8 +678,7 @@ inline int mpiwrap_Bcast(void *buffer, int count, MPI_Datatype datatype, int roo
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Bcast() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Bcast != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Bcast != nullptr;
 }
 inline int mpiwrap_Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -696,8 +689,7 @@ inline int mpiwrap_Scatter(const void *sendbuf, int sendcount, MPI_Datatype send
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Scatter() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Scatter != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Scatter != nullptr;
 }
 inline int mpiwrap_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -708,8 +700,7 @@ inline int mpiwrap_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendt
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Gather() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Gather != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Gather != nullptr;
 }
 inline int mpiwrap_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -720,8 +711,7 @@ inline int mpiwrap_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Allreduce() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Allreduce != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Allreduce != nullptr;
 }
 inline int mpiwrap_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -739,8 +729,7 @@ inline int mpiwrap_Isend(const void *buf, int count, MPI_Datatype datatype, int 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Isend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Isend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Isend != nullptr;
 }
 inline int mpiwrap_Wait(MPI_Request *request, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -763,8 +752,7 @@ inline int mpiwrap_Wait(MPI_Request *request, MPI_Status *status) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Wait() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Wait != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Wait != nullptr;
 }
 inline int mpiwrap_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -775,8 +763,7 @@ inline int mpiwrap_Allgather(const void *sendbuf, int sendcount, MPI_Datatype se
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Allgather() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Allgather != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Allgather != nullptr;
 }
 inline int mpiwrap_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -787,8 +774,7 @@ inline int mpiwrap_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype s
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Allgatherv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Allgatherv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Allgatherv != nullptr;
 }
 inline int mpiwrap_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -803,8 +789,7 @@ inline int mpiwrap_Recv(void *buf, int count, MPI_Datatype datatype, int source,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Recv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Recv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Recv != nullptr;
 }
 inline int mpiwrap_Barrier(MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -815,8 +800,7 @@ inline int mpiwrap_Barrier(MPI_Comm comm) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Barrier() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Barrier != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Barrier != nullptr;
 }
 inline int mpiwrap_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) {
   mpiwrap_ensure_provider_selected();
@@ -839,8 +823,7 @@ inline int mpiwrap_Get_count(const MPI_Status *status, MPI_Datatype datatype, in
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Get_count() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Get_count != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Get_count != nullptr;
 }
 inline int mpiwrap_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, void *recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -855,8 +838,7 @@ inline int mpiwrap_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sen
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Sendrecv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Sendrecv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Sendrecv != nullptr;
 }
 inline int mpiwrap_Error_string(int errorcode, char *string, int *resultlen) {
   mpiwrap_ensure_provider_selected();
@@ -874,8 +856,7 @@ inline int mpiwrap_Error_string(int errorcode, char *string, int *resultlen) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Error_string() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Error_string != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Error_string != nullptr;
 }
 inline int mpiwrap_Comm_create_errhandler(MPI_Comm_errhandler_function *comm_errhandler_fn, MPI_Errhandler *errhandler) {
   (void)comm_errhandler_fn;
@@ -897,8 +878,7 @@ inline MPI_Comm mpiwrap_Comm_f2c(std::int32_t comm) {
   return value;
 }
 inline bool mpiwrap_has_Comm_f2c() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_f2c != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_f2c != nullptr;
 }
 inline int mpiwrap_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -909,8 +889,7 @@ inline int mpiwrap_Send(const void *buf, int count, MPI_Datatype datatype, int d
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Send() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Send != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Send != nullptr;
 }
 inline int mpiwrap_Bsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -921,8 +900,7 @@ inline int mpiwrap_Bsend(const void *buf, int count, MPI_Datatype datatype, int 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Bsend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Bsend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Bsend != nullptr;
 }
 inline int mpiwrap_Ssend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -933,8 +911,7 @@ inline int mpiwrap_Ssend(const void *buf, int count, MPI_Datatype datatype, int 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Ssend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Ssend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Ssend != nullptr;
 }
 inline int mpiwrap_Rsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -945,8 +922,7 @@ inline int mpiwrap_Rsend(const void *buf, int count, MPI_Datatype datatype, int 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Rsend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Rsend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Rsend != nullptr;
 }
 inline int mpiwrap_Buffer_attach(void *buffer, int size) {
   mpiwrap_ensure_provider_selected();
@@ -957,8 +933,7 @@ inline int mpiwrap_Buffer_attach(void *buffer, int size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Buffer_attach() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Buffer_attach != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Buffer_attach != nullptr;
 }
 inline int mpiwrap_Buffer_detach(void *buffer_addr, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -976,8 +951,7 @@ inline int mpiwrap_Buffer_detach(void *buffer_addr, int *size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Buffer_detach() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Buffer_detach != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Buffer_detach != nullptr;
 }
 inline int mpiwrap_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -995,8 +969,7 @@ inline int mpiwrap_Ibsend(const void *buf, int count, MPI_Datatype datatype, int
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Ibsend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Ibsend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Ibsend != nullptr;
 }
 inline int mpiwrap_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1014,8 +987,7 @@ inline int mpiwrap_Issend(const void *buf, int count, MPI_Datatype datatype, int
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Issend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Issend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Issend != nullptr;
 }
 inline int mpiwrap_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1033,8 +1005,7 @@ inline int mpiwrap_Irsend(const void *buf, int count, MPI_Datatype datatype, int
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Irsend() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Irsend != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Irsend != nullptr;
 }
 inline int mpiwrap_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1052,8 +1023,7 @@ inline int mpiwrap_Irecv(void *buf, int count, MPI_Datatype datatype, int source
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Irecv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Irecv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Irecv != nullptr;
 }
 inline int mpiwrap_Test(MPI_Request *request, int *flag, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1083,8 +1053,7 @@ inline int mpiwrap_Test(MPI_Request *request, int *flag, MPI_Status *status) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Test() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Test != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Test != nullptr;
 }
 inline int mpiwrap_Request_free(MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1103,8 +1072,7 @@ inline int mpiwrap_Request_free(MPI_Request *request) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Request_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Request_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Request_free != nullptr;
 }
 inline int mpiwrap_Waitany(int count, MPI_Request array_of_requests[], int *indx, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1140,8 +1108,7 @@ inline int mpiwrap_Waitany(int count, MPI_Request array_of_requests[], int *indx
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitany() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Waitany != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Waitany != nullptr;
 }
 inline int mpiwrap_Testany(int count, MPI_Request array_of_requests[], int *indx, int *flag, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1184,8 +1151,7 @@ inline int mpiwrap_Testany(int count, MPI_Request array_of_requests[], int *indx
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testany() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Testany != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Testany != nullptr;
 }
 inline int mpiwrap_Waitall(int count, MPI_Request array_of_requests[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
@@ -1221,8 +1187,7 @@ inline int mpiwrap_Waitall(int count, MPI_Request array_of_requests[], MPI_Statu
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitall() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Waitall != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Waitall != nullptr;
 }
 inline int mpiwrap_Testall(int count, MPI_Request array_of_requests[], int *flag, MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
@@ -1265,8 +1230,7 @@ inline int mpiwrap_Testall(int count, MPI_Request array_of_requests[], int *flag
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testall() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Testall != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Testall != nullptr;
 }
 inline int mpiwrap_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
@@ -1309,8 +1273,7 @@ inline int mpiwrap_Waitsome(int incount, MPI_Request array_of_requests[], int *o
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Waitsome() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Waitsome != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Waitsome != nullptr;
 }
 inline int mpiwrap_Testsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status *array_of_statuses) {
   mpiwrap_ensure_provider_selected();
@@ -1353,8 +1316,7 @@ inline int mpiwrap_Testsome(int incount, MPI_Request array_of_requests[], int *o
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Testsome() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Testsome != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Testsome != nullptr;
 }
 inline int mpiwrap_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1376,8 +1338,7 @@ inline int mpiwrap_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Sta
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Iprobe() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Iprobe != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Iprobe != nullptr;
 }
 inline int mpiwrap_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1392,8 +1353,7 @@ inline int mpiwrap_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Probe() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Probe != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Probe != nullptr;
 }
 inline int mpiwrap_Cancel(MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1412,8 +1372,7 @@ inline int mpiwrap_Cancel(MPI_Request *request) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cancel() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cancel != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cancel != nullptr;
 }
 inline int mpiwrap_Test_cancelled(const MPI_Status *status, int *flag) {
   mpiwrap_ensure_provider_selected();
@@ -1436,8 +1395,7 @@ inline int mpiwrap_Test_cancelled(const MPI_Status *status, int *flag) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Test_cancelled() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Test_cancelled != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Test_cancelled != nullptr;
 }
 inline int mpiwrap_Send_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1455,8 +1413,7 @@ inline int mpiwrap_Send_init(const void *buf, int count, MPI_Datatype datatype, 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Send_init() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Send_init != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Send_init != nullptr;
 }
 inline int mpiwrap_Bsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1474,8 +1431,7 @@ inline int mpiwrap_Bsend_init(const void *buf, int count, MPI_Datatype datatype,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Bsend_init() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Bsend_init != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Bsend_init != nullptr;
 }
 inline int mpiwrap_Ssend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1493,8 +1449,7 @@ inline int mpiwrap_Ssend_init(const void *buf, int count, MPI_Datatype datatype,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Ssend_init() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Ssend_init != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Ssend_init != nullptr;
 }
 inline int mpiwrap_Rsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1512,8 +1467,7 @@ inline int mpiwrap_Rsend_init(const void *buf, int count, MPI_Datatype datatype,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Rsend_init() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Rsend_init != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Rsend_init != nullptr;
 }
 inline int mpiwrap_Recv_init(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1531,8 +1485,7 @@ inline int mpiwrap_Recv_init(void *buf, int count, MPI_Datatype datatype, int so
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Recv_init() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Recv_init != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Recv_init != nullptr;
 }
 inline int mpiwrap_Start(MPI_Request *request) {
   mpiwrap_ensure_provider_selected();
@@ -1551,8 +1504,7 @@ inline int mpiwrap_Start(MPI_Request *request) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Start() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Start != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Start != nullptr;
 }
 inline int mpiwrap_Startall(int count, MPI_Request array_of_requests[]) {
   mpiwrap_ensure_provider_selected();
@@ -1577,8 +1529,7 @@ inline int mpiwrap_Startall(int count, MPI_Request array_of_requests[]) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Startall() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Startall != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Startall != nullptr;
 }
 inline int mpiwrap_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, int sendtag, int source, int recvtag, MPI_Comm comm, MPI_Status *status) {
   mpiwrap_ensure_provider_selected();
@@ -1593,8 +1544,7 @@ inline int mpiwrap_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Sendrecv_replace() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Sendrecv_replace != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Sendrecv_replace != nullptr;
 }
 inline int mpiwrap_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype) {
   mpiwrap_ensure_provider_selected();
@@ -1612,8 +1562,7 @@ inline int mpiwrap_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_contiguous() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_contiguous != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_contiguous != nullptr;
 }
 inline int mpiwrap_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype, MPI_Datatype *newtype) {
   mpiwrap_ensure_provider_selected();
@@ -1631,8 +1580,7 @@ inline int mpiwrap_Type_vector(int count, int blocklength, int stride, MPI_Datat
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_vector() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_vector != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_vector != nullptr;
 }
 inline int mpiwrap_Type_indexed(int count, const int array_of_blocklengths[], const int array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype) {
   mpiwrap_ensure_provider_selected();
@@ -1650,8 +1598,7 @@ inline int mpiwrap_Type_indexed(int count, const int array_of_blocklengths[], co
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_indexed() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_indexed != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_indexed != nullptr;
 }
 inline int mpiwrap_Type_commit(MPI_Datatype *datatype) {
   mpiwrap_ensure_provider_selected();
@@ -1670,8 +1617,7 @@ inline int mpiwrap_Type_commit(MPI_Datatype *datatype) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_commit() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_commit != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_commit != nullptr;
 }
 inline int mpiwrap_Type_free(MPI_Datatype *datatype) {
   mpiwrap_ensure_provider_selected();
@@ -1690,8 +1636,7 @@ inline int mpiwrap_Type_free(MPI_Datatype *datatype) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_free != nullptr;
 }
 inline int mpiwrap_Type_size(MPI_Datatype datatype, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -1709,8 +1654,7 @@ inline int mpiwrap_Type_size(MPI_Datatype datatype, int *size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Type_size() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Type_size != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Type_size != nullptr;
 }
 inline int mpiwrap_Get_elements(const MPI_Status *status, MPI_Datatype datatype, int *count) {
   mpiwrap_ensure_provider_selected();
@@ -1733,8 +1677,7 @@ inline int mpiwrap_Get_elements(const MPI_Status *status, MPI_Datatype datatype,
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Get_elements() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Get_elements != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Get_elements != nullptr;
 }
 inline int mpiwrap_Pack(const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf, int outsize, int *position, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1753,8 +1696,7 @@ inline int mpiwrap_Pack(const void *inbuf, int incount, MPI_Datatype datatype, v
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Pack() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Pack != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Pack != nullptr;
 }
 inline int mpiwrap_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1773,8 +1715,7 @@ inline int mpiwrap_Unpack(const void *inbuf, int insize, int *position, void *ou
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Unpack() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Unpack != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Unpack != nullptr;
 }
 inline int mpiwrap_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -1792,8 +1733,7 @@ inline int mpiwrap_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Pack_size() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Pack_size != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Pack_size != nullptr;
 }
 inline int mpiwrap_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1804,8 +1744,7 @@ inline int mpiwrap_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype send
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Gatherv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Gatherv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Gatherv != nullptr;
 }
 inline int mpiwrap_Scatterv(const void *sendbuf, const int sendcounts[], const int displs[], MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1816,8 +1755,7 @@ inline int mpiwrap_Scatterv(const void *sendbuf, const int sendcounts[], const i
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Scatterv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Scatterv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Scatterv != nullptr;
 }
 inline int mpiwrap_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1828,8 +1766,7 @@ inline int mpiwrap_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sen
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Alltoall() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Alltoall != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Alltoall != nullptr;
 }
 inline int mpiwrap_Alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[], MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1840,8 +1777,7 @@ inline int mpiwrap_Alltoallv(const void *sendbuf, const int sendcounts[], const 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Alltoallv() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Alltoallv != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Alltoallv != nullptr;
 }
 inline int mpiwrap_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1852,8 +1788,7 @@ inline int mpiwrap_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Dat
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Reduce() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Reduce != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Reduce != nullptr;
 }
 inline int mpiwrap_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op) {
   (void)user_fn;
@@ -1882,8 +1817,7 @@ inline int mpiwrap_Op_free(MPI_Op *op) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Op_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Op_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Op_free != nullptr;
 }
 inline int mpiwrap_Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1894,8 +1828,7 @@ inline int mpiwrap_Reduce_scatter(const void *sendbuf, void *recvbuf, const int 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Reduce_scatter() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Reduce_scatter != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Reduce_scatter != nullptr;
 }
 inline int mpiwrap_Scan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   mpiwrap_ensure_provider_selected();
@@ -1906,8 +1839,7 @@ inline int mpiwrap_Scan(const void *sendbuf, void *recvbuf, int count, MPI_Datat
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Scan() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Scan != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Scan != nullptr;
 }
 inline int mpiwrap_Group_size(MPI_Group group, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -1925,8 +1857,7 @@ inline int mpiwrap_Group_size(MPI_Group group, int *size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_size() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_size != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_size != nullptr;
 }
 inline int mpiwrap_Group_rank(MPI_Group group, int *rank) {
   mpiwrap_ensure_provider_selected();
@@ -1944,8 +1875,7 @@ inline int mpiwrap_Group_rank(MPI_Group group, int *rank) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_rank() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_rank != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_rank != nullptr;
 }
 inline int mpiwrap_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[], MPI_Group group2, int ranks2[]) {
   mpiwrap_ensure_provider_selected();
@@ -1956,8 +1886,7 @@ inline int mpiwrap_Group_translate_ranks(MPI_Group group1, int n, const int rank
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_translate_ranks() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_translate_ranks != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_translate_ranks != nullptr;
 }
 inline int mpiwrap_Group_compare(MPI_Group group1, MPI_Group group2, int *result) {
   mpiwrap_ensure_provider_selected();
@@ -1975,8 +1904,7 @@ inline int mpiwrap_Group_compare(MPI_Group group1, MPI_Group group2, int *result
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_compare() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_compare != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_compare != nullptr;
 }
 inline int mpiwrap_Comm_group(MPI_Comm comm, MPI_Group *group) {
   mpiwrap_ensure_provider_selected();
@@ -1994,8 +1922,7 @@ inline int mpiwrap_Comm_group(MPI_Comm comm, MPI_Group *group) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_group() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_group != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_group != nullptr;
 }
 inline int mpiwrap_Group_union(MPI_Group group1, MPI_Group group2, MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2013,8 +1940,7 @@ inline int mpiwrap_Group_union(MPI_Group group1, MPI_Group group2, MPI_Group *ne
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_union() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_union != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_union != nullptr;
 }
 inline int mpiwrap_Group_intersection(MPI_Group group1, MPI_Group group2, MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2032,8 +1958,7 @@ inline int mpiwrap_Group_intersection(MPI_Group group1, MPI_Group group2, MPI_Gr
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_intersection() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_intersection != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_intersection != nullptr;
 }
 inline int mpiwrap_Group_difference(MPI_Group group1, MPI_Group group2, MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2051,8 +1976,7 @@ inline int mpiwrap_Group_difference(MPI_Group group1, MPI_Group group2, MPI_Grou
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_difference() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_difference != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_difference != nullptr;
 }
 inline int mpiwrap_Group_incl(MPI_Group group, int n, const int ranks[], MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2070,8 +1994,7 @@ inline int mpiwrap_Group_incl(MPI_Group group, int n, const int ranks[], MPI_Gro
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_incl() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_incl != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_incl != nullptr;
 }
 inline int mpiwrap_Group_excl(MPI_Group group, int n, const int ranks[], MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2089,8 +2012,7 @@ inline int mpiwrap_Group_excl(MPI_Group group, int n, const int ranks[], MPI_Gro
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_excl() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_excl != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_excl != nullptr;
 }
 inline int mpiwrap_Group_range_incl(MPI_Group group, int n, int ranges[][3], MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2108,8 +2030,7 @@ inline int mpiwrap_Group_range_incl(MPI_Group group, int n, int ranges[][3], MPI
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_range_incl() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_range_incl != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_range_incl != nullptr;
 }
 inline int mpiwrap_Group_range_excl(MPI_Group group, int n, int ranges[][3], MPI_Group *newgroup) {
   mpiwrap_ensure_provider_selected();
@@ -2127,8 +2048,7 @@ inline int mpiwrap_Group_range_excl(MPI_Group group, int n, int ranges[][3], MPI
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_range_excl() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_range_excl != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_range_excl != nullptr;
 }
 inline int mpiwrap_Group_free(MPI_Group *group) {
   mpiwrap_ensure_provider_selected();
@@ -2147,8 +2067,7 @@ inline int mpiwrap_Group_free(MPI_Group *group) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Group_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Group_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Group_free != nullptr;
 }
 inline int mpiwrap_Comm_compare(MPI_Comm comm1, MPI_Comm comm2, int *result) {
   mpiwrap_ensure_provider_selected();
@@ -2166,8 +2085,7 @@ inline int mpiwrap_Comm_compare(MPI_Comm comm1, MPI_Comm comm2, int *result) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_compare() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_compare != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_compare != nullptr;
 }
 inline int mpiwrap_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm) {
   mpiwrap_ensure_provider_selected();
@@ -2185,8 +2103,7 @@ inline int mpiwrap_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_create() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_create != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_create != nullptr;
 }
 inline int mpiwrap_Comm_test_inter(MPI_Comm comm, int *flag) {
   mpiwrap_ensure_provider_selected();
@@ -2204,8 +2121,7 @@ inline int mpiwrap_Comm_test_inter(MPI_Comm comm, int *flag) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_test_inter() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_test_inter != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_test_inter != nullptr;
 }
 inline int mpiwrap_Comm_remote_size(MPI_Comm comm, int *size) {
   mpiwrap_ensure_provider_selected();
@@ -2223,8 +2139,7 @@ inline int mpiwrap_Comm_remote_size(MPI_Comm comm, int *size) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_remote_size() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_remote_size != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_remote_size != nullptr;
 }
 inline int mpiwrap_Comm_remote_group(MPI_Comm comm, MPI_Group *group) {
   mpiwrap_ensure_provider_selected();
@@ -2242,8 +2157,7 @@ inline int mpiwrap_Comm_remote_group(MPI_Comm comm, MPI_Group *group) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_remote_group() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_remote_group != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_remote_group != nullptr;
 }
 inline int mpiwrap_Intercomm_create(MPI_Comm local_comm, int local_leader, MPI_Comm peer_comm, int remote_leader, int tag, MPI_Comm *newintercomm) {
   mpiwrap_ensure_provider_selected();
@@ -2261,8 +2175,7 @@ inline int mpiwrap_Intercomm_create(MPI_Comm local_comm, int local_leader, MPI_C
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Intercomm_create() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Intercomm_create != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Intercomm_create != nullptr;
 }
 inline int mpiwrap_Intercomm_merge(MPI_Comm intercomm, int high, MPI_Comm *newintracomm) {
   mpiwrap_ensure_provider_selected();
@@ -2280,8 +2193,7 @@ inline int mpiwrap_Intercomm_merge(MPI_Comm intercomm, int high, MPI_Comm *newin
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Intercomm_merge() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Intercomm_merge != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Intercomm_merge != nullptr;
 }
 inline int mpiwrap_Cart_create(MPI_Comm comm_old, int ndims, const int dims[], const int periods[], int reorder, MPI_Comm *comm_cart) {
   mpiwrap_ensure_provider_selected();
@@ -2299,8 +2211,7 @@ inline int mpiwrap_Cart_create(MPI_Comm comm_old, int ndims, const int dims[], c
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_create() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_create != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_create != nullptr;
 }
 inline int mpiwrap_Dims_create(int nnodes, int ndims, int dims[]) {
   mpiwrap_ensure_provider_selected();
@@ -2311,8 +2222,7 @@ inline int mpiwrap_Dims_create(int nnodes, int ndims, int dims[]) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Dims_create() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Dims_create != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Dims_create != nullptr;
 }
 inline int mpiwrap_Graph_create(MPI_Comm comm_old, int nnodes, const int indx[], const int edges[], int reorder, MPI_Comm *comm_graph) {
   mpiwrap_ensure_provider_selected();
@@ -2330,8 +2240,7 @@ inline int mpiwrap_Graph_create(MPI_Comm comm_old, int nnodes, const int indx[],
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graph_create() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graph_create != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graph_create != nullptr;
 }
 inline int mpiwrap_Topo_test(MPI_Comm comm, int *status) {
   mpiwrap_ensure_provider_selected();
@@ -2349,8 +2258,7 @@ inline int mpiwrap_Topo_test(MPI_Comm comm, int *status) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Topo_test() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Topo_test != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Topo_test != nullptr;
 }
 inline int mpiwrap_Graphdims_get(MPI_Comm comm, int *nnodes, int *nedges) {
   mpiwrap_ensure_provider_selected();
@@ -2375,8 +2283,7 @@ inline int mpiwrap_Graphdims_get(MPI_Comm comm, int *nnodes, int *nedges) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graphdims_get() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graphdims_get != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graphdims_get != nullptr;
 }
 inline int mpiwrap_Graph_get(MPI_Comm comm, int maxindex, int maxedges, int indx[], int edges[]) {
   mpiwrap_ensure_provider_selected();
@@ -2387,8 +2294,7 @@ inline int mpiwrap_Graph_get(MPI_Comm comm, int maxindex, int maxedges, int indx
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graph_get() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graph_get != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graph_get != nullptr;
 }
 inline int mpiwrap_Cartdim_get(MPI_Comm comm, int *ndims) {
   mpiwrap_ensure_provider_selected();
@@ -2406,8 +2312,7 @@ inline int mpiwrap_Cartdim_get(MPI_Comm comm, int *ndims) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cartdim_get() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cartdim_get != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cartdim_get != nullptr;
 }
 inline int mpiwrap_Cart_get(MPI_Comm comm, int maxdims, int dims[], int periods[], int coords[]) {
   mpiwrap_ensure_provider_selected();
@@ -2418,8 +2323,7 @@ inline int mpiwrap_Cart_get(MPI_Comm comm, int maxdims, int dims[], int periods[
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_get() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_get != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_get != nullptr;
 }
 inline int mpiwrap_Cart_rank(MPI_Comm comm, const int coords[], int *rank) {
   mpiwrap_ensure_provider_selected();
@@ -2437,8 +2341,7 @@ inline int mpiwrap_Cart_rank(MPI_Comm comm, const int coords[], int *rank) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_rank() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_rank != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_rank != nullptr;
 }
 inline int mpiwrap_Cart_coords(MPI_Comm comm, int rank, int maxdims, int coords[]) {
   mpiwrap_ensure_provider_selected();
@@ -2449,8 +2352,7 @@ inline int mpiwrap_Cart_coords(MPI_Comm comm, int rank, int maxdims, int coords[
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_coords() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_coords != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_coords != nullptr;
 }
 inline int mpiwrap_Graph_neighbors_count(MPI_Comm comm, int rank, int *nneighbors) {
   mpiwrap_ensure_provider_selected();
@@ -2468,8 +2370,7 @@ inline int mpiwrap_Graph_neighbors_count(MPI_Comm comm, int rank, int *nneighbor
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graph_neighbors_count() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graph_neighbors_count != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graph_neighbors_count != nullptr;
 }
 inline int mpiwrap_Graph_neighbors(MPI_Comm comm, int rank, int maxneighbors, int neighbors[]) {
   mpiwrap_ensure_provider_selected();
@@ -2480,8 +2381,7 @@ inline int mpiwrap_Graph_neighbors(MPI_Comm comm, int rank, int maxneighbors, in
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graph_neighbors() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graph_neighbors != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graph_neighbors != nullptr;
 }
 inline int mpiwrap_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source, int *rank_dest) {
   mpiwrap_ensure_provider_selected();
@@ -2506,8 +2406,7 @@ inline int mpiwrap_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_shift() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_shift != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_shift != nullptr;
 }
 inline int mpiwrap_Cart_sub(MPI_Comm comm, const int remain_dims[], MPI_Comm *newcomm) {
   mpiwrap_ensure_provider_selected();
@@ -2525,8 +2424,7 @@ inline int mpiwrap_Cart_sub(MPI_Comm comm, const int remain_dims[], MPI_Comm *ne
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_sub() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_sub != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_sub != nullptr;
 }
 inline int mpiwrap_Cart_map(MPI_Comm comm, int ndims, const int dims[], const int periods[], int *newrank) {
   mpiwrap_ensure_provider_selected();
@@ -2544,8 +2442,7 @@ inline int mpiwrap_Cart_map(MPI_Comm comm, int ndims, const int dims[], const in
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Cart_map() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Cart_map != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Cart_map != nullptr;
 }
 inline int mpiwrap_Graph_map(MPI_Comm comm, int nnodes, const int indx[], const int edges[], int *newrank) {
   mpiwrap_ensure_provider_selected();
@@ -2563,8 +2460,7 @@ inline int mpiwrap_Graph_map(MPI_Comm comm, int nnodes, const int indx[], const 
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Graph_map() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Graph_map != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Graph_map != nullptr;
 }
 inline int mpiwrap_Get_processor_name(char *name, int *resultlen) {
   mpiwrap_ensure_provider_selected();
@@ -2582,8 +2478,7 @@ inline int mpiwrap_Get_processor_name(char *name, int *resultlen) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Get_processor_name() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Get_processor_name != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Get_processor_name != nullptr;
 }
 inline int mpiwrap_Errhandler_free(MPI_Errhandler *errhandler) {
   mpiwrap_ensure_provider_selected();
@@ -2602,8 +2497,7 @@ inline int mpiwrap_Errhandler_free(MPI_Errhandler *errhandler) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Errhandler_free() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Errhandler_free != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Errhandler_free != nullptr;
 }
 inline int mpiwrap_Error_class(int errorcode, int *errorclass) {
   mpiwrap_ensure_provider_selected();
@@ -2621,8 +2515,7 @@ inline int mpiwrap_Error_class(int errorcode, int *errorclass) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Error_class() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Error_class != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Error_class != nullptr;
 }
 inline double mpiwrap_Wtime() {
   mpiwrap_ensure_provider_selected();
@@ -2633,8 +2526,7 @@ inline double mpiwrap_Wtime() {
   return static_cast<double>(native_return_value);
 }
 inline bool mpiwrap_has_Wtime() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Wtime != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Wtime != nullptr;
 }
 inline double mpiwrap_Wtick() {
   mpiwrap_ensure_provider_selected();
@@ -2645,8 +2537,7 @@ inline double mpiwrap_Wtick() {
   return static_cast<double>(native_return_value);
 }
 inline bool mpiwrap_has_Wtick() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Wtick != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Wtick != nullptr;
 }
 inline int mpiwrap_Pcontrol(const int level, ...) {
   (void)level;
@@ -2672,8 +2563,7 @@ inline int mpiwrap_Finalized(int *flag) {
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Finalized() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Finalized != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Finalized != nullptr;
 }
 inline int mpiwrap_Comm_get_errhandler(MPI_Comm comm, MPI_Errhandler *errhandler) {
   mpiwrap_ensure_provider_selected();
@@ -2691,8 +2581,7 @@ inline int mpiwrap_Comm_get_errhandler(MPI_Comm comm, MPI_Errhandler *errhandler
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_get_errhandler() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_get_errhandler != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_get_errhandler != nullptr;
 }
 inline int mpiwrap_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler) {
   mpiwrap_ensure_provider_selected();
@@ -2703,8 +2592,7 @@ inline int mpiwrap_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
   return static_cast<int>(native_return_value);
 }
 inline bool mpiwrap_has_Comm_set_errhandler() {
-  mpiwrap_ensure_provider_selected();
-  return pointers::Comm_set_errhandler != nullptr;
+  return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_set_errhandler != nullptr;
 }
 } // namespace PLMD
 #if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)
