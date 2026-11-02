@@ -22,8 +22,8 @@
 #include "PlumedHandle.h"
 #include "core/PlumedMain.h"
 #include "Tools.h"
+// Plumed.h aliases this type when using PLUMED exception translation below.
 #include "lepton/Exception.h"
-#include <cstring>
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
 #include "../mpiwrap/provider-registry.hpp"
 #endif
