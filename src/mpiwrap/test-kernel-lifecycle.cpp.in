@@ -5,6 +5,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <fstream>
 #include <string>
 #include <type_traits>
@@ -17,9 +19,21 @@ static_assert(std::is_move_constructible<PLMD::Kernel>::value,
               "PLMD::Kernel must be movable");
 
 namespace {
-int reportError(void *,int,const char *,const char *message) {
-  std::fprintf(stderr,"kernel API error: %s\n",message);
-  return 0;
+plumed_nothrow_handler handlerFor(plumed_error *error) {
+  plumed_nothrow_handler handler;
+  handler.ptr=error;
+  handler.handler=plumed_error_set;
+  return handler;
+}
+
+bool hasExpectedNestedError(plumed_error &error) {
+  const bool valid=error.code==20300 && error.what &&
+                   std::strcmp(error.what,"injected provider type rejection")==0 &&
+                   error.nested && error.nested->code==20200 &&
+                   error.nested->what &&
+                   std::strcmp(error.nested->what,"nested provider rejection")==0;
+  plumed_error_finalize(error);
+  return valid;
 }
 
 bool exists(const char *path) {
@@ -33,7 +47,7 @@ int unusedRankCallback(int,const void *,std::size_t,void *) {
 }
 
 int main(int argc,char **argv) {
-  if(argc!=5) {
+  if(argc!=6) {
     return 2;
   }
   const char *marker=argv[3];
@@ -41,24 +55,26 @@ int main(int argc,char **argv) {
   setenv("MPIW_TEST_PROVIDER_MARKER",marker,1);
 
   plumed_kernel_handle kernel=nullptr;
+  plumed_error error;
+  plumed_error_init(&error);
   if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               &reportError,nullptr)!=PLUMED_KERNEL_OK) {
+                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
     return 3;
   }
   const int caller_owned_descriptor=1;
   if(plumed_kernel_inject_mpi(kernel,&caller_owned_descriptor,
-                              &reportError,nullptr)!=PLUMED_KERNEL_OK) {
+                              handlerFor(&error))!=PLUMED_KERNEL_OK) {
     plumed_kernel_release(kernel);
     return 4;
   }
   int launch_result=-1;
   if(plumed_kernel_launch_internal_threads(kernel,1,&unusedRankCallback,nullptr,
-      &launch_result,&reportError,nullptr)!=PLUMED_KERNEL_OK || launch_result!=0) {
+      &launch_result,handlerFor(&error))!=PLUMED_KERNEL_OK || launch_result!=0) {
     plumed_kernel_release(kernel);
     return 13;
   }
   plumed object=plumed_create_invalid();
-  if(plumed_kernel_create(kernel,&object,&reportError,nullptr)!=PLUMED_KERNEL_OK ||
+  if(plumed_kernel_create(kernel,&object,handlerFor(&error))!=PLUMED_KERNEL_OK ||
       !plumed_valid(object)) {
     plumed_kernel_release(kernel);
     return 5;
@@ -68,16 +84,16 @@ int main(int argc,char **argv) {
 
   kernel=nullptr;
   if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               &reportError,nullptr)!=PLUMED_KERNEL_OK) {
+                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
     return 6;
   }
-  if(plumed_kernel_load_mpi_wrapper(kernel,argv[2],&reportError,nullptr)!=
+  if(plumed_kernel_load_mpi_wrapper(kernel,argv[2],handlerFor(&error))!=
       PLUMED_KERNEL_OK) {
     plumed_kernel_release(kernel);
     return 7;
   }
   object=plumed_create_invalid();
-  if(plumed_kernel_create(kernel,&object,&reportError,nullptr)!=PLUMED_KERNEL_OK ||
+  if(plumed_kernel_create(kernel,&object,handlerFor(&error))!=PLUMED_KERNEL_OK ||
       !plumed_valid(object)) {
     plumed_kernel_release(kernel);
     return 8;
@@ -94,17 +110,58 @@ int main(int argc,char **argv) {
 
   kernel=nullptr;
   if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               &reportError,nullptr)!=PLUMED_KERNEL_OK) {
+                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
     return 11;
   }
   plumed_kernel_release(kernel);
   kernel=nullptr;
   if(plumed_kernel_open_dlopen(argv[4],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               &reportError,nullptr)!=PLUMED_KERNEL_UNSUPPORTED || kernel) {
+                               handlerFor(&error))!=PLUMED_KERNEL_UNSUPPORTED || kernel) {
     if(kernel) {
       plumed_kernel_release(kernel);
     }
     return 12;
   }
-  return 0;
+  if(error.code!=PLUMED_KERNEL_UNSUPPORTED || !error.what ||
+      std::strstr(error.what,"older than the pre-creation MPI provider API")==nullptr) {
+    plumed_error_finalize(error);
+    return 14;
+  }
+  plumed_error_finalize(error);
+  plumed_error_init(&error);
+
+  kernel=nullptr;
+  if(plumed_kernel_open_dlopen(argv[5],RTLD_NOW|RTLD_LOCAL,&kernel,
+                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
+    return 15;
+  }
+  if(plumed_kernel_inject_mpi(kernel,&caller_owned_descriptor,
+                              handlerFor(&error))!=PLUMED_KERNEL_PROVIDER_ERROR ||
+      !hasExpectedNestedError(error)) {
+    plumed_kernel_release(kernel);
+    return 16;
+  }
+  plumed_kernel_release(kernel);
+
+  try {
+    PLMD::Kernel rejected=PLMD::Kernel::open(argv[5],RTLD_NOW|RTLD_LOCAL);
+    rejected.injectMPI(&caller_owned_descriptor);
+  } catch(const PLMD::Plumed::ExceptionTypeError &exception) {
+    if(std::strcmp(exception.what(),"injected provider type rejection")!=0) {
+      return 17;
+    }
+    try {
+      std::rethrow_if_nested(exception);
+    } catch(const PLMD::Plumed::ExceptionError &nested) {
+      if(std::strcmp(nested.what(),"nested provider rejection")!=0) {
+        return 18;
+      }
+      return 0;
+    } catch(...) {
+      return 19;
+    }
+  } catch(...) {
+    return 20;
+  }
+  return 21;
 }

@@ -29,9 +29,10 @@ target_link_libraries(thread_mpi_launch_test PRIVATE plumed_thread_mpi)
 add_executable(thread_mpi_internal_launcher_test
   ${CMAKE_CURRENT_BINARY_DIR}/internal-launcher.cpp
   ../mpiwrap/mpiwrap.cpp
-  ../mpiwrap/mpiwrap-launcher.cpp)
+  ../mpiwrap/mpiwrap-launcher.cpp
+  ../tools/Exception.cpp)
 target_include_directories(thread_mpi_internal_launcher_test PRIVATE
-  ../mpiwrap .)
+  .. ../mpiwrap .)
 target_compile_definitions(thread_mpi_internal_launcher_test PRIVATE
   SIZEOF_LONG_LONG_INT __PLUMED_HAS_THREAD_MPI __PLUMED_MPIWRAP)
 target_link_libraries(thread_mpi_internal_launcher_test PRIVATE plumed_thread_mpi)
@@ -39,9 +40,10 @@ target_link_libraries(thread_mpi_internal_launcher_test PRIVATE plumed_thread_mp
 add_executable(mpiwrap_runtime_test
   ${CMAKE_CURRENT_BINARY_DIR}/mpiwrap-runtime.cpp
   ../mpiwrap/mpiwrap.cpp
-  ../mpiwrap/mpiwrap-launcher.cpp)
+  ../mpiwrap/mpiwrap-launcher.cpp
+  ../tools/Exception.cpp)
 target_include_directories(mpiwrap_runtime_test PRIVATE
-  ../mpiwrap .)
+  .. ../mpiwrap .)
 target_compile_definitions(mpiwrap_runtime_test PRIVATE
   SIZEOF_LONG_LONG_INT __PLUMED_HAS_THREAD_MPI __PLUMED_MPIWRAP)
 target_link_libraries(mpiwrap_runtime_test PRIVATE plumed_thread_mpi)
