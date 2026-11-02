@@ -1,0 +1,9 @@
+/* Compile with PLUMED_MPIW_HOST_ADAPTER and wrapper implementation enabled. */
+#if defined(PLUMED_MPIW_TEST_THREAD_MPI)
+#include <thread_mpi/mpi_bindings.h>
+#endif
+#include "../wrapper/Plumed.h"
+
+int main(void) {
+  return plumed_kernel_inject_native_mpi((plumed_kernel_handle)0,0,0);
+}
