@@ -42,7 +42,7 @@ fi
 if [[ "$*" = "--is-installed" || "$*" = "--no-mpi --is-installed" ]]; then
   exit 1
 fi
-if [[ " $* " = *" driver "* ]]; then
+if [[ " $* " = *" driver "* || " $* " = *" sum_hills "* || " $* " = *" benchmark "* || " $* " = *" simplemd "* ]]; then
   printf 'PLUMED %s\n' "$*" >> "$TEST_LAUNCH_LOG"
   exit 0
 fi
@@ -67,15 +67,19 @@ chmod +x "$tmp/bin/plumed" "$tmp/bin/fake-mpiexec" "$tmp/bin/config-mpiexec"
 
 run_case() {
   local name=$1 mpi=$2 threads=$3 per_test=$4 chdir=$5 override=$6 expect=$7 old=$8
+  local test_type=${9:-driver}
+  local test_arguments='--test-ranks 3'
+  if [[ "$test_type" = plumed ]]; then test_arguments="benchmark $test_arguments"; fi
   local dir="$tmp/regtest/case/deep/$name"
   mkdir -p "$dir"
   cat > "$dir/config" <<EOF
-type=driver
+type=$test_type
 mpiprocs=3
-arg=--test-ranks\ 3
+arg="$test_arguments"
 plumed_thread_mpi=$per_test
 plumed_chdir=$chdir
 EOF
+  if [[ "$test_type" = simplemd ]]; then echo 'nstep 1' > "$dir/in"; fi
   : > "$TEST_LAUNCH_LOG"
   (cd "$dir" && TEST_NATIVE_MPI="$mpi" TEST_THREAD_MPI="$threads" TEST_OLD_CONFIG="$old" \
     TEST_REPO_ROOT="$repo" TEST_CONFIG_MPIRUN="$tmp/bin/config-mpiexec" \
@@ -98,6 +102,18 @@ check_log() {
 export TEST_LAUNCH_LOG="$tmp/launch.log"
 run_case internal no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no
 check_log 'PLUMED --tmpi-threads 3 driver --test-ranks 3'
+
+run_case benchmark no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no plumed
+check_log 'PLUMED --tmpi-threads 3 benchmark --test-ranks 3'
+
+run_case sum_hills no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no sum_hills
+check_log 'PLUMED --tmpi-threads 3 sum_hills --test-ranks 3'
+
+run_case simplemd no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no simplemd
+check_log 'PLUMED --tmpi-threads 3 simplemd in'
+
+run_case external no yes auto no "" "MPI NOT INSTALLED" no make
+test ! -s "$TEST_LAUNCH_LOG"
 
 run_case native yes yes auto no "" "" no
 check_log '^CONFIG -np 3 '
@@ -123,4 +139,4 @@ test ! -s "$TEST_LAUNCH_LOG"
 run_case chdir no yes no yes "" "CHDIR is unsupported with thread-MPI" no
 test ! -s "$TEST_LAUNCH_LOG"
 
-echo "regtest runner selection passed (internal, native, old-native, old-serial, override, CHDIR skip)"
+echo "regtest runner selection passed (CLI types, external executable, native, legacy, override, CHDIR skip)"
