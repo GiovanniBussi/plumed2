@@ -57,6 +57,9 @@ add_test(NAME internal_launcher_callback_exception
   -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-launcher-fatal.cmake)
 set_tests_properties(internal_launcher_callback_exception PROPERTIES
   TIMEOUT 20)
+add_test(NAME internal_unlaunched_serial
+  COMMAND thread_mpi_internal_launcher_test serial)
+set_tests_properties(internal_unlaunched_serial PROPERTIES TIMEOUT 20)
 foreach(ranks IN ITEMS 1 2 4)
   add_test(NAME mpiwrap_runtime_${ranks} COMMAND mpiwrap_runtime_test ${ranks})
   set_tests_properties(mpiwrap_runtime_${ranks} PROPERTIES TIMEOUT 20)

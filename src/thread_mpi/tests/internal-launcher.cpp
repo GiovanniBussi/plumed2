@@ -58,10 +58,43 @@ int run(int ranks, int throw_rank) {
   return 0;
 }
 
+int runUnlaunchedSerial() {
+  auto &registry = mpiwrap_provider::currentRegistry();
+  if (registry.installed()) {
+    return 1;
+  }
+  int initialized = 1;
+  if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
+      initialized != 0 || registry.installed()) {
+    std::cerr << "MPI_Initialized selected or initialized a provider\n";
+    return 1;
+  }
+  mpiwrap_provider::noteKernelObjectCreated();
+  if (!registry.installed() || registry.runtimeKind() !=
+      PLUMED_MPIW_RUNTIME_THREAD_MPI) {
+    std::cerr << "ordinary object creation did not select the default provider\n";
+    return 1;
+  }
+  const MPI_Comm self = mpiwrap_COMM_SELF();
+  if (self.storage != 0) {
+    std::cerr << "pre-init MPI_COMM_SELF was not the zero-filled placeholder\n";
+    return 1;
+  }
+  if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
+      initialized != 0) {
+    std::cerr << "provider selection initialized thread-MPI unexpectedly\n";
+    return 1;
+  }
+  return 0;
+}
+
 }  // namespace thread_mpi_launcher_test
 }  // namespace PLMD
 
 int main(int argc, char **argv) {
+  if (argc == 2 && std::strcmp(argv[1], "serial") == 0) {
+    return PLMD::thread_mpi_launcher_test::runUnlaunchedSerial();
+  }
   if (argc != 2 && argc != 3) {
     return 2;
   }

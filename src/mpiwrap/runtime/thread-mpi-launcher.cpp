@@ -10,6 +10,9 @@
 #include <cstdlib>
 #include <exception>
 #include <string>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 namespace PLMD {
 extern "C" const plumed_mpiw_provider_descriptor *
@@ -95,6 +98,64 @@ int reportError(ErrorReport report, void *context, int code,
 }
 
 }  // namespace
+
+#if !defined(__PLUMED_HAS_MPI)
+void ensureProviderSelected() {
+  static std::mutex selection_mutex;
+  static std::condition_variable selection_changed;
+  static bool selecting = false;
+  static std::thread::id selecting_thread;
+
+  Registry &registry = currentRegistry();
+  if (registry.installed()) {
+    return;
+  }
+  {
+    std::unique_lock<std::mutex> lock(selection_mutex);
+    if (registry.installed()) {
+      return;
+    }
+    while (selecting) {
+      if (selecting_thread == std::this_thread::get_id()) {
+        throw std::runtime_error("recursive MPI provider selection");
+      }
+      selection_changed.wait(lock);
+      if (registry.installed()) {
+        return;
+      }
+    }
+    selecting = true;
+    selecting_thread = std::this_thread::get_id();
+  }
+
+  try {
+    const plumed_mpiw_provider_descriptor *descriptor =
+      plumed_mpiw_thread_mpi_provider();
+    std::string error;
+    if (!registry.install(descriptor, error) && !registry.installed()) {
+      throw std::runtime_error(error.empty() ?
+                               "could not select the default MPI provider" : error);
+    }
+  } catch (...) {
+    std::lock_guard<std::mutex> lock(selection_mutex);
+    selecting = false;
+    selecting_thread = std::thread::id();
+    selection_changed.notify_all();
+    throw;
+  }
+  {
+    std::lock_guard<std::mutex> lock(selection_mutex);
+    selecting = false;
+    selecting_thread = std::thread::id();
+  }
+  selection_changed.notify_all();
+}
+
+void noteKernelObjectCreated() {
+  ensureProviderSelected();
+  currentRegistry().markObjectCreated();
+}
+#endif
 
 int launchInternalThreadMPI(int ranks, Callback callback,
                             void *callback_context, int *result,

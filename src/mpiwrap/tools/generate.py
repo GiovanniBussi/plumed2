@@ -129,6 +129,7 @@ def render_header(functions, types, constants):
     lines += ["} // namespace PLMD", "#else", '#include "provider-abi.h"',
               "#include <cstddef>", "#include <cstdint>", "#include <type_traits>",
               'static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");',
+              "using MPI_Fint = std::int32_t;",
               "namespace PLMD {"]
     for native in HANDLES:
         lines += [f"struct {native} {{",
@@ -138,6 +139,8 @@ def render_header(functions, types, constants):
                   "};",
                   f"static_assert(std::is_trivial<{native}>::value, \"handle must be POD\");",
                   f"static_assert(std::is_standard_layout<{native}>::value, \"handle layout\");",
+                  "// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.",
+                  f"static_assert(offsetof({native}, storage) == 0, \"native handle bytes begin at offset zero\");",
                   f"static_assert(std::is_integral<plumed_mpiw_handle_storage>::value && std::is_unsigned<plumed_mpiw_handle_storage>::value, \"unsigned handle storage\");",
                   f"static_assert(sizeof({native}) == sizeof(plumed_mpiw_handle_storage), \"handle storage\");"]
     lines += [
@@ -392,14 +395,17 @@ def render_provider_constants(constants):
         names.append(f"PLUMED_MPIW_PROVIDER_CONSTANT({name})")
         if category == "provider_handle":
             macro = "HANDLE"
+            selection = ""
         elif category in {"provider_integer", "compile_time_integer"}:
             macro = "INTEGER"
+            selection = ", false" if category == "compile_time_integer" else ", true"
         elif category in {"buffer_sentinel", "status_sentinel"}:
             macro = "POINTER"
+            selection = ""
         else:
             raise ValueError(f"unsupported provider constant class: {category}")
         functions.append(
-            f"PLUMED_MPIW_PROVIDER_{macro}({name}, {suffix}, {result})")
+            f"PLUMED_MPIW_PROVIDER_{macro}({name}, {suffix}, {result}{selection})")
     return "\n".join(names) + "\n", "\n".join(functions) + "\n"
 
 

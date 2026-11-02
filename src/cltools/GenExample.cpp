@@ -223,18 +223,12 @@ std::vector<std::vector<std::string> > GenExample::createLongInput( const std::v
   if(Communicator::initialized()) {
     if(multi) {
       if(intracomm.Get_rank()==0) {
-        NativeMPICommStorage native_intercomm;
-        plumed_assert(intercomm.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
-        myplumed.cmd("GREX setMPIIntercomm",native_intercomm.bytes);
+        myplumed.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
       }
-      NativeMPICommStorage native_intracomm;
-      plumed_assert(intracomm.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
-      myplumed.cmd("GREX setMPIIntracomm",native_intracomm.bytes);
+      myplumed.cmd("GREX setMPIIntracomm",&intracomm.Get_comm());
       myplumed.cmd("GREX init");
     }
-    NativeMPICommStorage native_comm;
-    plumed_assert(intracomm.Export_comm_native(native_comm)) << "could not export native MPI communicator";
-    myplumed.cmd("setMPIComm",native_comm.bytes);
+    myplumed.cmd("setMPIComm",&intracomm.Get_comm());
   }
   bool endplumed=false;
   myplumed.cmd("setNatoms",&natoms);
@@ -317,18 +311,12 @@ void GenExample::printExampleInput( const std::vector<std::vector<std::string> >
   if(Communicator::initialized()) {
     if(multi) {
       if(intracomm.Get_rank()==0) {
-        NativeMPICommStorage native_intercomm;
-        plumed_assert(intercomm.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
-        myplumed.cmd("GREX setMPIIntercomm",native_intercomm.bytes);
+        myplumed.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
       }
-      NativeMPICommStorage native_intracomm;
-      plumed_assert(intracomm.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
-      myplumed.cmd("GREX setMPIIntracomm",native_intracomm.bytes);
+      myplumed.cmd("GREX setMPIIntracomm",&intracomm.Get_comm());
       myplumed.cmd("GREX init");
     }
-    NativeMPICommStorage native_comm;
-    plumed_assert(intracomm.Export_comm_native(native_comm)) << "could not export native MPI communicator";
-    myplumed.cmd("setMPIComm",native_comm.bytes);
+    myplumed.cmd("setMPIComm",&intracomm.Get_comm());
   }
   myplumed.cmd("setNatoms",&natoms);
   myplumed.cmd("setKbT",&kt);

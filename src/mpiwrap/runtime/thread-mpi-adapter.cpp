@@ -478,6 +478,12 @@ int32_t get_self(void *output, uint32_t capacity) {
     return -1;
   }
   plumed_mpiw_handle_storage storage = 0;
+  int initialized = 0;
+  if (thread_mpi::tMPI_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
+      !initialized) {
+    std::memcpy(output, &storage, sizeof(storage));
+    return 0;
+  }
   const thread_mpi::tMPI_Comm value = thread_mpi::tMPI_Get_comm_self();
   std::memcpy(&storage, &value, sizeof(value));
   std::memcpy(output, &storage, sizeof(storage));
