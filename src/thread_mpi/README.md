@@ -1,7 +1,7 @@
 # Embedded thread-MPI
 
 This module contains the namespaced GROMACS thread-MPI import. [`UPSTREAM.json`](UPSTREAM.json)
-is the single provenance record: it pins the source tag and commit and records
+is the single provenance record: it pins the resolved source commit and records
 SHA256 checksums for each original upstream file before import transformations.
 The license is copied from the pinned upstream tree.
 
@@ -13,16 +13,29 @@ roles and directory paths. Imported translation units retain the
 `__PLUMED_HAS_THREAD_MPI` guard. The importer formats generated C++ and headers
 with the project's required `astyle` options.
 
-To verify the import against a local GROMACS checkout:
+To verify the recorded import against a local GROMACS checkout:
 
 ```sh
 python3 src/thread_mpi/reimport.py /path/to/gromacs --check
 ```
 
-To update the import, edit the `tag` and `commit` fields in `UPSTREAM.json`,
-then rerun the script without `--check`. It discovers source files, refreshes
-the per-file checksums in the same provenance record, and regenerates the
-import. Review any build or source-layout changes in the upstream release.
+To update from a local GROMACS tag or commit, pass it directly. The script
+resolves the commit, discovers source files, refreshes checksums, and writes
+the provenance record; no manual edits to `UPSTREAM.json` are needed. This
+also bootstraps the manifest if it is missing.
+
+```sh
+python3 src/thread_mpi/reimport.py /path/to/gromacs --ref v2026.4
+```
+
+To check a candidate ref without changing the import or its provenance, add
+`--check`:
+
+```sh
+python3 src/thread_mpi/reimport.py /path/to/gromacs --ref v2026.4 --check
+```
+
+Review any build or source-layout changes in the upstream release.
 
 The standalone runtime tests can be built with:
 
