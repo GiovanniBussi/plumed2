@@ -1,0 +1,134 @@
+// Explicit environment selection, shared by the default-provider path.
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <string>
+#if defined(__PLUMED_HAS_DLOPEN)
+#include "../config/Config.h"
+#include <dlfcn.h>
+#include <spawn.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <cerrno>
+extern char **environ;
+#endif
+
+namespace PLMD {
+namespace mpiwrap_provider {
+namespace {
+
+#if defined(__PLUMED_HAS_DLOPEN)
+struct ProviderBuildDirectory {
+  std::string directory;
+  std::string library;
+  ProviderBuildDirectory() {
+    const char *temporary_root = std::getenv("TMPDIR");
+    std::string pattern = std::string(temporary_root && temporary_root[0] ?
+                                      temporary_root : "/tmp") + "/plumed-mpi-provider.XXXXXX";
+    // mkdtemp edits its argument; C++17 guarantees writable string storage.
+    if (!mkdtemp(&pattern[0])) {
+      throw std::runtime_error("could not create MPI provider build directory");
+    }
+    directory = pattern;
+#ifdef __APPLE__
+    library = directory + "/provider.dylib";
+#else
+    library = directory + "/provider.so";
+#endif
+  }
+  ~ProviderBuildDirectory() {
+    unlink(library.c_str());
+    rmdir(directory.c_str());
+  }
+};
+
+void installProviderLibrary(Registry &registry, void *library) {
+  using Factory = const plumed_mpiw_provider_descriptor *(*)();
+  void *symbol = dlsym(library, PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL);
+  Factory factory = nullptr;
+  static_assert(sizeof(factory) == sizeof(symbol), "dlopen function pointer representation");
+  std::memcpy(&factory, &symbol, sizeof(factory));
+  try {
+    if (!factory) {
+      throw std::runtime_error("selected MPI provider library has no provider factory");
+    }
+    std::string error;
+    if (!registry.install(factory(), error, library)) {
+      throw std::runtime_error("selected MPI provider is incompatible: " + error);
+    }
+  } catch (...) {
+    dlclose(library);
+    throw;
+  }
+  // Successful installation transfers this dlopen reference to the registry.
+}
+
+void compileSelectedProvider(const char *compiler, const std::string &output) {
+  std::string script = config::getPlumedRoot() + "/scripts/makempi.sh";
+  // Spawn an interpreter with literal arguments. Neither compiler paths nor
+  // output paths are shell commands, even when they contain spaces or '$'.
+  char *arguments[] = {
+    const_cast<char *>("/bin/bash"), const_cast<char *>(script.c_str()),
+    const_cast<char *>("--compiler"), const_cast<char *>(compiler),
+    const_cast<char *>("--out"), const_cast<char *>(output.c_str()), nullptr
+  };
+  pid_t child;
+  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments, environ);
+  if (error != 0) {
+    throw std::runtime_error("could not start MPI provider compiler: " +
+                             std::string(std::strerror(error)));
+  }
+  int status = 0;
+  pid_t result;
+  do {
+    result = waitpid(child, &status, 0);
+  } while (result < 0 && errno == EINTR);
+  if (result < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    throw std::runtime_error("MPI provider compilation failed; see compiler diagnostics above");
+  }
+}
+#endif
+
+void installEnvironmentProvider(Registry &registry, const char *path) {
+  if (!path || path[0] != '/') {
+    throw std::runtime_error("PLUMED_MPI_WRAPPER requires an absolute library or compiler path");
+  }
+#if defined(__PLUMED_HAS_DLOPEN)
+  void *library = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+  if (library) {
+    installProviderLibrary(registry, library);
+    return;
+  }
+  const char *message = dlerror();
+  const std::string load_error = message ? message : "unknown loader error";
+  const std::string selected(path);
+  const std::string basename = selected.substr(selected.find_last_of('/') + 1);
+  const bool library_name =
+    (basename.size() >= 3 && basename.compare(basename.size() - 3, 3, ".so") == 0) ||
+    basename.find(".so.") != std::string::npos ||
+    (basename.size() >= 6 && basename.compare(basename.size() - 6, 6, ".dylib") == 0) ||
+    (basename.size() >= 4 && basename.compare(basename.size() - 4, 4, ".dll") == 0);
+  struct stat information;
+  if (library_name || stat(path, &information) != 0 ||
+      !S_ISREG(information.st_mode) || access(path, X_OK) != 0) {
+    throw std::runtime_error("could not load selected MPI provider: " + load_error);
+  }
+  ProviderBuildDirectory build;
+  compileSelectedProvider(path, build.library);
+  library = dlopen(build.library.c_str(), RTLD_NOW | RTLD_LOCAL);
+  if (!library) {
+    message = dlerror();
+    throw std::runtime_error("could not load compiled MPI provider: " +
+                             std::string(message ? message : "unknown loader error"));
+  }
+  installProviderLibrary(registry, library);
+#else
+  (void) registry;
+  throw std::runtime_error("PLUMED_MPI_WRAPPER requires a kernel built with dlopen support");
+#endif
+}
+
+} // namespace
+} // namespace mpiwrap_provider
+} // namespace PLMD
