@@ -162,11 +162,13 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
       printhelp=true;
       break;
     } else if(a=="--has-mpi") {
-      if(Communicator::initialized()) {
-        return 0;
-      } else {
-        return 1;
-      }
+      return Communicator::plumedHasMPI()?0:1;
+    } else if(a=="--has-real-mpi") {
+#if defined(__PLUMED_HAS_MPI)
+      return 0;
+#else
+      return 1;
+#endif
     } else if(a=="--has-thread-mpi") {
 #if defined(__PLUMED_HAS_THREAD_MPI)
       return 0;
@@ -248,7 +250,9 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
       "Options:\n"
       "  [help|-h|--help]          : to print this help\n"
       "  [--is-installed]          : fails if plumed is not installed\n"
-      "  [--has-mpi]               : fails if plumed is running without MPI\n"
+      "  [--has-mpi]               : fails if neither real nor internal thread MPI is available\n"
+      "  [--has-real-mpi]          : fails if plumed was built without real MPI\n"
+      "  [--has-thread-mpi]        : fails if plumed was built without internal thread MPI\n"
       "  [--has-dlopen]            : fails if plumed is compiled without dlopen\n"
       "  [--load LIB]              : loads a shared object (typically a plugin library)\n"
       "  [--standalone-executable] : tells plumed not to look for commands implemented as scripts\n"

@@ -14,21 +14,12 @@ if [[ "$*" = "--no-mpi info --root" ]]; then
   echo "$TEST_REPO_ROOT"
   exit 0
 fi
-if [[ "$*" = "--no-mpi config has real_mpi" ]]; then
-  if [[ ${TEST_OLD_CONFIG:-no} = yes ]]; then
-    echo "real_mpi not found"
-    exit 1
-  fi
-  if [[ ${TEST_NATIVE_MPI:-no} = yes ]]; then
-    echo "real_mpi on"
+if [[ "$*" = "--has-mpi" ]]; then
+  printf 'QUERY %s\n' "$*" >> "$TEST_QUERY_LOG"
+  if [[ ${TEST_NATIVE_MPI:-no} = yes || ${TEST_THREAD_MPI:-no} = yes ]]; then
     exit 0
   fi
-  echo "real_mpi off"
   exit 1
-fi
-if [[ "$*" = "--no-mpi config -q has mpi" ]]; then
-  [[ ${TEST_NATIVE_MPI:-no} = yes ]]
-  exit
 fi
 if [[ "$*" = "--no-mpi config -q mpiexec" || "$*" = "--no-mpi config mpiexec" ]]; then
   [[ ${TEST_NATIVE_MPI:-no} = yes ]] || exit 1
@@ -36,6 +27,11 @@ if [[ "$*" = "--no-mpi config -q mpiexec" || "$*" = "--no-mpi config mpiexec" ]]
   exit 0
 fi
 if [[ "$*" = "--has-thread-mpi" || "$*" = "--no-mpi --has-thread-mpi" ]]; then
+  printf 'QUERY %s\n' "$*" >> "$TEST_QUERY_LOG"
+  if [[ ${TEST_OLD_CONFIG:-no} = yes ]]; then
+    echo 'unknown option --has-thread-mpi' >&2
+    exit 2
+  fi
   [[ ${TEST_THREAD_MPI:-no} = yes ]]
   exit
 fi
@@ -81,6 +77,7 @@ plumed_chdir=$chdir
 EOF
   if [[ "$test_type" = simplemd ]]; then echo 'nstep 1' > "$dir/in"; fi
   : > "$TEST_LAUNCH_LOG"
+  : > "$TEST_QUERY_LOG"
   (cd "$dir" && TEST_NATIVE_MPI="$mpi" TEST_THREAD_MPI="$threads" TEST_OLD_CONFIG="$old" \
     TEST_REPO_ROOT="$repo" TEST_CONFIG_MPIRUN="$tmp/bin/config-mpiexec" \
     TEST_LAUNCH_LOG="$TEST_LAUNCH_LOG" PATH="$tmp/bin:$PATH" \
@@ -100,8 +97,11 @@ check_log() {
 }
 
 export TEST_LAUNCH_LOG="$tmp/launch.log"
+export TEST_QUERY_LOG="$tmp/query.log"
 run_case internal no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no
 check_log 'PLUMED --tmpi-threads 3 driver --test-ranks 3'
+grep -q '^QUERY --has-mpi$' "$TEST_QUERY_LOG"
+grep -q '^QUERY --no-mpi --has-thread-mpi$' "$TEST_QUERY_LOG"
 
 run_case benchmark no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no plumed
 check_log 'PLUMED --tmpi-threads 3 benchmark --test-ranks 3'
@@ -115,22 +115,29 @@ check_log 'PLUMED --tmpi-threads 3 simplemd in'
 run_case external no yes auto no "" "MPI NOT INSTALLED" no make
 test ! -s "$TEST_LAUNCH_LOG"
 
-run_case native yes yes auto no "" "" no
+run_case native yes no auto no "" "" no
 check_log '^CONFIG -np 3 '
 check_log '^PLUMED driver --test-ranks 3$'
+grep -q '^QUERY --has-mpi$' "$TEST_QUERY_LOG"
 
 run_case old_native yes no auto no "" "" yes
 check_log '^CONFIG -np 3 '
 check_log '^PLUMED driver --test-ranks 3$'
+grep -q '^QUERY --has-mpi$' "$TEST_QUERY_LOG"
+grep -q '^QUERY --no-mpi --has-thread-mpi$' "$TEST_QUERY_LOG"
 
-run_case native_override yes yes auto no "$tmp/bin/fake-mpiexec" "" no
+run_case native_override yes no auto no "$tmp/bin/fake-mpiexec" "" no
 check_log '^MPI -np 3 '
 if grep -q '^CONFIG ' "$TEST_LAUNCH_LOG"; then
   echo "explicit PLUMED_MPIRUN was ignored" >&2
   exit 1
 fi
 
-run_case old no no auto no "" "MPI NOT INSTALLED" no
+run_case old_serial no no auto no "" "MPI NOT INSTALLED" yes
+test ! -s "$TEST_LAUNCH_LOG"
+grep -q '^QUERY --no-mpi --has-thread-mpi$' "$TEST_QUERY_LOG"
+
+run_case thread_disabled no yes no no "" "thread-MPI disabled by test config" no
 test ! -s "$TEST_LAUNCH_LOG"
 
 run_case explicit no yes auto no "$tmp/bin/fake-mpiexec" "MPI NOT INSTALLED" no
