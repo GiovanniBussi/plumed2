@@ -1120,6 +1120,20 @@
       "translation": "recognize before buffer conversion; pass provider sentinel via accessor",
       "native_adapter": "implemented",
       "native_type": "void *"
+    },
+    {
+      "class": "provider_integer",
+      "standard_api_name": "MPI_ERR_IN_STATUS",
+      "mpi5_binding": "retained C constant; provider value is obtained from the native adapter",
+      "provider_value": "obtained lazily from selected provider; never assume its numeric value",
+      "thread_mpi_2026_4": {
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_ERR_IN_STATUS"
+      },
+      "semantic_test": "constant:MPI_ERR_IN_STATUS",
+      "translation": "checked numeric conversion using provider-reported native C int size/signedness",
+      "native_adapter": "implemented",
+      "native_type": "int32_t"
     }
   ]
 }

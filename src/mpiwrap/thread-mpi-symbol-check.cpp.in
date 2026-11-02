@@ -143,18 +143,15 @@ int main() {
 #error "missing direct tMPI availability for MPI_Waitall"
 #endif
   (void)&PLMD::thread_mpi::tMPI_Waitall;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testall
-#error "missing direct tMPI availability for MPI_Testall"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testall
+#error "unexpected direct tMPI availability for MPI_Testall"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Testall;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Waitsome
-#error "missing direct tMPI availability for MPI_Waitsome"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Waitsome
+#error "unexpected direct tMPI availability for MPI_Waitsome"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Waitsome;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testsome
-#error "missing direct tMPI availability for MPI_Testsome"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testsome
+#error "unexpected direct tMPI availability for MPI_Testsome"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Testsome;
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Iprobe
 #error "unexpected direct tMPI availability for MPI_Iprobe"
 #endif

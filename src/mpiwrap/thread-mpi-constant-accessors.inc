@@ -204,3 +204,7 @@ int32_t get_MPI_ERR_UNKNOWN(void *output, uint32_t capacity) {
   return exportInteger(output, capacity, TMPI_ERR_UNKNOWN);
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_ERR_UNKNOWN = &get_MPI_ERR_UNKNOWN;
+int32_t get_MPI_ERR_IN_STATUS(void *output, uint32_t capacity) {
+  return exportInteger(output, capacity, TMPI_ERR_IN_STATUS);
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_ERR_IN_STATUS = &get_MPI_ERR_IN_STATUS;
