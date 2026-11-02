@@ -68,6 +68,22 @@ the object with plumed_finalize and release the handle with the matching
 plumed_kernel_release. Releasing a handle does not finalize an object.
 C++ users can use the PLMD::Kernel RAII convenience API.
 
+## Build a native provider
+
+Use `plumed makempi --compiler /absolute/path/to/mpicc --out provider.so`
+(or an MPI C++ compiler driver) to build the shared native adapter. The command
+explicitly selects C++17 even with a C driver and does not link a PLUMED kernel.
+Use a `.dylib` output name on macOS. Pass each additional compiler or linker
+argument separately with repeated `--cflag ARG` or `--ldflag ARG` options;
+arguments are never shell-evaluated. The selected compiler must support C++.
+The adapter sources are installed with PLUMED, so this command does not need
+the original source checkout. Failed builds preserve an existing output.
+
+Load the result into an opened kernel with `plumed_kernel_load_mpi_wrapper`
+or `PLMD::Kernel::loadMPIWrapper` before creating objects. Building a provider
+does not initialize MPI: the host remains responsible for its MPI lifecycle.
+Automatic compilation from `PLUMED_MPI_WRAPPER` is still pending.
+
 ## Generated interface and runtime files
 
 All module files live directly in src/mpiwrap. The machine-readable inputs
