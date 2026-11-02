@@ -16,11 +16,22 @@ target_compile_definitions(plumed_thread_mpi PRIVATE
   SIZEOF_LONG_LONG_INT)
 target_link_libraries(plumed_thread_mpi PUBLIC Threads::Threads)
 
-add_executable(thread_mpi_launch_test tests/launch.cpp)
+set(TEST_INPUTS
+  launch.cpp
+  host-runner.cpp
+  internal-runner.cpp
+  internal-launcher.cpp
+  isolation-main.cpp
+  mpiwrap-runtime.cpp)
+foreach(name IN LISTS TEST_INPUTS)
+  configure_file(${name}.in ${name} COPYONLY)
+endforeach()
+
+add_executable(thread_mpi_launch_test ${CMAKE_CURRENT_BINARY_DIR}/launch.cpp)
 target_link_libraries(thread_mpi_launch_test PRIVATE plumed_thread_mpi)
 
 add_executable(thread_mpi_internal_launcher_test
-  tests/internal-launcher.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/internal-launcher.cpp
   ../mpiwrap/mpiwrap.cpp
   ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(thread_mpi_internal_launcher_test PRIVATE
@@ -29,7 +40,7 @@ target_compile_definitions(thread_mpi_internal_launcher_test PRIVATE SIZEOF_LONG
 target_link_libraries(thread_mpi_internal_launcher_test PRIVATE plumed_thread_mpi)
 
 add_executable(mpiwrap_runtime_test
-  tests/mpiwrap-runtime.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/mpiwrap-runtime.cpp
   ../mpiwrap/mpiwrap.cpp
   ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(mpiwrap_runtime_test PRIVATE
@@ -48,7 +59,7 @@ endforeach()
 add_test(NAME internal_launcher_callback_exception
   COMMAND ${CMAKE_COMMAND}
   -DLAUNCHER=$<TARGET_FILE:thread_mpi_internal_launcher_test>
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-launcher-fatal.cmake)
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check-launcher-fatal.cmake)
 set_tests_properties(internal_launcher_callback_exception PROPERTIES
   TIMEOUT 20)
 add_test(NAME internal_unlaunched_serial

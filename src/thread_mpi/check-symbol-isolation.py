@@ -18,7 +18,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("gromacs", type=pathlib.Path)
     ap.add_argument("--source", type=pathlib.Path,
-                    default=pathlib.Path(__file__).resolve().parents[1])
+                    default=pathlib.Path(__file__).resolve().parent)
     args = ap.parse_args()
     root = args.gromacs.resolve()
     rev = subprocess.check_output(["git", "-C", str(root), "rev-parse", "v2026.4^{commit}"], text=True).strip()
@@ -44,13 +44,16 @@ target_include_directories(host_thread_mpi PUBLIC "{host / 'include'}" PRIVATE "
 target_compile_features(host_thread_mpi PUBLIC cxx_std_17)
 target_compile_definitions(host_thread_mpi PRIVATE THREAD_PTHREADS HAVE_UNISTD_H HAVE_SYS_TIME_H HAVE_PTHREAD_H)
 target_link_libraries(host_thread_mpi PUBLIC Threads::Threads)
-add_library(host_runner OBJECT "{(source / 'tests/host-runner.cpp').as_posix()}")
+configure_file("{(source / 'host-runner.cpp.in').as_posix()}" "${{CMAKE_CURRENT_BINARY_DIR}}/host-runner.cpp" COPYONLY)
+configure_file("{(source / 'internal-runner.cpp.in').as_posix()}" "${{CMAKE_CURRENT_BINARY_DIR}}/internal-runner.cpp" COPYONLY)
+configure_file("{(source / 'isolation-main.cpp.in').as_posix()}" "${{CMAKE_CURRENT_BINARY_DIR}}/isolation-main.cpp" COPYONLY)
+add_library(host_runner OBJECT "${{CMAKE_CURRENT_BINARY_DIR}}/host-runner.cpp")
 target_include_directories(host_runner PRIVATE "{host / 'include'}")
-add_library(internal_runner OBJECT "{(source / 'tests/internal-runner.cpp').as_posix()}")
+add_library(internal_runner OBJECT "${{CMAKE_CURRENT_BINARY_DIR}}/internal-runner.cpp")
 target_include_directories(internal_runner PRIVATE "{source}")
 add_executable(symbol_isolation
   $<TARGET_OBJECTS:host_runner> $<TARGET_OBJECTS:internal_runner>
-  "{(source / 'tests/isolation-main.cpp').as_posix()}")
+  "${{CMAKE_CURRENT_BINARY_DIR}}/isolation-main.cpp")
 target_link_libraries(symbol_isolation PRIVATE host_thread_mpi plumed_thread_mpi)
 '''
         (work / "CMakeLists.txt").write_text(cmake)

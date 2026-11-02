@@ -27,7 +27,7 @@ COLLISION_NAMES = {
 
 
 def _project_root():
-    return pathlib.Path(__file__).resolve().parents[3]
+    return pathlib.Path(__file__).resolve().parents[2]
 
 
 def _source_files(src):
@@ -253,7 +253,7 @@ def import_from(root, out, astyle, options):
             "Source: GROMACS 2026.4 (v2026.4)\n"
             f"Commit: {PINNED}\n"
             "Upstream path: src/external/thread_mpi\n"
-            "Import transform: tools/reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope.\n"
+            "Import transform: reimport.py flattens selected public headers, private headers, and sources into this directory, rewrites their internal includes, and wraps C++ declarations/definitions in PLMD::thread_mpi; include directives remain at global scope.\n"
             "Collision mapping: include/thread_mpi/collective.h -> thread_mpi_collective.h; src/collective.h -> thread_mpi_internal_collective.h; include/thread_mpi/tmpi.h -> thread_mpi_tmpi.h.\n"
             "UPSTREAM.sha256 records the exact original source paths and bytes before these deterministic transformations.\n"
         )
@@ -277,7 +277,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("gromacs", type=pathlib.Path, help="read-only pinned GROMACS checkout")
     ap.add_argument("--output", type=pathlib.Path,
-                    default=pathlib.Path(__file__).resolve().parents[1])
+                    default=pathlib.Path(__file__).resolve().parent)
     project_root = _project_root()
     ap.add_argument("--astyle", type=pathlib.Path, default=project_root / "astyle/astyle",
                     help="required formatter executable (default: this checkout's astyle)")
@@ -303,7 +303,7 @@ def main():
         print(f"reimport check passed for {PINNED}")
     else:
         import_from(root, out, astyle, options)
-        print(f"imported {len(SOURCE_CPP)} C++ files and {len(list(mapping for mapping in out.glob('*.h')))} headers from {PINNED}")
+        print(f"imported {len(SOURCE_CPP)} C++ files and {len(list(out.glob('*.h')))} headers from {PINNED}")
 
 
 if __name__ == "__main__":
