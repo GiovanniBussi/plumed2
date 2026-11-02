@@ -13,7 +13,7 @@ Options:
   --ldflag ARG           Add one linker argument; may be repeated
   -h, --help             Show this help
 
-The driver must support C++17. C compiler drivers are explicitly invoked in
+The driver must support C++98. C compiler drivers are explicitly invoked in
 C++ mode. Flags are passed as individual arguments without shell evaluation.
 The generated provider uses the selected MPI runtime and no PLUMED library.'
 
@@ -50,7 +50,8 @@ if [[ -z "$output" ]]; then
   echo 'makempi: --out is required' >&2
   exit 1
 fi
-adapter_dir="${PLUMED_ROOT:?PLUMED_ROOT must identify the PLUMED installation}/src/mpiwrap"
+plumed_mpi_root=${PLUMED_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+adapter_dir="$plumed_mpi_root/src/mpiwrap"
 for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h provider-callbacks.h; do
   if [[ ! -r "$adapter_dir/$source" ]]; then
     echo "makempi: missing installed adapter source $adapter_dir/$source" >&2
@@ -66,7 +67,7 @@ esac
 build_dir=$(mktemp -d "$(dirname "$output")/.plumed-makempi.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
 temporary_output="$build_dir/$(basename "$output")"
-"$compiler" -x c++ -std=c++17 -fPIC -DPLUMED_MPIW_NATIVE_ADAPTER \
+"$compiler" -x c++ -std=c++98 -fPIC -DPLUMED_MPIW_NATIVE_ADAPTER \
   -I"$adapter_dir" ${cflags[@]+"${cflags[@]}"} "$adapter_dir/mpiwrap_implementation.cpp" \
   "${shared_flags[@]}" ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
     echo "makempi: MPI adapter compilation/link failed with $compiler" >&2
