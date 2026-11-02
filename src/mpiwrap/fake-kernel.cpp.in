@@ -7,6 +7,10 @@ struct Functions {
   void (*cmd)(void *,const char *,const void *);
   void (*finalize)(void *);
 };
+struct NothrowHandler {
+  void *ptr;
+  void (*handler)(void *,int,const char *,const void *);
+};
 struct SymbolTable {
   int version;
   Functions functions;
@@ -16,9 +20,9 @@ struct SymbolTable {
   unsigned (*create_reference)(void *);
   unsigned (*delete_reference)(void *);
   unsigned (*use_count)(void *);
-  int (*install_mpi_provider)(const void *,int (*)(void *,int,const char *,const char *),void *,void *);
+  int (*install_mpi_provider)(const void *,NothrowHandler,void *);
   int (*launch_internal_threads)(int,int (*)(int,const void *,std::size_t,void *),void *,int *,
-                                 int (*)(void *,int,const char *,const char *),void *);
+                                 NothrowHandler);
 };
 
 namespace {
@@ -43,12 +47,20 @@ extern "C" unsigned plumed_test_use_count(void *) {
   return 1;
 }
 extern "C" int plumed_test_install(const void *descriptor,
-                                   int (*)(void *,int,const char *,const char *),
-                                   void *,void *library) {
+                                   NothrowHandler nothrow,void *library) {
   if(!descriptor) {
     return 1;
   }
 #ifdef TEST_REJECT_INSTALL
+  if(nothrow.handler) {
+    void *nested=nullptr;
+    const char *nested_tag="n";
+    const void *options[]= {nested_tag,&nested,nullptr};
+    nothrow.handler(nothrow.ptr,20300,"injected provider type rejection",options);
+    if(nested) {
+      nothrow.handler(nested,20200,"nested provider rejection",nullptr);
+    }
+  }
   return 1;
 #endif
   provider_library=library;
@@ -56,8 +68,7 @@ extern "C" int plumed_test_install(const void *descriptor,
   return 0;
 }
 extern "C" int plumed_test_launch(int,int (*)(int,const void *,std::size_t,void *),
-                                  void *,int *result,
-                                  int (*)(void *,int,const char *,const char *),void *) {
+                                  void *,int *result,NothrowHandler) {
   if(result) {
     *result=0;
   }

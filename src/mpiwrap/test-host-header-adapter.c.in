@@ -5,5 +5,6 @@
 #include "../wrapper/Plumed.h"
 
 int main(void) {
-  return plumed_kernel_inject_native_mpi((plumed_kernel_handle)0,0,0);
+  plumed_nothrow_handler handler = {0, 0};
+  return plumed_kernel_inject_native_mpi((plumed_kernel_handle)0, handler);
 }

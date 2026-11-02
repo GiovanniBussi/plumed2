@@ -9,9 +9,7 @@ namespace mpiwrap_provider {
 
 int launchInternalThreadMPI(int ranks,
                             int (*callback)(int, const void *, std::size_t, void *),
-                            void *callback_context, int *result,
-                            int (*report)(void *, int, const char *, const char *),
-                            void *report_context);
+                            void *callback_context, int *result);
 
 }  // namespace mpiwrap_provider
 }  // namespace PLMD

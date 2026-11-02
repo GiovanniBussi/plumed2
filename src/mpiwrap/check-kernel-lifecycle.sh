@@ -22,7 +22,8 @@ esac
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-kernel-lifecycle.cpp.in" -ldl -o "$TMP/test-kernel-lifecycle"
 "$TMP/test-kernel-lifecycle" "$TMP/libkernel-v5.so" \
-  "$TMP/libprovider.so" "$TMP/provider-unloaded" "$TMP/libkernel-v4.so"
+  "$TMP/libprovider.so" "$TMP/provider-unloaded" "$TMP/libkernel-v4.so" \
+  "$TMP/libkernel-reject.so"
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-forward-provider.cpp.in" -ldl -o "$TMP/test-forward-provider"
 "$TMP/test-forward-provider" "$TMP/libkernel-v5.so" "$TMP/libkernel-v4.so" \

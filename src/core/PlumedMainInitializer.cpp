@@ -453,6 +453,14 @@ static void translate_nested(plumed_nothrow_handler_x nothrow) {
   }
 }
 
+static void translate_lifecycle_error(plumed_nothrow_handler_x nothrow) noexcept {
+  try {
+    translate_nested(nothrow);
+  } catch(...) {
+    // A user-supplied error callback must not unwind through the C lifecycle API.
+  }
+}
+
 extern "C" {
   static void plumed_plumedmain_cmd_safe_nothrow(void*plumed,const char*key,plumed_safeptr_x safe,plumed_nothrow_handler_x nothrow) {
 // This is a workaround for a suboptimal choice in PLUMED <2.8
@@ -512,18 +520,30 @@ namespace PLMD {
 
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
-  int (*report)(void*,int,const char*,const char*),
-  void*context,
+  plumed_nothrow_handler_x nothrow,
   void*provider_library) {
-  std::string error;
 #if defined(__PLUMED_HAS_MPI)
   (void) descriptor;
   (void) provider_library;
-  error="MPI provider injection is disabled in native-MPI kernels";
+  try {
+    throw PLMD::ExceptionError("MPI provider injection is disabled in native-MPI kernels");
+  } catch(...) {
+    if(nothrow.handler) {
+      translate_lifecycle_error(nothrow);
+    }
+    return 1;
+  }
 #elif !defined(__PLUMED_MPIWRAP)
   (void) descriptor;
   (void) provider_library;
-  error="MPI provider injection is unavailable in a fully serial kernel";
+  try {
+    throw PLMD::ExceptionError("MPI provider injection is unavailable in a fully serial kernel");
+  } catch(...) {
+    if(nothrow.handler) {
+      translate_lifecycle_error(nothrow);
+    }
+    return 1;
+  }
 #else
   try {
     if(PLMD::mpiwrap_provider::forceEnvironmentProvider()) {
@@ -537,49 +557,44 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
       return 0;
     }
     if(!descriptor) {
-      error="null MPI provider descriptor";
-    } else if(PLMD::mpiwrap_provider::currentRegistry().install(
-                static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error,
-                provider_library)) {
-      return 0;
+      throw PLMD::ExceptionTypeError("null MPI provider descriptor");
     }
-  } catch(const std::exception &exception) {
-    error=exception.what();
+    std::string error;
+    if(!PLMD::mpiwrap_provider::currentRegistry().install(
+          static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error,
+          provider_library)) {
+      throw PLMD::ExceptionError(error);
+    }
+    return 0;
   } catch(...) {
-    error="unknown exception while installing MPI provider";
+    if(nothrow.handler) {
+      translate_lifecycle_error(nothrow);
+    }
+    return 1;
   }
 #endif
-  if(report) {
-    try {
-      report(context,1,"plumed_kernel_inject_mpi",error.c_str());
-    } catch(...) {
-      // A C error callback must not unwind through the kernel boundary.
-    }
-  }
-  return 1;
 }
 
 extern "C" int plumed_plumedmain_launch_internal_threads(
   int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
-  int (*report)(void*,int,const char*,const char*), void*report_context) {
+  plumed_nothrow_handler_x nothrow) {
+  try {
 #if defined(__PLUMED_HAS_THREAD_MPI)
-  return PLMD::mpiwrap_provider::launchInternalThreadMPI(
-           ranks, callback, callback_context, result, report, report_context);
+    return PLMD::mpiwrap_provider::launchInternalThreadMPI(
+             ranks, callback, callback_context, result);
 #else
-  (void) ranks;
-  (void) callback;
-  (void) callback_context;
-  (void) result;
-  if(report) {
-    try {
-      report(report_context,1,"plumed_kernel_launch_internal_threads",
-             "internal thread-MPI support is disabled in this build");
-    } catch(...) {
-      // A C error callback must not unwind through the kernel boundary.
-    }
-  }
-  return 1;
+    (void) ranks;
+    (void) callback;
+    (void) callback_context;
+    (void) result;
+    throw PLMD::ExceptionError("internal thread-MPI support is disabled in this build");
 #endif
+  } catch(...) {
+    if(nothrow.handler) {
+      translate_lifecycle_error(nothrow);
+    }
+    return 1;
+  }
 }
 
 } // namespace PLMD
