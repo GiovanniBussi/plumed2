@@ -21,8 +21,9 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef __PLUMED_tools_Communicator_h
 #define __PLUMED_tools_Communicator_h
+#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
 #include "../mpiwrap/generated/mpiwrap.h"
-#include <cstddef>
+#endif
 #include <cstdlib>
 #include "Exception.h"
 #include "TypesafePtr.h"
@@ -34,26 +35,26 @@
 
 namespace PLMD {
 
-/// Aligned storage for passing a native MPI_Comm through a PLUMED C API.
-/// The handle is copied as bytes because the receiving kernel may use a
-/// different C++ MPI_Comm type from the caller.
-struct NativeMPICommStorage {
-  alignas(std::max_align_t) unsigned char bytes[sizeof(plumed_mpiw_handle_storage)] {};
-};
+#if !defined(__PLUMED_HAS_MPI) && !defined(__PLUMED_MPIWRAP)
+/// Surrogate of MPI_Comm when MPI library is not available
+class MPI_Comm {};
+/// Surrogate of MPI_Datatype when MPI library is not available
+class MPI_Datatype {};
+/// Surrogate of MPI_Status when MPI library is not available
+class MPI_Status {};
+/// Surrogate of MPI_Request when MPI library is not available
+class MPI_Request {};
+#endif
 
 /// \ingroup TOOLBOX
 /// Class containing wrappers to MPI.
 /// All the MPI related stuff is relegated here.
 class Communicator {
 /// Communicator
-  mutable MPI_Comm communicator{};
+  MPI_Comm communicator;
 /// True if this process holds the communicator only as a stand-in.
 /// See setStandIn().
   bool standIn=false;
-/// True while communicator is only a serial local fallback.
-  mutable bool localFallback=true;
-/// Return the communicator used by the active runtime, materializing self lazily.
-  MPI_Comm activeComm() const;
 /// In debug builds, raise an error if this communicator is a stand-in.
   void checkNotStandIn()const;
 /// Function returning the MPI type.
@@ -202,8 +203,6 @@ public:
   void Set_comm(MPI_Comm comm);
 /// Reference to MPI communicator
   MPI_Comm & Get_comm();
-/// Export the active communicator using the native MPI_Comm representation.
-  bool Export_comm_native(NativeMPICommStorage &storage) const;
 /// Mark this communicator as a stand-in on this process.
 /// A stand-in is a communicator that other processes were given but this
 /// process was not, so it does not connect this process to the processes it

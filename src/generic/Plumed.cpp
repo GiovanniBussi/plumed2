@@ -26,7 +26,6 @@
 #include "tools/Tools.h"
 #include "tools/PlumedHandle.h"
 #include "tools/Communicator.h"
-#include "../mpiwrap/runtime/provider-registry.hpp"
 #include "core/PlumedMain.h"
 #include <cstring>
 #ifdef __PLUMED_HAS_DLOPEN
@@ -202,10 +201,6 @@ Plumed::Plumed(const ActionOptions&ao):
   std::string dir;
   parse("CHDIR",dir);
   if(dir.length()>0) {
-    if(mpiwrap_provider::currentRegistry().runtimeKind()==
-        PLUMED_MPIW_RUNTIME_THREAD_MPI && Communicator::initialized()) {
-      plumed_error() << "CHDIR is not supported while a thread-MPI runtime is active";
-    }
     log<<"  running on separate directory "<<dir<<"\n";
   }
   return dir;
@@ -242,12 +237,8 @@ API([&]() {
       log<<"  running replicas as standard multi replic (with suffix)\n";
       if(root) {
         intercomm.Set_comm(&multi_sim_comm.Get_comm());
-        NativeMPICommStorage native_intercomm;
-        NativeMPICommStorage native_intracomm;
-        plumed_assert(intercomm.Export_comm_native(native_intercomm)) << "could not export native MPI communicator";
-        plumed_assert(comm_self.Export_comm_native(native_intracomm)) << "could not export native MPI communicator";
-        p.cmd("GREX setMPIIntercomm",native_intercomm.bytes);
-        p.cmd("GREX setMPIIntracomm",native_intracomm.bytes);
+        p.cmd("GREX setMPIIntercomm",&intercomm.Get_comm());
+        p.cmd("GREX setMPIIntracomm",&comm_self.Get_comm());
         p.cmd("GREX init");
       }
     }

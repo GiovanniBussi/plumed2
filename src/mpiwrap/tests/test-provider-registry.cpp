@@ -145,6 +145,10 @@ int run() {
   const PLMD::MPI_Comm imported_mpich = PLMD::mpiwrap_provider::importComm(
                                           mpich_registry, &mpich_communicator);
   assert(imported_mpich.storage == mpich_communicator);
+  std::uint32_t forwarded_mpich_communicator = 0;
+  std::memcpy(&forwarded_mpich_communicator, &imported_mpich,
+              mpich_registry.nativeCommSize());
+  assert(forwarded_mpich_communicator == mpich_communicator);
   PLMD::mpiwrap_provider::Registry *thread_registry = nullptr;
   std::thread registry_thread([&thread_registry]() {
     thread_registry = &PLMD::mpiwrap_provider::currentRegistry();

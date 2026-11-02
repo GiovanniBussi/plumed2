@@ -46,6 +46,7 @@ void copyStatus(const plumed_mpiw_status &status, MPI_Status *result) {
                            mpiwrap_provider::currentRegistry().providerName() + ")")
 #define PLUMED_MPIW_PROVIDER_HANDLE(name, suffix, type) \
   type mpiwrap_##suffix() { \
+    mpiwrap_provider::ensureProviderSelected(); \
     type value{}; \
     if (!mpiwrap_provider::currentRegistry().copyValue( \
           #name, &value.storage, sizeof(value.storage))) { \
@@ -53,16 +54,19 @@ void copyStatus(const plumed_mpiw_status &status, MPI_Status *result) {
     } \
     return value; \
   }
-#define PLUMED_MPIW_PROVIDER_INTEGER(name, suffix, type) \
+#define PLUMED_MPIW_PROVIDER_INTEGER(name, suffix, type, select_provider) \
   type mpiwrap_##suffix() { \
+    if (select_provider) { mpiwrap_provider::ensureProviderSelected(); } \
     type value{}; \
     if (!mpiwrap_provider::currentRegistry().copyValue(#name, &value, sizeof(value))) { \
+      if (!select_provider) { return type{}; } \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \
     return value; \
   }
 #define PLUMED_MPIW_PROVIDER_POINTER(name, suffix, type) \
   type mpiwrap_##suffix() { \
+    mpiwrap_provider::ensureProviderSelected(); \
     type value{}; \
     if (!mpiwrap_provider::currentRegistry().copyValue(#name, &value, sizeof(value))) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
@@ -260,6 +264,10 @@ int mpiwrap_Initialized(int *flag) {
     throw std::runtime_error("MPI_Initialized requires flag output");
   }
   std::int32_t native_flag = 0;
+  if (!mpiwrap_provider::currentRegistry().installed()) {
+    *flag = 0;
+    return 0;
+  }
   auto function = requireFunction(
                     mpiwrap_provider::currentRegistry().bindings().MPI_Initialized_pointer,
                     "MPI_Initialized");

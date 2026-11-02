@@ -111,6 +111,9 @@ private:
 // The loaded kernel owns one immutable provider registry shared by all its
 // rank threads. Injection mutates it only before object construction.
 Registry &currentRegistry();
+// Selects the embedded thread-MPI provider on first provider-dependent use.
+// Explicit provider installation before that point takes precedence.
+void ensureProviderSelected();
 void noteKernelObjectCreated();
 MPI_Comm importComm(Registry &registry, const void *native);
 bool exportComm(Registry &registry, MPI_Comm value,
