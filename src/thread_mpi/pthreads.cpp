@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 /*
    This source code file is part of thread_mpi.
    Written by Sander Pronk, Erik Lindahl, and possibly others.
@@ -897,3 +898,4 @@ int tMPI_Thread_pthreads = 0;
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI

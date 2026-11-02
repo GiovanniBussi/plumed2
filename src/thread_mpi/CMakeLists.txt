@@ -13,7 +13,7 @@ target_include_directories(plumed_thread_mpi PUBLIC . PRIVATE .)
 target_compile_features(plumed_thread_mpi PUBLIC cxx_std_17)
 target_compile_definitions(plumed_thread_mpi PRIVATE
   THREAD_PTHREADS HAVE_UNISTD_H HAVE_SYS_TIME_H HAVE_PTHREAD_H
-  SIZEOF_LONG_LONG_INT)
+  SIZEOF_LONG_LONG_INT __PLUMED_HAS_THREAD_MPI)
 target_link_libraries(plumed_thread_mpi PUBLIC Threads::Threads)
 
 set(TEST_INPUTS
@@ -36,7 +36,8 @@ add_executable(thread_mpi_internal_launcher_test
   ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(thread_mpi_internal_launcher_test PRIVATE
   ../mpiwrap .)
-target_compile_definitions(thread_mpi_internal_launcher_test PRIVATE SIZEOF_LONG_LONG_INT)
+target_compile_definitions(thread_mpi_internal_launcher_test PRIVATE
+  SIZEOF_LONG_LONG_INT __PLUMED_HAS_THREAD_MPI __PLUMED_MPIWRAP)
 target_link_libraries(thread_mpi_internal_launcher_test PRIVATE plumed_thread_mpi)
 
 add_executable(mpiwrap_runtime_test
@@ -45,7 +46,8 @@ add_executable(mpiwrap_runtime_test
   ../mpiwrap/mpiwrap-launcher.cpp)
 target_include_directories(mpiwrap_runtime_test PRIVATE
   ../mpiwrap .)
-target_compile_definitions(mpiwrap_runtime_test PRIVATE SIZEOF_LONG_LONG_INT)
+target_compile_definitions(mpiwrap_runtime_test PRIVATE
+  SIZEOF_LONG_LONG_INT __PLUMED_HAS_THREAD_MPI __PLUMED_MPIWRAP)
 target_link_libraries(mpiwrap_runtime_test PRIVATE plumed_thread_mpi)
 
 enable_testing()

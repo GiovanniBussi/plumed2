@@ -1,3 +1,4 @@
+#ifdef __PLUMED_HAS_THREAD_MPI
 /*
    This source code file is part of thread_mpi.
    Written by Sander Pronk, Erik Lindahl, and possibly others.
@@ -162,3 +163,4 @@ void tMPI_Queue_enqueue(tMPI_Queue *q, tMPI_Queue_element *qe) {
 
 } // namespace thread_mpi
 } // namespace PLMD
+#endif // __PLUMED_HAS_THREAD_MPI

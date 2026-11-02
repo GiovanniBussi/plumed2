@@ -7340,11 +7340,6 @@ fi
 if test "$thread_mpi_found" = ok; then
   $as_echo "#define __PLUMED_HAS_THREAD_MPI 1" >>confdefs.h
   $as_echo "#define __PLUMED_MPIWRAP 1" >>confdefs.h
-  rm -f src/mpiwrap.off src/thread_mpi.off
-  touch src/mpiwrap.on src/thread_mpi.on
-else
-  rm -f src/mpiwrap.on src/thread_mpi.on
-  touch src/mpiwrap.off src/thread_mpi.off
 fi
 
 # search for openmp is automatically disabled by autoconf

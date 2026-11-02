@@ -797,11 +797,6 @@ fi
 if test "$thread_mpi_found" = ok; then
   AC_DEFINE([__PLUMED_HAS_THREAD_MPI])
   AC_DEFINE([__PLUMED_MPIWRAP])
-  rm -f src/mpiwrap.off src/thread_mpi.off
-  touch src/mpiwrap.on src/thread_mpi.on
-else
-  rm -f src/mpiwrap.on src/thread_mpi.on
-  touch src/mpiwrap.off src/thread_mpi.off
 fi
 
 # search for openmp is automatically disabled by autoconf
