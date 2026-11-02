@@ -548,7 +548,7 @@ extern "C" int plumed_plumedmain_launch_internal_threads(
 
 // values here should be consistent with those in plumed_symbol_table_init !!!!
 plumed_symbol_table_type_x plumed_symbol_table= {
-  6,
+  5,
   {plumed_plumedmain_create,plumed_plumedmain_cmd,plumed_plumedmain_finalize},
   plumed_plumedmain_cmd_nothrow,
   plumed_plumedmain_cmd_safe,
@@ -562,7 +562,7 @@ plumed_symbol_table_type_x plumed_symbol_table= {
 
 // values here should be consistent with those above !!!!
 extern "C" void plumed_symbol_table_init() {
-  plumed_symbol_table.version=6;
+  plumed_symbol_table.version=5;
   plumed_symbol_table.functions.create=plumed_plumedmain_create;
   plumed_symbol_table.functions.cmd=plumed_plumedmain_cmd;
   plumed_symbol_table.functions.finalize=plumed_plumedmain_finalize;
