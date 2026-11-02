@@ -24,6 +24,10 @@
 #include "Tools.h"
 #include "lepton/Exception.h"
 #include <cstring>
+#include <cstdlib>
+#if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI)
+#include "../mpiwrap/provider-registry.hpp"
+#endif
 #ifdef __PLUMED_HAS_DLOPEN
 #include <dlfcn.h>
 #endif
@@ -40,6 +44,21 @@
 
 namespace PLMD {
 
+#if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI)
+namespace {
+struct NestedKernelError {
+  std::string message;
+};
+
+int nestedKernelReport(void *context,int,const char *operation,const char *message) {
+  NestedKernelError *error=static_cast<NestedKernelError*>(context);
+  error->message=std::string(operation?operation:"kernel")+": "+
+                 (message?message:"unspecified error");
+  return 0;
+}
+}
+#endif
+
 
 PlumedHandle::PlumedHandle():
   local(Tools::make_unique<PlumedMain>()) {
@@ -48,7 +67,46 @@ PlumedHandle::PlumedHandle():
 PlumedHandle::PlumedHandle(const char* kernel)
 #ifdef __PLUMED_HAS_DLOPEN
   :
-  loaded(plumed_c2v(plumed_create_dlopen(kernel))) {
+  loaded(nullptr) {
+#if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI)
+  mpiwrap_provider::Registry &registry=mpiwrap_provider::currentRegistry();
+  if(registry.installed()) {
+    plumed_kernel_handle handle=nullptr;
+    NestedKernelError error;
+    int mode=RTLD_NOW|RTLD_LOCAL;
+#if defined(RTLD_DEEPBIND) && __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
+    if(!std::getenv("PLUMED_LOAD_NODEEPBIND")) {
+      mode|=RTLD_DEEPBIND;
+    }
+#endif
+    const int opened=plumed_kernel_open_dlopen(kernel,mode,&handle,
+                     &nestedKernelReport,&error);
+    if(opened!=PLUMED_KERNEL_OK) {
+      if(handle) {
+        plumed_kernel_release(handle);
+      }
+      plumed_error() << "Could not open nested PLUMED kernel: " << error.message;
+    }
+    const plumed_mpiw_provider_descriptor *snapshot=registry.descriptorSnapshot();
+    if(!snapshot || plumed_kernel_inject_mpi(handle,snapshot,
+        &nestedKernelReport,&error)!=PLUMED_KERNEL_OK) {
+      plumed_kernel_release(handle);
+      plumed_error() << "Could not inject MPI provider into nested PLUMED kernel: "
+                     << (error.message.empty()?"provider snapshot is unavailable":error.message);
+    }
+    plumed object;
+    if(plumed_kernel_create(handle,&object,&nestedKernelReport,&error)!=PLUMED_KERNEL_OK) {
+      plumed_kernel_release(handle);
+      plumed_error() << "Could not construct nested PLUMED object: " << error.message;
+    }
+    plumed_kernel_release(handle);
+    loaded=plumed_c2v(object);
+  } else {
+    loaded=plumed_c2v(plumed_create_dlopen(kernel));
+  }
+#else
+  loaded=plumed_c2v(plumed_create_dlopen(kernel));
+#endif
   if(!plumed_valid(plumed_v2c(loaded))) {
     // this is necessary to make sure loaded is properly destroyed
     plumed_finalize(plumed_v2c(loaded));
