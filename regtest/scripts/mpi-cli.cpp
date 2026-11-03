@@ -23,6 +23,23 @@ int main(int argc,char **argv) {
     return 1;
   }
 
+  // The focused checker supplies its requested rank count. Detect launcher
+  // singletons before attributing their output filenames to the MPI adapter.
+  const char *expectedRanks=std::getenv("PLUMED_MPI_HOST_EXPECTED_RANKS");
+  if(expectedRanks) {
+    int rank=-1;
+    int size=0;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    MPI_Comm_size(MPI_COMM_WORLD,&size);
+    std::fprintf(stdout,"MPI host native rank=%d size=%d expected=%s\n",rank,size,expectedRanks);
+    std::fflush(stdout);
+    if(size!=std::atoi(expectedRanks)) {
+      std::fprintf(stderr,"MPI host: launcher supplied the wrong native communicator size\n");
+      MPI_Abort(MPI_COMM_WORLD,1);
+      return 1;
+    }
+  }
+
   int result=1;
   try {
     {

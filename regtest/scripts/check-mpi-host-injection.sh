@@ -44,6 +44,7 @@ for mode in (("injection", "environment") if provider else ("injection",)):
             else:
                 environment.pop("PLUMED_MPI_HOST_EXPLICIT_PATH", None)
                 environment["PLUMED_KERNEL"] = str(kernel)
+            environment["PLUMED_MPI_HOST_EXPECTED_RANKS"] = str(ranks)
             result = subprocess.run(
                 [str(launcher), "-n", str(ranks), str(directory / "mpi-host"),
                  "driver", "--plumed=plumed.dat", "--timestep=0.05", "--ixyz",
@@ -63,7 +64,9 @@ for mode in (("injection", "environment") if provider else ("injection",)):
                 actual = work / ("ff" if ranks == 1 and name == "ff.0" else name)
                 expected = work / (name + ".expected")
                 if not actual.is_file():
-                    raise SystemExit(f"host injection did not produce {name}")
+                    print(result.stdout, file=sys.stderr)
+                    print("Produced files: " + ", ".join(sorted(p.name for p in work.iterdir())), file=sys.stderr)
+                    raise SystemExit(f"MPI host did not produce {name}: mode={mode}, explicit={explicit}, ranks={ranks}")
                 shutil.copyfile(reference, expected)
                 # Use the same portable normalization as the ordinary regtests.
                 subprocess.run([str(root / "regtest/scripts/fixzeroes.sh"), str(actual)], check=True)
