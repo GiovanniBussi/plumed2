@@ -15,6 +15,13 @@ require a native-MPI build. Existing per-test MPI settings remain unchanged,
 so old PLUMED versions continue using their native launcher. An explicit
 `PLUMED_MPIRUN` overrides internal thread-MPI launching.
 
+For a second pass through an MPI-injecting host, set
+`PLUMED_CLI_PROGRAM_NAME=/absolute/path/to/mpi-host`, `PLUMED_KERNEL`,
+`PLUMED_LIB`, and `PLUMED_MPIRUN`. The CLI override applies only to CLTool
+cases; external-engine cases retain `PLUMED_PROGRAM_NAME` (or `plumed`) and
+their existing native-MPI capability requirements. The host initializes and
+finalizes real MPI. No provider environment variable or kernel rebuild is needed.
+
 The ordinary serial executable does not initialize a dynamically loaded real
 MPI runtime. Leave `PLUMED_MPI_WRAPPER` unset for normal internal-thread-MPI
 suite runs. Host injection is tested separately by
