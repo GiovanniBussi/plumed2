@@ -355,8 +355,8 @@ void Communicator::Split(int color,int key,Communicator&pc)const {
 }
 
 int Communicator::Status::Get_count(MPI_Datatype type)const {
-  int i;
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
+  int i=MPI_UNDEFINED;
   MPI_Get_count(const_cast<MPI_Status*>(&s),type,&i);
   return i;
 }
