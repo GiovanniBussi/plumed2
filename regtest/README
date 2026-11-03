@@ -7,21 +7,22 @@ just try the tests with
 To do many tests in parallel, as usual
 > make -j 4
 
-Tests that request `mpiprocs` prefer a native-MPI kernel and its configured
-MPI launcher. On a non-native kernel, setting `PLUMED_MPI_WRAPPER` selects a
-real MPI provider for PLUMED command-line tests; the runner builds
-`regtest/scripts/mpi-cli.cpp` with `PLUMED_MPI_COMPILER` (or `mpicxx`/`mpic++`)
-and launches it under MPI. The helper initializes MPI before creating PLUMED
-objects. The same provider mode supports C++ `type=make` tests through a small
-MPI lifecycle shim. Set `PLUMED_MPI_COMPILER` to a compiler and use an MPI
-launcher that belong to the same MPI implementation as the selected provider.
-Thread-rank providers cannot run these real-MPI regtests and are rejected by the
-runner.
-Without an explicit provider, kernels providing internal thread-MPI use the
-internal launcher for PLUMED command-line tools, including driver and generic
-`type=plumed` tests such as benchmark. Tests that run external executables
-require native MPI or an explicit real-MPI provider. An explicit
+Tests that request `mpiprocs` prefer a directly compiled native-MPI kernel
+and its configured MPI launcher. Otherwise a kernel with embedded thread-MPI
+uses the internal launcher for PLUMED command-line tools, including driver and
+`type=plumed` tests such as benchmark. Tests running external MPI executables
+require a native-MPI build. Existing per-test MPI settings remain unchanged,
+so old PLUMED versions continue using their native launcher. An explicit
 `PLUMED_MPIRUN` overrides internal thread-MPI launching.
+
+The ordinary serial executable does not initialize a dynamically loaded real
+MPI runtime. Leave `PLUMED_MPI_WRAPPER` unset for normal internal-thread-MPI
+suite runs. Host injection is tested separately by
+`regtest/scripts/check-mpi-host-injection.sh`: an MPI-compiled host initializes
+MPI, injects through the new creation API, runs representative input, destroys
+its PLUMED object, and finalizes MPI. No lifecycle shim is added to ordinary
+compiled regtests. See `src/mpiwrap/README.md` and the root `run-mpi-tests.sh`
+for the complete direct-MPI and host-injection validation matrix.
 
 A test that cannot run with internal threads (for example, one that depends on
 an unsupported working-directory change) can set `plumed_thread_mpi=no` in its
