@@ -100,6 +100,7 @@ run_case() {
   local name=$1 mpi=$2 threads=$3 per_test=$4 chdir=$5 override=$6 expect=$7 old=$8
   local test_type=${9:-driver}
   local program_name=${10:-plumed}
+  local cli_program_name=${11:-}
   local test_arguments='--test-ranks 3'
   if [[ "$test_type" = plumed ]]; then test_arguments="benchmark $test_arguments"; fi
   local dir="$tmp/regtest/case/$name"
@@ -119,7 +120,7 @@ EOF
     TEST_REPO_ROOT="$repo" TEST_CONFIG_MPIRUN="$tmp/bin/config-mpiexec" \
     TEST_LAUNCH_LOG="$TEST_LAUNCH_LOG" PATH="$tmp/bin:$PATH" \
     PLUMED_PREPEND_PATH="$tmp/bin" PLUMED_MPIRUN="$override" PLUMED_MAKE="$tmp/bin/fake-make" \
-    PLUMED_PROGRAM_NAME="$program_name" \
+    PLUMED_PROGRAM_NAME="$program_name" PLUMED_CLI_PROGRAM_NAME="$cli_program_name" \
     "$tmp/regtest/scripts/run" >run.out 2>run.err); then
     cat "$dir/run.out" "$dir/run.err" >&2
     return 1
@@ -139,6 +140,14 @@ check_log() {
     return 1
   fi
 }
+
+# A CLI-only injection host advertises real MPI, unlike the serial executable.
+cat > "$tmp/bin/mpi-host" <<'EOF'
+#!/usr/bin/env bash
+printf 'HOST %s\n' "$*" >> "$TEST_LAUNCH_LOG"
+TEST_NATIVE_MPI=yes TEST_THREAD_MPI=no exec "$(dirname "$0")/plumed" "$@"
+EOF
+chmod +x "$tmp/bin/mpi-host"
 
 export TEST_LAUNCH_LOG="$tmp/launch.log"
 export TEST_QUERY_LOG="$tmp/query.log"
@@ -195,3 +204,12 @@ run_case chdir no yes no yes "" "CHDIR is unsupported with thread-MPI" no
 test ! -s "$TEST_LAUNCH_LOG"
 
 echo "regtest runner selection passed (CLI types, external executable, native, legacy, absolute program, thread fallback, override, CHDIR skip)"
+
+# CLI commands use the injected host and native launcher; external-engine tests
+# retain the serial executable and cannot accidentally borrow its injection.
+run_case injected_cli no yes auto no "$tmp/bin/fake-mpiexec" "" no driver plumed "$tmp/bin/mpi-host"
+check_log '^HOST driver --test-ranks 3$'
+check_log '^MPI -np 3 '
+run_case injected_external no yes auto no "$tmp/bin/fake-mpiexec" "MPI NOT INSTALLED" no make plumed "$tmp/bin/mpi-host"
+test ! -s "$TEST_LAUNCH_LOG"
+echo 'CLI-only injection host selection checks passed'

@@ -354,13 +354,14 @@ the selected MPI environments, and saves new injection logs separately.
 
 ### MPI installed after a serial kernel build
 
-The `mpi-providerWF.yml` CI workflow builds and installs serial PLUMED with
-internal thread-MPI before installing the selected real MPI package. Separate
-MPICH and Open MPI jobs then build an external C++98 host and a provider DSO.
-The host owns MPI initialization/finalization and exercises both injected MPI
-and `PLUMED_MPI_WRAPPER` selection, using environment-selected and explicitly
-named kernels, each with 1, 2 and 4 ranks. Results are checked against the
-existing `rt-mpi0` values, derivatives and forces. No GROMACS build is required.
+After the existing Linux serial-build tests, CI installs Open MPI and compiles
+a small C++98 host. The same serial kernel is tested again through injection;
+there is no provider DSO and no PLUMED rebuild. The host owns MPI initialization
+and finalization. `PLUMED_CLI_PROGRAM_NAME` selects it for CLTool tests only,
+while explicit `PLUMED_KERNEL` and `PLUMED_LIB` preserve the installed library
+paths. External-engine tests retain their own initialization and capability
+checks, so MPI cases requiring a natively built external engine remain skipped.
+No GROMACS build is required. The standalone embedded tMPI tests also run.
 
 Run the same host test locally with an already built serial kernel:
 
