@@ -26,10 +26,12 @@ thread_mpi separately. The CLI provides --has-mpi for combined capability,
 provider). Both capabilities may be true. --mpi-ranks-are-threads describes
 only the selected provider, independently of initialization; CHDIR safety uses
 the separate initialized-provider runtime check. Queries do not initialize MPI.
-The loader API for ordinary external-MPI CLI execution remains provisional;
-the regression runner uses a test-only MPI launcher for serial executables. The regtest runner uses
---has-mpi for its skip decision and probes --has-thread-mpi for internal launch;
-older executables without that query retain their native MPI launcher.
+The normal regression suite runs with direct MPI when compiled with MPI, or
+with internal thread-MPI when compiled without MPI. Real-MPI initialization
+and finalization belong to the executable or host application, never the
+serial-built PLUMED kernel. Host injection is tested by a separate MPI program.
+The regression runner preserves old test settings and native launcher overrides;
+older executables without thread-MPI support retain their native MPI launcher.
 
 Communicator construction evaluates MPI_COMM_SELF, as in the original code.
 Its lazy accessor selects the provider before storing the communicator: inject
@@ -56,7 +58,7 @@ is validated before use. Matching bytes do not make a handle valid across
 unrelated MPI runtimes.
 
 The wrapper and native adapter communicate through a versioned C-compatible
-provider descriptor. Kernel-table version 5 adds the injection/launch entries
+provider descriptor. Kernel-table version 5 adds the injection entry
 after the unchanged version-4 prefix; the provider descriptor has its own ABI
 version. Fixed entry layouts are frozen within a provider ABI major; new optional
 capabilities use named metadata entries. Each injected implementation takes
@@ -87,20 +89,15 @@ follow MPI-5 const correctness. The native adapter keeps any compatibility
 cast for older native headers local to an input-only MPI call; callback types
 and writable arguments retain their exact types.
 
-Internal launch is explicit and one-shot, and must precede the first
-provider-dependent constant use (including construction of a communicator). The launcher owns worker lifetime and finalization. A callback
-exception is fatal to the process rather than unwound through the C/tMPI
-boundary.
-
-plumed_kernel_open_static, plumed_kernel_open_dlopen, and
-plumed_kernel_open_selected create a kernel handle. A caller can install a
-provider with plumed_kernel_inject_mpi, load the provider library with
-plumed_kernel_load_mpi_wrapper, create objects with plumed_kernel_create, and
-launch internal ranks with plumed_kernel_launch_internal_threads when needed.
-Inject before the first provider-dependent constant or function is used. Objects retain their kernel/provider lifetime; release
-the object with plumed_finalize and release the handle with the matching
-plumed_kernel_release. Releasing a handle does not finalize an object.
-C++ users can use the PLMD::Kernel RAII convenience API.
+Internal thread-MPI launching uses the ordinary command interface: configure
+CLTool arguments, including `--tmpi-threads N`, and execute `CLTool run`.
+The initial PLUMED object dispatches the launch; each rank constructs its own
+tool and communicator state. No public kernel-handle type or separate launcher
+function is needed. The kernel owns internal worker startup and finalization.
+Nested/concurrent launches are rejected. Sequential reuse with different rank
+counts must be covered by the maintained launcher check. An unrecoverable rank
+exception terminates the process rather than unwinding through blocked peers;
+recoverable errors use the existing command exception translation.
 
 ## Inject the host MPI from Plumed.h
 
@@ -116,14 +113,35 @@ versions earlier than 2026.0 are rejected when building the injected implementat
 same generated adapter body, so it does not need a separate provider source or
 provider library.
 
-Open the specific kernel, call `plumed_kernel_inject_native_mpi` before
-creating its first object, then create the object from that kernel handle.
-The helper takes its descriptor from the MPI bindings included in that
-translation unit. Existing `setMPIComm` callers can continue passing the
-address of their native communicator: PLUMED imports the provider-sized bytes
-into zero-filled wrapper storage, whose native byte prefix has the same
-layout. This byte-copy contract is why the wrapper representation preserves
-the original communicator pointer path without caller-side export buffers.
+The host initializes real MPI, then calls:
+
+```cpp
+plumed p = plumed_create_with_mpi(PLMD::plumed_mpi_implementation());
+// Or select an explicit kernel path:
+// plumed p = plumed_create_dlopen_with_mpi(path,
+//                            PLMD::plumed_mpi_implementation());
+```
+
+The accessor returns `const void *`; callers need no new descriptor or kernel
+handle type. Creation loads/selects the kernel, injects through the versioned
+symbol table, and only then constructs its first object. Existing creation
+functions retain their behavior. All creation functions return an invalid
+object on failure, including unsupported older kernels and rejected injection;
+check `plumed_valid` before issuing commands. C++ users can use the named
+`Plumed::createWithMPI` and `Plumed::dlopenWithMPI` factories with the same
+failure convention. Objects own their normal loader references independently.
+
+Injection is per loaded kernel, not per object. Repeated compatible injection
+is allowed; replacing a selected provider is not. The host must keep callback
+code loaded while the kernel can use it, finalize every PLUMED object before
+finalizing MPI, and own all real `MPI_Init`/`MPI_Finalize` calls. PLUMED does
+not initialize real MPI merely because a provider was injected or loaded.
+
+Existing `setMPIComm` callers continue passing the address of their native
+communicator. PLUMED imports the provider-sized bytes into zero-filled wrapper
+storage, whose native byte prefix has the same layout. This byte-copy contract
+is the reason for the chosen layout: callers, including nested PLUMED actions,
+need no export buffer or communicator-forwarding changes.
 The generated adapter omits thread-MPI functions and constants unavailable in
 the selected GROMACS headers; PLUMED reports calls to omitted functions as a
 clear runtime error.
@@ -141,10 +159,8 @@ arguments are never shell-evaluated. The selected compiler must support C++.
 The adapter sources are installed with PLUMED, so this command does not need
 the original source checkout. Failed builds preserve an existing output.
 
-Load the result into an opened kernel with `plumed_kernel_load_mpi_wrapper`
-or `PLMD::Kernel::loadMPIWrapper` before creating objects. Building a provider
-does not initialize MPI: the host remains responsible for its MPI lifecycle.
-Alternatively, set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
+Building a provider does not initialize MPI: the host remains responsible
+for its MPI lifecycle. Set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
 or an absolute executable MPI compiler path. Explicit pre-creation injection
 takes precedence; otherwise the environment selection precedes the internal
 provider. A loadable library must expose the provider factory. A non-loadable
@@ -159,9 +175,8 @@ For troubleshooting, set `PLUMED_MPI_WRAPPER_FORCE=1` together with
 environment-selected provider take precedence over an incoming injection.
 Without the force flag, injection retains priority. An absent provider path,
 an invalid force value, or a late attempt to replace an installed provider
-raises an error. A bypassed injected library reference is released after the
-forced provider is installed successfully; failure leaves ownership with the
-caller. Already published callbacks are never replaced.
+raises an error. Injected callback code remains host-owned, including when injection is bypassed
+by the force setting. Already published callbacks are never replaced.
 
 ## Generated interface and runtime files
 
@@ -204,10 +219,12 @@ actual publication also depends on the host MPI version and supported constants.
 MPI_Op_create (callback bridges).
 Their frontend declarations remain available and their inquiries report the
 missing provider capability.
-Deferring these two callback-creation APIs is an explicit initial scope decision;
-direct native MPI calls remain available. Future support can build on
-`mpiw_old_draft`, but must preserve standard callback signatures and manage
-registration lifetime safely. The draft's callback-reference conversions are
+Custom error-handler creation stays outside the provider scope: PLUMED leaves
+the host application’s error-handler policy unchanged. Custom reduction support
+is a required first-release follow-up, starting from `mpiw_old_draft`; the
+current omission is not the intended final release contract. Review and document
+its callback ABI assumptions and test operation lifetime before freezing the
+injection calls. Direct native MPI calls remain available. The draft's callback-reference conversions are
 useful precedent, not a substitute for that review. No callback registration
 or retained-handler allocation occurs for these unavailable APIs. The mock-native probes compile against real
 provider headers and exercise call-through without initializing MPI; they are
@@ -299,3 +316,28 @@ A configured-capacity installation check uses a separate configured checkout:
 It runs the public install-headers recipe and compiles installed headers
 without capacity defines. This checks propagation; the build/runtime matrix
 above remains separate validation.
+
+A separate MPI host checks injection into an already-built serial kernel:
+
+```sh
+MPICH_CXX=/usr/bin/clang++ bash regtest/scripts/check-mpi-host-injection.sh \
+  /path/to/mpicxx /path/to/mpiexec /absolute/path/to/libplumedKernel.dylib
+```
+
+Use matching compiler/launcher paths from one MPI installation. The harness
+builds only the host, initializes and finalizes MPI there, and checks the
+`rt-mpi0` outputs with 1, 2 and 4 ranks using both default and explicit kernel
+selection. It unsets provider-selection variables so successful communication
+proves injection, rather than environment loading. Repeat with another MPI
+installation against the same serial kernel. Existing C/Fortran/Python command
+interfaces can launch internal thread-MPI without a new public handle type;
+Python calls should release the GIL during the long-running command.
+
+For the complete local validation matrix, run `./run-mpi-tests.sh` from the
+repository root outside the agent sandbox. It activates the MPICH and Open MPI
+Conda environments, builds committed HEAD in separate local clones with default
+modules, runs serial/thread-MPI and direct-MPI suites, and executes the host
+injection checks. Use `--mpich` or `--openmpi` to select one implementation,
+`--jobs N` for build parallelism, and `--results DIRECTORY` for an empty output
+directory. `CONDA_BASE`, `MPICH_ENV`, and `OPENMPI_ENV` override environment
+locations. Every clone, full log, and exit status is retained for review.

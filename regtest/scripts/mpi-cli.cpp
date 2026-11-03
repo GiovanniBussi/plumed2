@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <stdexcept>
 
 int main(int argc,char **argv) {
   if(MPI_Init(&argc,&argv)!=MPI_SUCCESS) {
@@ -25,15 +26,16 @@ int main(int argc,char **argv) {
   int result=1;
   try {
     {
-      PLMD::Kernel kernel=PLMD::Kernel::openSelected();
-      const char *provider=std::getenv("PLUMED_MPI_WRAPPER");
-      if(provider && provider[0]) {
-        kernel.loadMPIWrapper(provider);
-      } else {
-        kernel.injectMPI(PLMD::plumed_mpiw_get_descriptor());
+      // Test both creation paths without exposing another public handle type.
+      // The host, rather than the PLUMED kernel, owns MPI initialization.
+      const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
+      plumed raw=path && path[0]
+                 ? plumed_create_dlopen_with_mpi(path,PLMD::plumed_mpi_implementation())
+                 : plumed_create_with_mpi(PLMD::plumed_mpi_implementation());
+      if(!plumed_valid(raw)) {
+        plumed_finalize(raw);
+        throw std::runtime_error("could not create PLUMED with the host MPI implementation");
       }
-
-      plumed raw=kernel.create();
       PLMD::Plumed command(raw);
       plumed_finalize(raw);
       MPI_Comm world=MPI_COMM_WORLD;
