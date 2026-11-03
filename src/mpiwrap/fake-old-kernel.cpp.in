@@ -1,4 +1,22 @@
 #include <cstdlib>
+#include <fstream>
+
+namespace {
+struct TestObject {
+  unsigned references;
+};
+
+struct UnloadMarker {
+  ~UnloadMarker() {
+    const char *path=std::getenv("MPIW_TEST_KERNEL_MARKER");
+    if(path) {
+      std::ofstream output(path);
+      output << "unloaded\n";
+    }
+  }
+} unload_marker;
+}
+
 struct Functions {
   void *(*create)();
   void (*cmd)(void *,const char *,const void *);
@@ -15,20 +33,27 @@ struct SymbolTable {
   unsigned (*use_count)(void *);
 };
 extern "C" void *plumed_old_create() {
-  return std::malloc(1);
+  const char *path=std::getenv("MPIW_TEST_CREATE_MARKER");
+  if(path) {
+    std::ofstream output(path);
+    output << "created\n";
+  }
+  TestObject *object=static_cast<TestObject *>(std::malloc(sizeof(TestObject)));
+  object->references=1;
+  return object;
 }
 extern "C" void plumed_old_cmd(void *,const char *,const void *) {}
 extern "C" void plumed_old_finalize(void *object) {
   std::free(object);
 }
-extern "C" unsigned plumed_old_create_reference(void *) {
-  return 2;
+extern "C" unsigned plumed_old_create_reference(void *object) {
+  return ++static_cast<TestObject *>(object)->references;
 }
-extern "C" unsigned plumed_old_delete_reference(void *) {
-  return 0;
+extern "C" unsigned plumed_old_delete_reference(void *object) {
+  return --static_cast<TestObject *>(object)->references;
 }
-extern "C" unsigned plumed_old_use_count(void *) {
-  return 1;
+extern "C" unsigned plumed_old_use_count(void *object) {
+  return static_cast<TestObject *>(object)->references;
 }
 extern "C" SymbolTable plumed_symbol_table= {
   4,{plumed_old_create,plumed_old_cmd,plumed_old_finalize},

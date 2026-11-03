@@ -17,13 +17,11 @@ esac
   -x c++ "$ROOT/src/mpiwrap/fake-old-kernel.cpp.in" -o "$TMP/libkernel-v4.so"
 "$CXX" -std=c++17 -fPIC -DTEST_REJECT_INSTALL "${SHARED_FLAGS[@]}" \
   -x c++ "$ROOT/src/mpiwrap/fake-kernel.cpp.in" -o "$TMP/libkernel-reject.so"
-"$CXX" -std=c++17 -fPIC "${SHARED_FLAGS[@]}" -I"$ROOT/src/mpiwrap" \
-  -x c++ "$ROOT/src/mpiwrap/fake-provider.cpp.in" -o "$TMP/libprovider.so"
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-kernel-lifecycle.cpp.in" -ldl -o "$TMP/test-kernel-lifecycle"
 "$TMP/test-kernel-lifecycle" "$TMP/libkernel-v5.so" \
-  "$TMP/libprovider.so" "$TMP/provider-unloaded" "$TMP/libkernel-v4.so" \
-  "$TMP/libkernel-reject.so"
+  "$TMP/libkernel-v4.so" "$TMP/libkernel-reject.so" \
+  "$TMP/kernel-unloaded" "$TMP/object-created"
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-forward-provider.cpp.in" -ldl -o "$TMP/test-forward-provider"
 "$TMP/test-forward-provider" "$TMP/libkernel-v5.so" "$TMP/libkernel-v4.so" \
