@@ -5,6 +5,12 @@
 #include "../wrapper/Plumed.h"
 
 int main(void) {
-  plumed_nothrow_handler handler = {0, 0};
-  return plumed_kernel_inject_native_mpi((plumed_kernel_handle)0, handler);
+  const void *(*implementation)(void) = plumed_mpi_implementation;
+  plumed (*create_with_mpi)(const void *) = plumed_create_with_mpi;
+  plumed (*dlopen_with_mpi)(const char *, const void *) =
+    plumed_create_dlopen_with_mpi;
+  (void)implementation;
+  (void)create_with_mpi;
+  (void)dlopen_with_mpi;
+  return 0;
 }

@@ -1,167 +1,176 @@
 #define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #define __PLUMED_WRAPPER_EXTERN 0
+#define __PLUMED_WRAPPER_LINK_RUNTIME 1
 #define __PLUMED_HAS_DLOPEN 1
 #include "../wrapper/Plumed.h"
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
-#include <exception>
 #include <fstream>
-#include <string>
-#include <type_traits>
-
-extern "C" plumed_symbol_table_type *plumed_symbol_table_reexport() {
-  return nullptr;
-}
-
-static_assert(std::is_move_constructible<PLMD::Kernel>::value,
-              "PLMD::Kernel must be movable");
 
 namespace {
-plumed_nothrow_handler handlerFor(plumed_error *error) {
-  plumed_nothrow_handler handler;
-  handler.ptr=error;
-  handler.handler=plumed_error_set;
-  return handler;
-}
-
-bool hasExpectedNestedError(plumed_error &error) {
-  const bool valid=error.code==20300 && error.what &&
-                   std::strcmp(error.what,"injected provider type rejection")==0 &&
-                   error.nested && error.nested->code==20200 &&
-                   error.nested->what &&
-                   std::strcmp(error.nested->what,"nested provider rejection")==0;
-  plumed_error_finalize(error);
-  return valid;
-}
-
 bool exists(const char *path) {
   std::ifstream input(path);
   return input.good();
 }
 
-int unusedRankCallback(int,const void *,std::size_t,void *) {
-  return 0;
+void clearMarker(const char *path) {
+  std::remove(path);
 }
+
 }
 
 int main(int argc,char **argv) {
   if(argc!=6) {
     return 2;
   }
-  const char *marker=argv[3];
-  std::remove(marker);
-  setenv("MPIW_TEST_PROVIDER_MARKER",marker,1);
+  const char *kernel_marker=argv[4];
+  const char *create_marker=argv[5];
+  const int caller_owned_descriptor=1;
+  setenv("MPIW_TEST_KERNEL_MARKER",kernel_marker,1);
+  setenv("MPIW_TEST_CREATE_MARKER",create_marker,1);
+  unsetenv("MPIW_TEST_REQUIRE_PROVIDER");
+  unsetenv("PLUMED_LOAD_DLCLOSE");
+  clearMarker(kernel_marker);
+  clearMarker(create_marker);
 
-  plumed_kernel_handle kernel=nullptr;
-  plumed_error error;
-  plumed_error_init(&error);
-  if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
+  // The existing creation entry point still works without an injected
+  // descriptor when the kernel does not require one.
+  plumed object=plumed_create_dlopen(argv[1]);
+  if(!plumed_valid(object)) {
+    plumed_finalize(object);
     return 3;
   }
-  const int caller_owned_descriptor=1;
-  if(plumed_kernel_inject_mpi(kernel,&caller_owned_descriptor,
-                              handlerFor(&error))!=PLUMED_KERNEL_OK) {
-    plumed_kernel_release(kernel);
+  plumed_finalize(object);
+  if(!exists(kernel_marker)) {
     return 4;
   }
-  int launch_result=-1;
-  if(plumed_kernel_launch_internal_threads(kernel,1,&unusedRankCallback,nullptr,
-      &launch_result,handlerFor(&error))!=PLUMED_KERNEL_OK || launch_result!=0) {
-    plumed_kernel_release(kernel);
-    return 13;
-  }
-  plumed object=plumed_create_invalid();
-  if(plumed_kernel_create(kernel,&object,handlerFor(&error))!=PLUMED_KERNEL_OK ||
-      !plumed_valid(object)) {
-    plumed_kernel_release(kernel);
+
+  // A fresh kernel requires a provider before create(); successful creation
+  // therefore proves installation happened first. Repeating a compatible
+  // installation and creating another object must also remain valid.
+  clearMarker(kernel_marker);
+  setenv("MPIW_TEST_REQUIRE_PROVIDER","1",1);
+  const plumed first=plumed_create_dlopen_with_mpi(argv[1],
+                     &caller_owned_descriptor);
+  if(!plumed_valid(first)) {
+    plumed_finalize(first);
     return 5;
   }
-  plumed_kernel_release(kernel);
-  plumed_finalize(object);
-
-  kernel=nullptr;
-  if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
+  const plumed second=plumed_create_dlopen_with_mpi(argv[1],
+                      &caller_owned_descriptor);
+  if(!plumed_valid(second)) {
+    plumed_finalize(second);
+    plumed_finalize(first);
     return 6;
   }
-  if(plumed_kernel_load_mpi_wrapper(kernel,argv[2],handlerFor(&error))!=
-      PLUMED_KERNEL_OK) {
-    plumed_kernel_release(kernel);
+  plumed_finalize(first);
+  if(exists(kernel_marker)) {
+    plumed_finalize(second);
     return 7;
   }
-  object=plumed_create_invalid();
-  if(plumed_kernel_create(kernel,&object,handlerFor(&error))!=PLUMED_KERNEL_OK ||
-      !plumed_valid(object)) {
-    plumed_kernel_release(kernel);
+  plumed_finalize(second);
+  if(!exists(kernel_marker)) {
     return 8;
   }
-  plumed_kernel_release(kernel);
-  if(exists(marker)) {
+
+  // The environment-selected creation entry point uses the same
+  // pre-creation provider installation and releases its owned dlopen handle.
+  clearMarker(kernel_marker);
+  setenv("PLUMED_KERNEL",argv[1],1);
+  object=plumed_create_with_mpi(&caller_owned_descriptor);
+  if(!plumed_valid(object)) {
     plumed_finalize(object);
     return 9;
   }
   plumed_finalize(object);
-  if(!exists(marker)) {
+  if(!exists(kernel_marker)) {
     return 10;
   }
+  unsetenv("PLUMED_KERNEL");
 
-  kernel=nullptr;
-  if(plumed_kernel_open_dlopen(argv[1],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
-    return 11;
-  }
-  plumed_kernel_release(kernel);
-  kernel=nullptr;
-  if(plumed_kernel_open_dlopen(argv[4],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               handlerFor(&error))!=PLUMED_KERNEL_UNSUPPORTED || kernel) {
-    if(kernel) {
-      plumed_kernel_release(kernel);
+  clearMarker(kernel_marker);
+  setenv("PLUMED_KERNEL",argv[1],1);
+  {
+    PLMD::Plumed cpp_object=PLMD::Plumed::createWithMPI(
+                              &caller_owned_descriptor);
+    if(!cpp_object.valid() || exists(kernel_marker)) {
+      return 15;
     }
-    return 12;
   }
-  if(error.code!=PLUMED_KERNEL_UNSUPPORTED || !error.what ||
-      std::strstr(error.what,"older than the pre-creation MPI provider API")==nullptr) {
-    plumed_error_finalize(error);
-    return 14;
-  }
-  plumed_error_finalize(error);
-  plumed_error_init(&error);
-
-  kernel=nullptr;
-  if(plumed_kernel_open_dlopen(argv[5],RTLD_NOW|RTLD_LOCAL,&kernel,
-                               handlerFor(&error))!=PLUMED_KERNEL_OK) {
-    return 15;
-  }
-  if(plumed_kernel_inject_mpi(kernel,&caller_owned_descriptor,
-                              handlerFor(&error))!=PLUMED_KERNEL_PROVIDER_ERROR ||
-      !hasExpectedNestedError(error)) {
-    plumed_kernel_release(kernel);
+  if(!exists(kernel_marker)) {
     return 16;
   }
-  plumed_kernel_release(kernel);
+  unsetenv("PLUMED_KERNEL");
 
-  try {
-    PLMD::Kernel rejected=PLMD::Kernel::open(argv[5],RTLD_NOW|RTLD_LOCAL);
-    rejected.injectMPI(&caller_owned_descriptor);
-  } catch(const PLMD::Plumed::ExceptionTypeError &exception) {
-    if(std::strcmp(exception.what(),"injected provider type rejection")!=0) {
+  clearMarker(kernel_marker);
+  {
+    PLMD::Plumed cpp_object=PLMD::Plumed::dlopenWithMPI(argv[1],
+                            &caller_owned_descriptor);
+    if(!cpp_object.valid() || exists(kernel_marker)) {
       return 17;
     }
-    try {
-      std::rethrow_if_nested(exception);
-    } catch(const PLMD::Plumed::ExceptionError &nested) {
-      if(std::strcmp(nested.what(),"nested provider rejection")!=0) {
-        return 18;
-      }
-      return 0;
-    } catch(...) {
+  }
+  if(!exists(kernel_marker)) {
+    return 18;
+  }
+
+  // A version-4 symbol table cannot accept injection. The helper returns an
+  // invalid object without constructing it, and finalize releases the handle.
+  clearMarker(kernel_marker);
+  clearMarker(create_marker);
+  object=plumed_create_dlopen_with_mpi(argv[2],&caller_owned_descriptor);
+  if(plumed_valid(object) || exists(create_marker) || exists(kernel_marker)) {
+    plumed_finalize(object);
+    return 11;
+  }
+  plumed_finalize(object);
+  if(!exists(kernel_marker)) {
+    return 12;
+  }
+
+  // The C++ factories preserve invalid handles and still release their
+  // runtime-owned library references when the wrapper object is destroyed.
+  clearMarker(kernel_marker);
+  clearMarker(create_marker);
+  setenv("PLUMED_KERNEL",argv[2],1);
+  {
+    PLMD::Plumed cpp_object=PLMD::Plumed::createWithMPI(
+                              &caller_owned_descriptor);
+    if(cpp_object.valid() || exists(create_marker) || exists(kernel_marker)) {
       return 19;
     }
-  } catch(...) {
+  }
+  if(!exists(kernel_marker)) {
     return 20;
   }
-  return 21;
+  unsetenv("PLUMED_KERNEL");
+
+  clearMarker(kernel_marker);
+  clearMarker(create_marker);
+  {
+    PLMD::Plumed cpp_object=PLMD::Plumed::dlopenWithMPI(argv[2],
+                            &caller_owned_descriptor);
+    if(cpp_object.valid() || exists(create_marker) || exists(kernel_marker)) {
+      return 21;
+    }
+  }
+  if(!exists(kernel_marker)) {
+    return 22;
+  }
+
+  // A provider rejection is returned as an invalid object and its loaded
+  // kernel is also released when that object is finalized.
+  clearMarker(kernel_marker);
+  clearMarker(create_marker);
+  object=plumed_create_dlopen_with_mpi(argv[3],&caller_owned_descriptor);
+  if(plumed_valid(object) || exists(create_marker) || exists(kernel_marker)) {
+    plumed_finalize(object);
+    return 13;
+  }
+  plumed_finalize(object);
+  if(!exists(kernel_marker)) {
+    return 14;
+  }
+  return 0;
 }
