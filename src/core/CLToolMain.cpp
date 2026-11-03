@@ -262,7 +262,7 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
         &runThreadMPICommand,&context,&result);
     return result;
 #else
-    std::fprintf(stderr,"ERROR: --tmpi-threads requires an embedded thread-MPI build\n");
+    std::fprintf(stderr,"ERROR: --tmpi-threads requires an embedded thread-MPI build (requested %d ranks)\n",thread_mpi_ranks);
     return 1;
 #endif
   }
