@@ -4,14 +4,23 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 tmp=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiwrap-regtest.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/regtest/scripts" "$tmp/regtest/case/deep"
+mkdir -p "$tmp/regtest/scripts" "$tmp/regtest/case" "$tmp/regtest/case/trajectories"
 cp "$repo/regtest/scripts/run" "$tmp/regtest/scripts/run"
 cp "$repo/regtest/scripts/fixzeroes.sh" "$tmp/regtest/scripts/fixzeroes.sh"
+cp "$repo/regtest/scripts/exe.make" "$tmp/regtest/scripts/exe.make"
+cp "$repo/regtest/scripts/mpi-cli.cpp" "$tmp/regtest/scripts/mpi-cli.cpp"
+cp "$repo/regtest/scripts/mpi-native-lifecycle.cpp" "$tmp/regtest/scripts/mpi-native-lifecycle.cpp"
+cp -R "$repo/regtest/scripts/mpi-provider-shim" "$tmp/regtest/scripts/mpi-provider-shim"
+: > "$tmp/regtest/case/trajectories/testUtils.h"
 mkdir -p "$tmp/bin"
 cat > "$tmp/bin/plumed" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" = "--no-mpi info --root" ]]; then
   echo "$TEST_REPO_ROOT"
+  exit 0
+fi
+if [[ "$*" = "--no-mpi info --soext" ]]; then
+  echo so
   exit 0
 fi
 if [[ "$*" = "--has-mpi" ]]; then
@@ -21,10 +30,35 @@ if [[ "$*" = "--has-mpi" ]]; then
   fi
   exit 1
 fi
+if [[ "$*" = "--no-mpi config -q has real_mpi" ]]; then
+  if [[ ${TEST_OLD_CONFIG:-no} = yes ]]; then
+    echo 'unknown feature real_mpi' >&2
+    exit 2
+  fi
+  [[ ${TEST_NATIVE_MPI:-no} = yes ]]
+  exit
+fi
+if [[ "$*" = "--no-mpi info --configuration" ]]; then
+  if [[ ${TEST_NATIVE_MPI:-no} = yes ]]; then
+    echo 'CPPFLAGS=-D__PLUMED_HAS_MPI'
+  else
+    echo 'CPPFLAGS=-D__PLUMED_MPIWRAP'
+  fi
+  exit 0
+fi
+if [[ "$*" = "--no-mpi config -q has dlopen" ]]; then
+  [[ ${TEST_DLOPEN:-yes} = yes ]]
+  exit
+fi
 if [[ "$*" = "--no-mpi config -q mpiexec" || "$*" = "--no-mpi config mpiexec" ]]; then
   [[ ${TEST_NATIVE_MPI:-no} = yes ]] || exit 1
   echo "$TEST_CONFIG_MPIRUN"
   exit 0
+fi
+if [[ "$*" = "--no-mpi --mpi-ranks-are-threads" ]]; then
+  printf 'QUERY %s\n' "$*" >> "$TEST_QUERY_LOG"
+  [[ ${TEST_PROVIDER_THREADS:-no} = yes ]]
+  exit
 fi
 if [[ "$*" = "--has-thread-mpi" || "$*" = "--no-mpi --has-thread-mpi" ]]; then
   printf 'QUERY %s\n' "$*" >> "$TEST_QUERY_LOG"
@@ -36,7 +70,8 @@ if [[ "$*" = "--has-thread-mpi" || "$*" = "--no-mpi --has-thread-mpi" ]]; then
   exit
 fi
 if [[ "$*" = "--is-installed" || "$*" = "--no-mpi --is-installed" ]]; then
-  exit 1
+  [[ ${TEST_INSTALLED:-no} = yes ]]
+  exit
 fi
 if [[ " $* " = *" driver "* || " $* " = *" sum_hills "* || " $* " = *" benchmark "* || " $* " = *" simplemd "* ]]; then
   printf 'PLUMED %s\n' "$*" >> "$TEST_LAUNCH_LOG"
@@ -59,14 +94,46 @@ printf 'CONFIG %s\n' "$*" >> "$TEST_LAUNCH_LOG"
 shift 2
 exec "$@"
 EOF
-chmod +x "$tmp/bin/plumed" "$tmp/bin/fake-mpiexec" "$tmp/bin/config-mpiexec"
+cat > "$tmp/bin/mpicxx" <<'EOF'
+#!/usr/bin/env bash
+printf 'COMPILE %s\n' "$*" >> "$TEST_LAUNCH_LOG"
+output=
+while (($#)); do
+  if [[ $1 = -o ]]; then output=$2; shift 2; else shift; fi
+done
+[[ -n $output ]] || exit 2
+cat > "$output" <<'HELPER'
+#!/usr/bin/env bash
+printf 'MPI_CLI %s\n' "$*" >> "$TEST_LAUNCH_LOG"
+printf 'MPI_CLI_PROVIDER %s\n' "${PLUMED_MPI_WRAPPER:-}" >> "$TEST_LAUNCH_LOG"
+printf 'MPI_CLI_KERNEL %s\n' "${PLUMED_KERNEL:-}" >> "$TEST_LAUNCH_LOG"
+HELPER
+chmod +x "$output"
+EOF
+cat > "$tmp/bin/fake-make" <<'EOF'
+#!/usr/bin/env bash
+printf 'MAKE %s\n' "$*" >> "$TEST_LAUNCH_LOG"
+if [[ " $* " = *" exe "* ]]; then
+  cat > exe <<'EXE'
+#!/usr/bin/env bash
+printf 'MPI_EXE %s\n' "$*" >> "$TEST_LAUNCH_LOG"
+EXE
+  chmod +x exe
+fi
+EOF
+chmod +x "$tmp/bin/plumed" "$tmp/bin/fake-mpiexec" "$tmp/bin/config-mpiexec" "$tmp/bin/mpicxx" "$tmp/bin/fake-make"
 
 run_case() {
   local name=$1 mpi=$2 threads=$3 per_test=$4 chdir=$5 override=$6 expect=$7 old=$8
   local test_type=${9:-driver}
+  local provider=${10:-}
+  local compiler=${11:-}
+  local provider_threads=${12:-no}
+  local program_name=${13:-plumed}
+  local installed=${14:-no}
   local test_arguments='--test-ranks 3'
   if [[ "$test_type" = plumed ]]; then test_arguments="benchmark $test_arguments"; fi
-  local dir="$tmp/regtest/case/deep/$name"
+  local dir="$tmp/regtest/case/$name"
   mkdir -p "$dir"
   cat > "$dir/config" <<EOF
 type=$test_type
@@ -76,15 +143,25 @@ plumed_thread_mpi=$per_test
 plumed_chdir=$chdir
 EOF
   if [[ "$test_type" = simplemd ]]; then echo 'nstep 1' > "$dir/in"; fi
+  if [[ "$test_type" = make ]]; then echo 'int main() { return 0; }' > "$dir/test.cpp"; fi
   : > "$TEST_LAUNCH_LOG"
   : > "$TEST_QUERY_LOG"
-  (cd "$dir" && TEST_NATIVE_MPI="$mpi" TEST_THREAD_MPI="$threads" TEST_OLD_CONFIG="$old" \
+  if ! (cd "$dir" && TEST_NATIVE_MPI="$mpi" TEST_THREAD_MPI="$threads" TEST_OLD_CONFIG="$old" \
+    TEST_DLOPEN=yes TEST_PROVIDER_THREADS="$provider_threads" TEST_INSTALLED="$installed" \
     TEST_REPO_ROOT="$repo" TEST_CONFIG_MPIRUN="$tmp/bin/config-mpiexec" \
     TEST_LAUNCH_LOG="$TEST_LAUNCH_LOG" PATH="$tmp/bin:$PATH" \
-    PLUMED_PREPEND_PATH="$tmp/bin" PLUMED_MPIRUN="$override" \
-    "$tmp/regtest/scripts/run" >run.out 2>run.err)
+    PLUMED_PREPEND_PATH="$tmp/bin" PLUMED_MPIRUN="$override" PLUMED_MAKE="$tmp/bin/fake-make" \
+    PLUMED_MPI_WRAPPER="$provider" PLUMED_MPI_COMPILER="$compiler" \
+    PLUMED_PROGRAM_NAME="$program_name" \
+    "$tmp/regtest/scripts/run" >run.out 2>run.err); then
+    cat "$dir/run.out" "$dir/run.err" >&2
+    return 1
+  fi
   if [[ -n $expect ]]; then
-    grep -q "$expect" "$dir/report.txt"
+    if ! grep -q "$expect" "$dir/report.txt"; then
+      cat "$dir/report.txt" >&2
+      return 1
+    fi
   fi
 }
 
@@ -133,6 +210,53 @@ if grep -q '^CONFIG ' "$TEST_LAUNCH_LOG"; then
   exit 1
 fi
 
+run_case dynamic_provider no yes no no "$tmp/bin/fake-mpiexec" \
+  "Using environment-selected MPI provider with 3 ranks" no driver \
+  "$tmp/provider.so" "$tmp/bin/mpicxx"
+check_log '^COMPILE '
+check_log '^MPI -np 3 '
+check_log '^MPI_CLI driver --test-ranks 3$'
+check_log "^MPI_CLI_PROVIDER $tmp/provider.so$"
+check_log '^MPI_CLI_KERNEL .*/src/lib/libplumedKernel.so$'
+if grep -q -- '--tmpi-threads' "$TEST_LAUNCH_LOG"; then
+  echo "explicit provider selection fell back to thread-MPI" >&2
+  exit 1
+fi
+
+run_case dynamic_make no yes auto no "$tmp/bin/fake-mpiexec" \
+  "Using environment-selected MPI provider with 3 ranks" no make \
+  "$tmp/provider.so" "$tmp/bin/mpicxx"
+check_log '^COMPILE -std=c++11 -c .*/mpi-native-lifecycle.cpp '
+check_log '^MAKE .*CXX=.*/mpicxx .*LD=.*/mpicxx .*__PLUMED_MPIWRAP=1 .*mpi-provider-lifecycle.o'
+check_log '^MPI -np 3 env ./exe --test-ranks 3$'
+check_log '^MPI_EXE --test-ranks 3$'
+
+run_case native_provider_precedence yes yes auto no "$tmp/bin/fake-mpiexec" \
+  "" no driver "$tmp/provider.so" "$tmp/bin/mpicxx"
+check_log '^PLUMED driver --test-ranks 3$'
+if grep -q '^COMPILE ' "$TEST_LAUNCH_LOG"; then
+  echo "native MPI did not take precedence over an environment provider" >&2
+  exit 1
+fi
+
+run_case dynamic_installed_absolute_program no no auto no "$tmp/bin/fake-mpiexec" \
+  "Using environment-selected MPI provider with 3 ranks" no driver \
+  "$tmp/provider.so" "$tmp/bin/mpicxx" no "$tmp/bin/plumed" yes
+check_log "^MPI_CLI_KERNEL $repo/../libplumedKernel.so$"
+
+run_case thread_provider no yes auto no "$tmp/bin/fake-mpiexec" \
+  "" no driver "$tmp/thread-provider.so" "$tmp/bin/mpicxx" yes
+if ! grep -q 'thread-rank provider' \
+    "$tmp/regtest/case/thread_provider/run.out"; then
+  echo "environment-selected thread-rank provider did not report a clear error" >&2
+  exit 1
+fi
+if grep -q '^COMPILE ' "$TEST_LAUNCH_LOG"; then
+  echo "thread-rank provider was compiled through the real MPI helper" >&2
+  exit 1
+fi
+
+
 run_case old_serial no no auto no "" "MPI NOT INSTALLED" yes
 test ! -s "$TEST_LAUNCH_LOG"
 grep -q '^QUERY --no-mpi --has-thread-mpi$' "$TEST_QUERY_LOG"
@@ -146,4 +270,4 @@ test ! -s "$TEST_LAUNCH_LOG"
 run_case chdir no yes no yes "" "CHDIR is unsupported with thread-MPI" no
 test ! -s "$TEST_LAUNCH_LOG"
 
-echo "regtest runner selection passed (CLI types, external executable, native, legacy, override, CHDIR skip)"
+echo "regtest runner selection passed (CLI types, external executable, native, env provider, absolute installed program, thread fallback, legacy, override, CHDIR skip)"
