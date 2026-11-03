@@ -1544,6 +1544,13 @@ void PlumedMain::backwardPropagate() {
   if(!active) {
     return;
   }
+  // Temporary Intel diagnosis: trace only the first three backward passes,
+  // including the driver's extra no-update pass during numerical force checks.
+  static thread_local unsigned matrixTracePass=0;
+  const bool matrixTrace=std::getenv("PLUMED_MATRIX_FORCE_TRACE") && step==0 && matrixTracePass<3;
+  if(matrixTrace) {
+    ++matrixTracePass;
+  }
   int iaction=0;
 // Stopwatch is stopped when sw goes out of scope
   auto sw=stopwatch.startStop("5 Applying (backward loop)");
@@ -1569,6 +1576,36 @@ void PlumedMain::backwardPropagate() {
       }
 
       p->apply();
+      if(matrixTrace) {
+        for(const auto& target : actionSet) {
+          if(target->getLabel()!="diag" && target->getLabel()!="c12" &&
+              target->getLabel()!="c1" && target->getLabel()!="c2") {
+            continue;
+          }
+          const auto* values=target->castToActionWithValue();
+          if(!values) {
+            continue;
+          }
+          for(unsigned component=0; component<values->getNumberOfComponents(); ++component) {
+            const Value* value=values->copyOutput(component);
+            double forceNorm2=0;
+            if(value->forcesWereAdded()) {
+              for(std::size_t i=0; i<value->getNumberOfStoredValues(); ++i) {
+                forceNorm2+=value->getForce(i)*value->getForce(i);
+              }
+            }
+            std::fprintf(stderr,"MATRIX_TRACE pass=%u after=%s target=%s has_force=%d force_norm2=%.17g forces=",
+                         matrixTracePass,p->getLabel().c_str(),value->getName().c_str(),
+                         int(value->forcesWereAdded()),forceNorm2);
+            if(value->forcesWereAdded()) {
+              for(std::size_t i=0; i<std::min<std::size_t>(8,value->getNumberOfStoredValues()); ++i) {
+                std::fprintf(stderr," %.17g",value->getForce(i));
+              }
+            }
+            std::fprintf(stderr,"\n");
+          }
+        }
+      }
       traceActionNonFinite(actionSet,*p,step,"backward",false,true,comm);
     }
     iaction++;
