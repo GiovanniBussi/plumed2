@@ -53,7 +53,7 @@ void mpiwrap_ensure_provider_selected() {
   type mpiwrap_##suffix() { \
     mpiwrap_provider::ensureProviderSelected(); \
     auto &registry = mpiwrap_provider::currentRegistry(); \
-    registry.markProviderValueUsed(); \
+    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || \
@@ -66,7 +66,7 @@ void mpiwrap_ensure_provider_selected() {
   type mpiwrap_##suffix() { \
     mpiwrap_provider::ensureProviderSelected(); \
     auto &registry = mpiwrap_provider::currentRegistry(); \
-    registry.markProviderValueUsed(); \
+    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \
@@ -80,7 +80,7 @@ void mpiwrap_ensure_provider_selected() {
   type mpiwrap_##suffix() { \
     mpiwrap_provider::ensureProviderSelected(); \
     auto &registry = mpiwrap_provider::currentRegistry(); \
-    registry.markProviderValueUsed(); \
+    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \

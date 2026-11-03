@@ -1,6 +1,7 @@
 // Runtime validation and typed lookup for one installed MPI provider.
 #include "provider-registry.hpp"
 #include "mpiwrap.h"
+#include "mpi.h"
 
 #include <cstddef>
 #include <algorithm>
@@ -50,7 +51,7 @@ class NativeBuffer {
     PLUMED_MPIW_STATUS_CAPACITY > PLUMED_MPIW_HANDLE_CAPACITY ?
     PLUMED_MPIW_STATUS_CAPACITY : PLUMED_MPIW_HANDLE_CAPACITY;
   NativeScratchAlignment local_[(inline_capacity + sizeof(NativeScratchAlignment) - 1) /
-                                sizeof(NativeScratchAlignment)];
+                                                                                  sizeof(NativeScratchAlignment)];
   std::vector<NativeScratchAlignment> storage_;
   std::size_t size_;
 public:
@@ -58,7 +59,9 @@ public:
     storage_(size > sizeof(local_) ?
              size / sizeof(NativeScratchAlignment) +
              (size % sizeof(NativeScratchAlignment) != 0) : 0), size_(size) {
-    if (size_) std::memset(data(), 0, size_);
+    if (size_) {
+      std::memset(data(), 0, size_);
+    }
   }
   unsigned char *data() {
     return size_ == 0 ? nullptr : reinterpret_cast<unsigned char *>(
@@ -68,7 +71,9 @@ public:
     return size_ == 0 ? nullptr : reinterpret_cast<const unsigned char *>(
              storage_.empty() ? local_ : storage_.data());
   }
-  std::size_t size() const { return size_; }
+  std::size_t size() const {
+    return size_;
+  }
 };
 
 void encodeNativeStatus(Registry &registry, const plumed_mpiw_status &source,
@@ -120,6 +125,7 @@ void *nativeStatusesIgnore(Registry &registry) {
   }
   return value;
 }
+
 
 #include "provider-dispatch-bridges.inc"
 #include "provider-constant-bridges.inc"
@@ -269,8 +275,12 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
     }
     functions.emplace(entry.name, Registry::FunctionEntry{
       entry.signature_id, entry.signature_version, entry.argument_count, entry.function});
-    if (std::strcmp(entry.name, "MPI_Comm_rank") == 0) function_comm_rank = entry.function;
-    if (std::strcmp(entry.name, "MPI_Initialized") == 0) function_initialized = entry.function;
+    if (std::strcmp(entry.name, "MPI_Comm_rank") == 0) {
+      function_comm_rank = entry.function;
+    }
+    if (std::strcmp(entry.name, "MPI_Initialized") == 0) {
+      function_initialized = entry.function;
+    }
     // Typed frontend bridges are populated after descriptor validation; this
     // table intentionally stores only canonical dispatch functions.
   }
@@ -392,6 +402,23 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
 }
 }  // namespace
 
+void validateInputComm(Registry &registry, const char *function,
+                       const void *native_comm) {
+  if (!registry.ranksAreThreads() || !native_comm) {
+    return;
+  }
+  NativeBuffer null_comm(registry.nativeCommSize());
+  if (!registry.copyNativeValue("MPI_COMM_NULL", null_comm.data(),
+                                null_comm.size())) {
+    mpiwrap_unavailable("MPI_COMM_NULL");
+  }
+  if (std::memcmp(native_comm, null_comm.data(), null_comm.size()) == 0) {
+    throw std::runtime_error(std::string(function) +
+                             " received MPI_COMM_NULL (possibly a pre-initialization surrogate)");
+  }
+}
+
+
 struct Registry::DescriptorSnapshot {
   plumed_mpiw_provider_descriptor descriptor{};
   std::string description;
@@ -435,7 +462,9 @@ struct Registry::DescriptorSnapshot {
   }
 
   bool sameMetadata(const DescriptorSnapshot &other) const {
-    if (metadata.size() != other.metadata.size()) return false;
+    if (metadata.size() != other.metadata.size()) {
+      return false;
+    }
     for (std::size_t i = 0; i < metadata.size(); ++i) {
       const plumed_mpiw_metadata_entry &left = metadata[i];
       std::size_t match = other.metadata.size();
@@ -445,12 +474,16 @@ struct Registry::DescriptorSnapshot {
           break;
         }
       }
-      if (match == other.metadata.size()) return false;
+      if (match == other.metadata.size()) {
+        return false;
+      }
       const plumed_mpiw_metadata_entry &right = other.metadata[match];
       if (left.value_type != right.value_type || left.flags != right.flags ||
           left.value_size != right.value_size ||
           left.native_value_size != right.native_value_size ||
-          metadata_values[i] != other.metadata_values[match]) return false;
+          metadata_values[i] != other.metadata_values[match]) {
+        return false;
+      }
     }
     return true;
   }
@@ -570,8 +603,14 @@ const plumed_mpiw_provider_descriptor *Registry::descriptorSnapshot() const noex
   return &descriptor_snapshot_->descriptor;
 }
 
-void Registry::markProviderValueUsed() {
+void Registry::markProviderValueUsed(const char *name) {
+  const bool preinit_self = name && std::strcmp(name, "MPI_COMM_SELF") == 0 &&
+                            runtimeKind() == PLUMED_MPIW_RUNTIME_THREAD_MPI &&
+                            !mpiwrap_is_thread_mpi_active();
   std::lock_guard<std::mutex> lock(mutex_);
+  if (preinit_self) {
+    return;
+  }
   provider_value_used_ = true;
 }
 
@@ -618,11 +657,11 @@ bool Registry::beginInternalLaunch(
       !descriptor_snapshot_->sameMetadata(descriptor_snapshot)) {
     return setError(error, "internal launch requires the embedded thread-MPI provider");
   }
-  if (provider_value_used_) {
-    return setError(error, "thread-MPI launch must precede the first MPI value use");
+  if (internal_launch_active_) {
+    return setError(error, "thread-MPI launch is already active");
   }
-  if (internal_launch_started_) {
-    return setError(error, "this kernel's thread-MPI runtime has already been launched");
+  if (!internal_launch_started_ && provider_value_used_) {
+    return setError(error, "thread-MPI launch must precede the first MPI value use");
   }
   internal_launch_started_ = true;
   internal_launch_active_ = true;
@@ -646,15 +685,19 @@ bool Registry::ranksAreThreads() const {
 }
 
 plumed_mpiw_generic_fn Registry::dispatch(const char *name,
-                                          std::uint32_t signature_id,
-                                          std::uint32_t signature_version,
-                                          std::uint32_t argument_count) const {
-  if (!name) return nullptr;
+    std::uint32_t signature_id,
+    std::uint32_t signature_version,
+    std::uint32_t argument_count) const {
+  if (!name) {
+    return nullptr;
+  }
   std::lock_guard<std::mutex> lock(mutex_);
   const auto found = functions_.find(name);
   if (found == functions_.end() || found->second.signature_id != signature_id ||
       found->second.signature_version != signature_version ||
-      found->second.argument_count != argument_count) return nullptr;
+      found->second.argument_count != argument_count) {
+    return nullptr;
+  }
   return found->second.function;
 }
 
@@ -680,11 +723,15 @@ std::uint32_t Registry::nativeCommSize() const {
 }
 
 std::uint32_t Registry::nativeHandleSize(const char *kind) const {
-  if (!kind) return 0;
+  if (!kind) {
+    return 0;
+  }
   static const char *names[] = {"Comm", "Group", "Datatype", "Request", "Op", "Errhandler"};
   std::lock_guard<std::mutex> lock(mutex_);
   for (std::size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
-    if (std::strcmp(kind, names[i]) == 0) return native_handle_sizes_[i];
+    if (std::strcmp(kind, names[i]) == 0) {
+      return native_handle_sizes_[i];
+    }
   }
   return 0;
 }
@@ -695,11 +742,15 @@ std::uint32_t Registry::nativeStatusSize() const {
 }
 
 std::uint32_t Registry::nativeStatusOffset(const char *field) const {
-  if (!field) return 0;
+  if (!field) {
+    return 0;
+  }
   static const char *names[] = {"source", "tag", "error"};
   std::lock_guard<std::mutex> lock(mutex_);
   for (std::size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
-    if (std::strcmp(field, names[i]) == 0) return native_status_offsets_[i];
+    if (std::strcmp(field, names[i]) == 0) {
+      return native_status_offsets_[i];
+    }
   }
   return 0;
 }
@@ -710,7 +761,9 @@ std::uint32_t Registry::nativeFintSize() const {
 }
 
 std::uint32_t Registry::nativeConstantSize(const char *name) const {
-  if (!name) return 0;
+  if (!name) {
+    return 0;
+  }
   std::lock_guard<std::mutex> lock(mutex_);
   const auto found = values_.find(name);
   return found == values_.end() ? 0 : found->second.native_size;
@@ -737,7 +790,9 @@ bool Registry::copyNativeValue(const char *name, void *output, std::size_t size)
     }
     accessor = found->second.accessor;
   }
-  if (!accessor) return false;
+  if (!accessor) {
+    return false;
+  }
   accessor(output);
   return true;
 }

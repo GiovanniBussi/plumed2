@@ -807,23 +807,6 @@ typedef struct {
   void*p;
 } plumed;
 
-/** Opaque handle for loading a kernel, installing its MPI provider, then creating objects. */
-typedef struct plumed_kernel_handle_impl* plumed_kernel_handle;
-typedef int (*plumed_kernel_rank_callback)(int,const void*,
-    __PLUMED_WRAPPER_STD size_t,void*);
-struct plumed_mpiw_provider_descriptor;
-#ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
-#define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
-#endif
-
-enum {
-  PLUMED_KERNEL_OK=0,
-  PLUMED_KERNEL_ERROR=1,
-  PLUMED_KERNEL_UNSUPPORTED=2,
-  PLUMED_KERNEL_LOAD_ERROR=3,
-  PLUMED_KERNEL_PROVIDER_ERROR=4
-};
-
 typedef struct {
   void* ptr;
   void (*handler)(void*,int,const char*,const void*);
@@ -1190,6 +1173,11 @@ __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create(void);
 __PLUMED_WRAPPER_C_END
 
+/** Construct a PLUMED object after installing the caller's MPI provider. */
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_with_mpi(const void *descriptor);
+__PLUMED_WRAPPER_C_END
+
 /** \relates plumed
     \brief Constructor from path. Available as of PLUMED 2.5
 
@@ -1214,6 +1202,11 @@ __PLUMED_WRAPPER_C_END
 */
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen(const char*path);
+__PLUMED_WRAPPER_C_END
+
+/** Load a kernel, install the caller's MPI provider, then construct an object. */
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_dlopen_with_mpi(const char *path,const void *descriptor);
 __PLUMED_WRAPPER_C_END
 
 
@@ -1241,184 +1234,15 @@ __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlsym(void* dlhandle);
 __PLUMED_WRAPPER_C_END
 
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
 #ifdef __cplusplus
 namespace PLMD {
+extern "C" const void *plumed_mpi_implementation(void);
+}
+using PLMD::plumed_mpi_implementation;
+#else
+const void *plumed_mpi_implementation(void);
 #endif
-
-/** Load the linked/static kernel without constructing a PLUMED object. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_static(plumed_kernel_handle *out,
-                              plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Load one explicit kernel path without constructing a PLUMED object. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_dlopen(const char *path,int mode,
-                              plumed_kernel_handle *out,
-                              plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Bind the currently selected PLUMED_KERNEL or linked kernel. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_selected(plumed_kernel_handle *out,
-                                plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Install a caller-owned provider descriptor before any object is created.
-    Keep code referenced by its callbacks loaded until the selected kernel unloads;
-    use plumed_kernel_load_mpi_wrapper() when the provider is a shared library. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_inject_mpi(plumed_kernel_handle kernel,const void *descriptor,
-                             plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-#if defined(PLUMED_MPIW_HOST_ADAPTER)
-/** Install this translation unit's MPI provider into a kernel before creating
-    any PLUMED object. Define PLUMED_MPIW_HOST_ADAPTER in one implementation TU. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,
-                                    plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-#endif
-
-/** Load a provider factory library and transfer its lifetime to the kernel. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_load_mpi_wrapper(plumed_kernel_handle kernel,
-                                   const char *provider_path,
-                                   plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Create an object from the exact kernel bound by this handle. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_create(plumed_kernel_handle kernel,plumed *out,
-                         plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Launch the kernel's embedded thread-MPI runtime, once per loaded kernel. */
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_launch_internal_threads(
-  plumed_kernel_handle kernel,int ranks,plumed_kernel_rank_callback callback,
-  void *callback_context,int *result,plumed_nothrow_handler nothrow);
-__PLUMED_WRAPPER_C_END
-
-/** Release this kernel-handle reference. Objects hold their own kernel references. */
-__PLUMED_WRAPPER_C_BEGIN
-void plumed_kernel_release(plumed_kernel_handle kernel);
-__PLUMED_WRAPPER_C_END
-
-#ifdef __cplusplus
-} // namespace PLMD
-
-// Preserve the global C API names for existing callers in C++ as well.
-using PLMD::plumed_kernel_open_static;
-using PLMD::plumed_kernel_open_dlopen;
-using PLMD::plumed_kernel_open_selected;
-using PLMD::plumed_kernel_inject_mpi;
-#if defined(PLUMED_MPIW_HOST_ADAPTER)
-using PLMD::plumed_kernel_inject_native_mpi;
-#endif
-using PLMD::plumed_kernel_load_mpi_wrapper;
-using PLMD::plumed_kernel_create;
-using PLMD::plumed_kernel_launch_internal_threads;
-using PLMD::plumed_kernel_release;
-#endif
-
-#if defined(__cplusplus) && __PLUMED_WRAPPER_CXX && __cplusplus >= 201103L
-#include <cstring>
-#include <stdexcept>
-#include <utility>
-
-namespace PLMD {
-__PLUMED_WRAPPER_ANONYMOUS_BEGIN
-__PLUMED_WRAPPER_CXX_NORETURN __PLUMED_WRAPPER_STATIC_INLINE void plumed_kernel_error_rethrow_cxx(plumed_error error);
-
-/// RAII convenience around the C pre-creation kernel lifecycle API.
-class Kernel {
-  plumed_kernel_handle handle_;
-  struct Error {
-    plumed_error value;
-    Error() {
-      plumed_error_init(&value);
-    }
-    plumed_nothrow_handler handler() {
-      plumed_nothrow_handler result;
-      result.ptr=&value;
-      result.handler=plumed_error_set;
-      return result;
-    }
-  };
-  explicit Kernel(plumed_kernel_handle handle): handle_(handle) {}
-  static void check(int code,const Error &error) {
-    if(error.value.code) {
-      plumed_kernel_error_rethrow_cxx(error.value);
-    }
-    if(code!=PLUMED_KERNEL_OK) {
-      plumed_error fallback;
-      plumed_error_init(&fallback);
-      plumed_error_set(&fallback,code,"PLUMED kernel operation failed",__PLUMED_WRAPPER_CXX_NULLPTR);
-      plumed_kernel_error_rethrow_cxx(fallback);
-    }
-  }
-public:
-  Kernel(const Kernel &)=delete;
-  Kernel &operator=(const Kernel &)=delete;
-  Kernel(Kernel &&other) noexcept: handle_(other.handle_) {
-    other.handle_=nullptr;
-  }
-  Kernel &operator=(Kernel &&other) noexcept {
-    if(this!=&other) {
-      plumed_kernel_release(handle_);
-      handle_=other.handle_;
-      other.handle_=nullptr;
-    }
-    return *this;
-  }
-  ~Kernel() {
-    plumed_kernel_release(handle_);
-  }
-  static Kernel openStatic() {
-    Error error;
-    plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_static(&handle,error.handler()),error);
-    return Kernel(handle);
-  }
-  static Kernel open(const char *path,int mode) {
-    Error error;
-    plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_dlopen(path,mode,&handle,error.handler()),error);
-    return Kernel(handle);
-  }
-  static Kernel openSelected() {
-    Error error;
-    plumed_kernel_handle handle=nullptr;
-    check(plumed_kernel_open_selected(&handle,error.handler()),error);
-    return Kernel(handle);
-  }
-  void injectMPI(const void *descriptor) {
-    Error error;
-    check(plumed_kernel_inject_mpi(handle_,descriptor,error.handler()),error);
-  }
-  void loadMPIWrapper(const char *path) {
-    Error error;
-    check(plumed_kernel_load_mpi_wrapper(handle_,path,error.handler()),error);
-  }
-  plumed create() {
-    Error error;
-    plumed object= {nullptr};
-    check(plumed_kernel_create(handle_,&object,error.handler()),error);
-    return object;
-  }
-  int launchInternalThreads(int ranks,plumed_kernel_rank_callback callback,
-                            void *callback_context) {
-    Error error;
-    int result=0;
-    check(plumed_kernel_launch_internal_threads(handle_,ranks,callback,
-          callback_context,&result,error.handler()),error);
-    return result;
-  }
-};
-__PLUMED_WRAPPER_ANONYMOUS_END
-} // namespace PLMD
 #endif
 
 /** \relates plumed
@@ -3132,6 +2956,22 @@ Plumed(Plumed&&p)__PLUMED_WRAPPER_CXX_NOEXCEPT :
     return pp;
   }
 
+  /** Create an object after installing a host MPI provider in the selected kernel. */
+  static Plumed createWithMPI(const void *descriptor)__PLUMED_WRAPPER_CXX_NOEXCEPT {
+    plumed p=plumed_create_with_mpi(descriptor);
+    Plumed pp(p);
+    plumed_finalize(p);
+    return pp;
+  }
+
+  /** Load a kernel, install a host MPI provider, then create an object. */
+  static Plumed dlopenWithMPI(const char *path,const void *descriptor)__PLUMED_WRAPPER_CXX_NOEXCEPT {
+    plumed p=plumed_create_dlopen_with_mpi(path,descriptor);
+    Plumed pp(p);
+    plumed_finalize(p);
+    return pp;
+  }
+
   /**
     Create a PLUMED object loading a specific kernel. Available as of PLUMED 2.5.
 
@@ -3842,10 +3682,6 @@ public:
 
 };
 
-__PLUMED_WRAPPER_CXX_NORETURN __PLUMED_WRAPPER_STATIC_INLINE void plumed_kernel_error_rethrow_cxx(plumed_error error) {
-  Plumed::plumed_error_rethrow_cxx(error);
-}
-
 /**
   \related Plumed
   Comparison operator. Available as of PLUMED 2.5.
@@ -3947,7 +3783,7 @@ __PLUMED_WRAPPER_ANONYMOUS_END /*}*/
 #include <stddef.h>
 #include <stdint.h>
 
-/* The sole factory symbol resolved by plumed_kernel_load_mpi_wrapper. */
+/* Provider library factory used by the environment-selected provider loader. */
 #ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
 #define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
 #endif
@@ -4213,10 +4049,7 @@ typedef struct {
     Available with version>=5. The descriptor uses the independent MPI provider
     ABI; this symbol-table version only advertises that the entry is present.
   */
-  int (*install_mpi_provider)(const void*,plumed_nothrow_handler,void*);
-  /** Runs one callback on each internal thread-MPI rank; available with version>=5. */
-  int (*launch_internal_threads)(int,plumed_kernel_rank_callback,void*,int*,
-                                 plumed_nothrow_handler);
+  int (*install_mpi_provider)(const void*,plumed_nothrow_handler);
 } plumed_symbol_table_type;
 
 /* Utility to convert function pointers to pointers, just for the sake of printing them */
@@ -4622,16 +4455,7 @@ typedef struct {
   void* p;
 } plumed_implementation;
 
-typedef struct plumed_kernel_handle_impl {
-  char magic[8];
-  int mode;
-  int is_static;
-  void *dlhandle;
-  char *path;
-  plumed_symbol_table_type *table;
-} plumed_kernel_handle_impl;
 
-typedef const struct plumed_mpiw_provider_descriptor *(*plumed_mpiw_provider_factory_pointer)(void);
 
 __PLUMED_WRAPPER_INTERNALS_BEGIN
 plumed_implementation* plumed_malloc_pimpl() {
@@ -4670,75 +4494,6 @@ plumed_implementation* plumed_malloc_pimpl() {
 }
 __PLUMED_WRAPPER_INTERNALS_END
 
-#ifdef __cplusplus
-namespace PLMD {
-#endif
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-int plumed_kernel_report(plumed_nothrow_handler nothrow,int code,
-                         const char *function,const char *message) {
-  if(nothrow.handler) {
-    char full_message[512];
-    const char *reported=message;
-    if(function) {
-      __PLUMED_WRAPPER_STD snprintf(full_message,sizeof(full_message),"%s: %s",function,message ? message : "");
-      reported=full_message;
-    }
-#ifdef __cplusplus
-    try {
-      nothrow.handler(nothrow.ptr,code,reported,__PLUMED_WRAPPER_CXX_NULLPTR);
-    } catch(...) {
-      /* An error callback cannot unwind through the C wrapper ABI. */
-    }
-#else
-    nothrow.handler(nothrow.ptr,code,reported,__PLUMED_WRAPPER_CXX_NULLPTR);
-#endif
-  }
-  return code;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-plumed_kernel_handle_impl* plumed_kernel_allocate(plumed_symbol_table_type *table,
-    int is_static,void *dlhandle,
-    const char *path,int mode) {
-  plumed_kernel_handle_impl *kernel;
-  __PLUMED_WRAPPER_STD size_t length;
-  kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,
-                                      plumed_malloc(sizeof(plumed_kernel_handle_impl)));
-  if(!kernel) {
-    return __PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-  __PLUMED_WRAPPER_STD memset(kernel,0,sizeof(*kernel));
-  __PLUMED_WRAPPER_STD memcpy(kernel->magic,"MPIKERN",7);
-  kernel->mode=mode;
-  kernel->is_static=is_static;
-  kernel->dlhandle=dlhandle;
-  kernel->table=table;
-  if(path) {
-    length=__PLUMED_WRAPPER_STD strlen(path);
-    kernel->path=__PLUMED_WRAPPER_STATIC_CAST(char*,plumed_malloc(length+1));
-    if(!kernel->path) {
-      plumed_free(kernel);
-      return __PLUMED_WRAPPER_CXX_NULLPTR;
-    }
-    __PLUMED_WRAPPER_STD memcpy(kernel->path,path,length+1);
-  }
-  return kernel;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-int plumed_kernel_valid(plumed_kernel_handle_impl *kernel) {
-  return kernel && !__PLUMED_WRAPPER_STD memcmp(kernel->magic,"MPIKERN",7) &&
-         kernel->table;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-#ifdef __cplusplus
-} // namespace PLMD
-#endif
-
 #ifndef NDEBUG
 
 __PLUMED_WRAPPER_INTERNALS_BEGIN
@@ -4756,8 +4511,23 @@ __PLUMED_WRAPPER_INTERNALS_END
 
 /* C wrappers: */
 
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create(void) {
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+int plumed_wrapper_install_mpi_provider(plumed_implementation *pimpl,
+                                        const void *descriptor) {
+  plumed_nothrow_handler nothrow;
+  if(!descriptor) {
+    return 0;
+  }
+  if(!pimpl->table || pimpl->table->version<5 ||
+      !pimpl->table->install_mpi_provider) {
+    return -1;
+  }
+  nothrow.ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+  nothrow.handler=__PLUMED_WRAPPER_CXX_NULLPTR;
+  return pimpl->table->install_mpi_provider(descriptor,nothrow);
+}
+
+plumed plumed_create_internal(const void *descriptor) {
   /* returned object */
   plumed p;
   /* pointer to implementation */
@@ -4787,6 +4557,10 @@ plumed plumed_create(void) {
   }
   assert(pimpl->functions.cmd);
   assert(pimpl->functions.finalize);
+  if(plumed_wrapper_install_mpi_provider(pimpl,descriptor)!=0) {
+    p.p=pimpl;
+    return p;
+  }
   /* obtain object */
   pimpl->p=(*(pimpl->functions.create))();
   /* notice: we do not assert pimpl->p since in principle it might be nullptr */
@@ -4794,6 +4568,15 @@ plumed plumed_create(void) {
   /* store pimpl in returned object */
   p.p=pimpl;
   return p;
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create(void) {
+  return plumed_create_internal(__PLUMED_WRAPPER_CXX_NULLPTR);
+}
+plumed plumed_create_with_mpi(const void *descriptor) {
+  return plumed_create_internal(descriptor);
 }
 __PLUMED_WRAPPER_C_END
 
@@ -4817,8 +4600,9 @@ plumed plumed_create_dlopen(const char*path) {
 }
 __PLUMED_WRAPPER_C_END
 
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlsym(void* dlhandle) {
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+plumed plumed_create_dlsym_internal(void* dlhandle,
+                                    const void *descriptor) {
   /* returned object */
   plumed p;
   /* pointer to implementation */
@@ -4835,17 +4619,20 @@ plumed plumed_create_dlsym(void* dlhandle) {
   }
   assert(pimpl->functions.cmd);
   assert(pimpl->functions.finalize);
+  if(plumed_wrapper_install_mpi_provider(pimpl,descriptor)!=0) {
+    p.p=pimpl;
+    return p;
+  }
 #if defined(__PLUMED_WRAPPER_MPI_PROVIDER)
   /* An inlined wrapper forwards its installed implementation directly. A
      guest without injection support uses the historical compatibility rule. */
-  if(pimpl->table && pimpl->table->version>=5 &&
+  if(!descriptor && pimpl->table && pimpl->table->version>=5 &&
       pimpl->table->install_mpi_provider) {
     const void *provider=__PLUMED_WRAPPER_MPI_PROVIDER();
     plumed_nothrow_handler nothrow;
     nothrow.ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
     nothrow.handler=__PLUMED_WRAPPER_CXX_NULLPTR;
-    if(provider && pimpl->table->install_mpi_provider(provider,nothrow,
-        __PLUMED_WRAPPER_CXX_NULLPTR)!=0) {
+    if(provider && pimpl->table->install_mpi_provider(provider,nothrow)!=0) {
       __PLUMED_FPRINTF(stderr,"+++ Could not install the current MPI provider in the selected PLUMED kernel +++\n");
       p.p=pimpl;
       return p;
@@ -4860,192 +4647,19 @@ plumed plumed_create_dlsym(void* dlhandle) {
   p.p=pimpl;
   return p;
 }
-__PLUMED_WRAPPER_C_END
-
-#ifdef __cplusplus
-namespace PLMD {
-#endif
-
+__PLUMED_WRAPPER_INTERNALS_END
 __PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_static(plumed_kernel_handle *out,
-                              plumed_nothrow_handler nothrow) {
-  plumed_symbol_table_type *table;
-  plumed_kernel_handle_impl *kernel;
-  if(!out) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_static","null output handle");
-  }
-  *out=__PLUMED_WRAPPER_CXX_NULLPTR;
-#if __PLUMED_WRAPPER_LINK_RUNTIME
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                              "plumed_kernel_open_static",
-                              "this wrapper is configured for runtime kernel loading");
-#else
-  table=plumed_symbol_table_reexport();
-  if(!table || table->version<5 || !table->install_mpi_provider) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                                "plumed_kernel_open_static",
-                                "linked kernel does not support pre-creation MPI provider installation");
-  }
-  kernel=plumed_kernel_allocate(table,1,__PLUMED_WRAPPER_CXX_NULLPTR,
-                                __PLUMED_WRAPPER_CXX_NULLPTR,0);
-  if(!kernel) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_static","kernel handle allocation failed");
-  }
-  *out=kernel;
-  return PLUMED_KERNEL_OK;
-#endif
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_dlopen(const char *path,int mode,
-                              plumed_kernel_handle *out,
-                              plumed_nothrow_handler nothrow) {
-#ifdef __PLUMED_HAS_DLOPEN
-  void *handle;
-  plumed_plumedmain_function_holder functions;
-  plumed_symbol_table_type *table;
-  plumed_kernel_handle_impl *kernel;
-  void *symbol;
-  Dl_info information;
-  if(!out || !path || !path[0]) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_dlopen","path and output handle are required");
-  }
-  *out=__PLUMED_WRAPPER_CXX_NULLPTR;
-  handle=plumed_attempt_dlopen(path,mode);
-  if(!handle) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                                "plumed_kernel_open_dlopen","could not load the requested kernel path");
-  }
-  plumed_search_symbols(handle,&functions,&table);
-  if(!table || table->version<5 || !table->install_mpi_provider) {
-    dlclose(handle);
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                                "plumed_kernel_open_dlopen",
-                                "kernel is older than the pre-creation MPI provider API");
-  }
-  __PLUMED_CONVERT_FPTR(symbol,functions.create);
-  if(!dladdr(symbol,&information) || !information.dli_fname) {
-    dlclose(handle);
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                                "plumed_kernel_open_dlopen","cannot resolve the loaded kernel path");
-  }
-  kernel=plumed_kernel_allocate(table,0,handle,information.dli_fname,mode);
-  if(!kernel) {
-    dlclose(handle);
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_dlopen","kernel handle allocation failed");
-  }
-  *out=kernel;
-  return PLUMED_KERNEL_OK;
-#else
-  (void) path;
-  (void) mode;
-  (void) out;
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                              "plumed_kernel_open_dlopen","wrapper was built without dlopen support");
-#endif
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_open_selected(plumed_kernel_handle *out,
-                                plumed_nothrow_handler nothrow) {
-  plumed_plumedmain_function_holder functions;
-  plumed_symbol_table_type *table;
-  void *handle;
-  if(!out) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_selected","null output handle");
-  }
-  *out=__PLUMED_WRAPPER_CXX_NULLPTR;
-  plumed_retrieve_functions(&functions,&table,&handle);
-  if(!table || table->version<5 || !table->install_mpi_provider) {
-    if(handle) {
-#ifdef __PLUMED_HAS_DLOPEN
-      dlclose(handle);
-#endif
-    }
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                                "plumed_kernel_open_selected",
-                                "selected kernel does not support pre-creation MPI provider installation");
-  }
-  if(handle) {
-#ifdef __PLUMED_HAS_DLOPEN
-    void *symbol;
-    Dl_info information;
-    int mode=RTLD_NOW;
-    char *load_namespace=__PLUMED_GETENV("PLUMED_LOAD_NAMESPACE");
-    if(load_namespace && !__PLUMED_WRAPPER_STD strcmp(load_namespace,"GLOBAL")) {
-      mode=mode|RTLD_GLOBAL;
-    } else {
-      mode=mode|RTLD_LOCAL;
-    }
-#ifdef RTLD_DEEPBIND
-#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
-    if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
-      mode=mode|RTLD_DEEPBIND;
-    }
-#endif
-#endif
-    __PLUMED_CONVERT_FPTR(symbol,functions.create);
-    if(!dladdr(symbol,&information) || !information.dli_fname) {
-      dlclose(handle);
-      return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                                  "plumed_kernel_open_selected",
-                                  "cannot resolve the selected kernel library path");
-    }
-    *out=plumed_kernel_allocate(table,0,handle,information.dli_fname,mode);
-    if(!*out) {
-      dlclose(handle);
-      return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                  "plumed_kernel_open_selected","kernel handle allocation failed");
-    }
-    return PLUMED_KERNEL_OK;
-#else
-    (void) functions;
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                                "plumed_kernel_open_selected","runtime kernel path lookup is unavailable");
-#endif
-  }
-  *out=plumed_kernel_allocate(table,1,__PLUMED_WRAPPER_CXX_NULLPTR,
-                              __PLUMED_WRAPPER_CXX_NULLPTR,0);
-  if(!*out) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_open_selected","kernel handle allocation failed");
-  }
-  return PLUMED_KERNEL_OK;
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_inject_mpi(plumed_kernel_handle handle,const void *descriptor,
-                             plumed_nothrow_handler nothrow) {
-  plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
-  if(!plumed_kernel_valid(kernel)) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                                "plumed_kernel_inject_mpi","invalid kernel handle");
-  }
-  if(kernel->table->version<5 || !kernel->table->install_mpi_provider) {
-    return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                                "plumed_kernel_inject_mpi","kernel lacks provider installation support");
-  }
-  if(kernel->table->install_mpi_provider(descriptor,nothrow,
-                                         __PLUMED_WRAPPER_CXX_NULLPTR)!=0) {
-    return PLUMED_KERNEL_PROVIDER_ERROR;
-  }
-  return PLUMED_KERNEL_OK;
+plumed plumed_create_dlsym(void* dlhandle) {
+  return plumed_create_dlsym_internal(dlhandle,
+                                      __PLUMED_WRAPPER_CXX_NULLPTR);
 }
 __PLUMED_WRAPPER_C_END
 
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_BEGIN */
 #if defined(PLUMED_MPIW_HOST_ADAPTER)
 #ifdef __cplusplus
+namespace PLMD {
 extern "C" {
-#endif
 /* Minimal native-MPI provider adapter. All conversions happen in the kernel. */
 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
@@ -7558,165 +7172,2588 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
   return &plumed_mpiw_descriptor;
 }
-#ifdef __cplusplus
+}
+extern "C" const void *plumed_mpi_implementation(void) {
+return plumed_mpiw_get_descriptor();
+}
+}
+using PLMD::plumed_mpi_implementation;
+#else
+/* Minimal native-MPI provider adapter. All conversions happen in the kernel. */
+
+#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
+/* For standalone host builds without gromacs/version.h, callers may define the verified numeric version explicitly. */
+#ifndef PLUMED_MPIW_GROMACS_VERSION
+#ifdef GMX_VERSION
+#define PLUMED_MPIW_GROMACS_VERSION GMX_VERSION
+#else
+#error "GROMACS tMPI host adapter requires GMX_VERSION or PLUMED_MPIW_GROMACS_VERSION"
+#endif
+#endif
+#if PLUMED_MPIW_GROMACS_VERSION < 20260000
+#error "GROMACS tMPI host adapter requires GROMACS 2026.0 or newer"
+#endif
+#endif
+
+#define PLUMED_MPIW_JOIN_INNER(a, b) a##b
+#define PLUMED_MPIW_JOIN(a, b) PLUMED_MPIW_JOIN_INNER(a, b)
+#define PLUMED_MPIW_STATIC_ASSERT(c, m) \
+  typedef char PLUMED_MPIW_JOIN(plumed_mpiw_static_assert_, __LINE__)[(c) ? 1 : -1]
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
+int native_result = MPI_Initialized((int *)argument_0);
+memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,
-                                    plumed_nothrow_handler nothrow) {
-return plumed_kernel_inject_mpi(kernel,plumed_mpiw_get_descriptor(),nothrow);
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_dup(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_dup(native_argument_0, (MPI_Comm *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
 }
-__PLUMED_WRAPPER_C_END
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_free(void *argument_0, void *result) {
+  int native_result = MPI_Comm_free((MPI_Comm *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_rank(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_rank(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_size(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_size(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_split(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Comm_split(native_argument_0, native_argument_1, native_argument_2, (MPI_Comm *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Abort(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Abort(native_argument_0, native_argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Bcast(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Comm native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_result = MPI_Bcast((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Scatter(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Datatype native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  MPI_Comm native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  int native_result = MPI_Scatter((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Gather(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Datatype native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  MPI_Comm native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  int native_result = MPI_Gather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Allreduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Op native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Allreduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Isend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Wait(void *argument_0, void *argument_1, void *result) {
+  int native_result = MPI_Wait((MPI_Request *)argument_0, (MPI_Status *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Allgather(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Datatype native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  MPI_Comm native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_result = MPI_Allgather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Allgatherv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  MPI_Comm native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  int native_result = MPI_Allgatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Recv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Recv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Status *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Barrier(void *argument_0, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Barrier(native_argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Get_count(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Datatype native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Get_count((MPI_Status *)argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *argument_9, void *argument_10, void *argument_11, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  MPI_Datatype native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  int native_argument_8;
+  memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
+  int native_argument_9;
+  memcpy(&native_argument_9, argument_9, sizeof(native_argument_9));
+  MPI_Comm native_argument_10;
+  memcpy(&native_argument_10, argument_10, sizeof(native_argument_10));
+  int native_result = MPI_Sendrecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (void *)argument_5, native_argument_6, native_argument_7, native_argument_8, native_argument_9, native_argument_10, (MPI_Status *)argument_11);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Error_string(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Error_string(native_argument_0, (char *)argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))
+static void plumed_mpiw_MPI_Comm_f2c(void *argument_0, void *result) {
+  MPI_Fint native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Comm native_result = MPI_Comm_f2c(native_argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Send(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Bsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Bsend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Ssend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Ssend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Rsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Rsend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Buffer_attach(void *argument_0, void *argument_1, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Buffer_attach((void *)argument_0, native_argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Buffer_detach(void *argument_0, void *argument_1, void *result) {
+  int native_result = MPI_Buffer_detach((void *)argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Ibsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Ibsend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Issend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Issend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Irsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Irsend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Irecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Irecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Test(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  int native_result = MPI_Test((MPI_Request *)argument_0, (int *)argument_1, (MPI_Status *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Request_free(void *argument_0, void *result) {
+  int native_result = MPI_Request_free((MPI_Request *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Waitany(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Waitany(native_argument_0, (MPI_Request *)argument_1, (int *)argument_2, (MPI_Status *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Testany(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Testany(native_argument_0, (MPI_Request *)argument_1, (int *)argument_2, (int *)argument_3, (MPI_Status *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Waitall(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Waitall(native_argument_0, (MPI_Request *)argument_1, (MPI_Status *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Testall(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Testall(native_argument_0, (MPI_Request *)argument_1, (int *)argument_2, (MPI_Status *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Waitsome(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Waitsome(native_argument_0, (MPI_Request *)argument_1, (int *)argument_2, (int *)argument_3, (MPI_Status *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Testsome(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Testsome(native_argument_0, (MPI_Request *)argument_1, (int *)argument_2, (int *)argument_3, (MPI_Status *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Iprobe(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Comm native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Iprobe(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3, (MPI_Status *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Probe(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Comm native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Probe(native_argument_0, native_argument_1, native_argument_2, (MPI_Status *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Cancel(void *argument_0, void *result) {
+  int native_result = MPI_Cancel((MPI_Request *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Test_cancelled(void *argument_0, void *argument_1, void *result) {
+  int native_result = MPI_Test_cancelled((MPI_Status *)argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Send_init(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Send_init((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Bsend_init(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Bsend_init((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Ssend_init(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Ssend_init((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Rsend_init(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Rsend_init((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Recv_init(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Recv_init((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (MPI_Request *)argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Start(void *argument_0, void *result) {
+  int native_result = MPI_Start((MPI_Request *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Startall(void *argument_0, void *argument_1, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Startall(native_argument_0, (MPI_Request *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Sendrecv_replace(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  MPI_Comm native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  int native_result = MPI_Sendrecv_replace((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7, (MPI_Status *)argument_8);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Type_contiguous(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Datatype native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Type_contiguous(native_argument_0, native_argument_1, (MPI_Datatype *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Type_vector(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_result = MPI_Type_vector(native_argument_0, native_argument_1, native_argument_2, native_argument_3, (MPI_Datatype *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Type_indexed(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_result = MPI_Type_indexed(native_argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (MPI_Datatype *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Type_commit(void *argument_0, void *result) {
+  int native_result = MPI_Type_commit((MPI_Datatype *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Type_free(void *argument_0, void *result) {
+  int native_result = MPI_Type_free((MPI_Datatype *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Type_size(void *argument_0, void *argument_1, void *result) {
+  MPI_Datatype native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Type_size(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Get_elements(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Datatype native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Get_elements((MPI_Status *)argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Pack(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_result = MPI_Pack((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, (int *)argument_5, native_argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Unpack(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Datatype native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  MPI_Comm native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_result = MPI_Unpack((void *)argument_0, native_argument_1, (int *)argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Pack_size(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Datatype native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Comm native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Pack_size(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Gatherv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  MPI_Comm native_argument_8;
+  memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
+  int native_result = MPI_Gatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7, native_argument_8);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Scatterv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  MPI_Datatype native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  MPI_Comm native_argument_8;
+  memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
+  int native_result = MPI_Scatterv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, native_argument_5, native_argument_6, native_argument_7, native_argument_8);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Alltoall(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Datatype native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Datatype native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  MPI_Comm native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_result = MPI_Alltoall((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Alltoallv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Datatype native_argument_7;
+  memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
+  MPI_Comm native_argument_8;
+  memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
+  int native_result = MPI_Alltoallv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, (int *)argument_5, (int *)argument_6, native_argument_7, native_argument_8);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Reduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Op native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  MPI_Comm native_argument_6;
+  memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
+  int native_result = MPI_Reduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Op_free(void *argument_0, void *result) {
+  int native_result = MPI_Op_free((MPI_Op *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Reduce_scatter(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Op native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Reduce_scatter((void *)argument_0, (void *)argument_1, (int *)argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Scan(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  MPI_Datatype native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  MPI_Op native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  MPI_Comm native_argument_5;
+  memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
+  int native_result = MPI_Scan((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Group_size(void *argument_0, void *argument_1, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Group_size(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Group_rank(void *argument_0, void *argument_1, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Group_rank(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_translate_ranks(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Group native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_result = MPI_Group_translate_ranks(native_argument_0, native_argument_1, (int *)argument_2, native_argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_compare(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Group native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_compare(native_argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_group(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_group(native_argument_0, (MPI_Group *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_union(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Group native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_union(native_argument_0, native_argument_1, (MPI_Group *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_intersection(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Group native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_intersection(native_argument_0, native_argument_1, (MPI_Group *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_difference(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Group native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_difference(native_argument_0, native_argument_1, (MPI_Group *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Group_incl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_incl(native_argument_0, native_argument_1, (int *)argument_2, (MPI_Group *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_excl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_excl(native_argument_0, native_argument_1, (int *)argument_2, (MPI_Group *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_range_incl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_range_incl(native_argument_0, native_argument_1, (int (*)[3])argument_2, (MPI_Group *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Group_range_excl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Group native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Group_range_excl(native_argument_0, native_argument_1, (int (*)[3])argument_2, (MPI_Group *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Group_free(void *argument_0, void *result) {
+  int native_result = MPI_Group_free((MPI_Group *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_compare(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Comm native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Comm_compare(native_argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_create(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Group native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Comm_create(native_argument_0, native_argument_1, (MPI_Comm *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Comm_test_inter(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_test_inter(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Comm_remote_size(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_remote_size(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Comm_remote_group(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_remote_group(native_argument_0, (MPI_Group *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Intercomm_create(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  MPI_Comm native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_argument_3;
+  memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_result = MPI_Intercomm_create(native_argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (MPI_Comm *)argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Intercomm_merge(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Intercomm_merge(native_argument_0, native_argument_1, (MPI_Comm *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_create(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_result = MPI_Cart_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (MPI_Comm *)argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Dims_create(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Dims_create(native_argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graph_create(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_4;
+  memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
+  int native_result = MPI_Graph_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (MPI_Comm *)argument_5);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Topo_test(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Topo_test(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graphdims_get(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Graphdims_get(native_argument_0, (int *)argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graph_get(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Graph_get(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cartdim_get(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Cartdim_get(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_get(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Cart_get(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_rank(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Cart_rank(native_argument_0, (int *)argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_coords(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Cart_coords(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graph_neighbors_count(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Graph_neighbors_count(native_argument_0, native_argument_1, (int *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graph_neighbors(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Graph_neighbors(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Cart_shift(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_argument_2;
+  memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
+  int native_result = MPI_Cart_shift(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_sub(void *argument_0, void *argument_1, void *argument_2, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Cart_sub(native_argument_0, (int *)argument_1, (MPI_Comm *)argument_2);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Cart_map(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Cart_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Graph_map(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Graph_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Get_processor_name(void *argument_0, void *argument_1, void *result) {
+  int native_result = MPI_Get_processor_name((char *)argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Errhandler_free(void *argument_0, void *result) {
+  int native_result = MPI_Errhandler_free((MPI_Errhandler *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Error_class(void *argument_0, void *argument_1, void *result) {
+  int native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Error_class(native_argument_0, (int *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Wtime(void *result) {
+  double native_result = MPI_Wtime();
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static void plumed_mpiw_MPI_Wtick(void *result) {
+  double native_result = MPI_Wtick();
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Finalized(void *argument_0, void *result) {
+  int native_result = MPI_Finalized((int *)argument_0);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_get_errhandler(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  int native_result = MPI_Comm_get_errhandler(native_argument_0, (MPI_Errhandler *)argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static void plumed_mpiw_MPI_Comm_set_errhandler(void *argument_0, void *argument_1, void *result) {
+  MPI_Comm native_argument_0;
+  memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
+  MPI_Errhandler native_argument_1;
+  memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
+  int native_result = MPI_Comm_set_errhandler(native_argument_0, native_argument_1);
+  memcpy(result, &native_result, sizeof(native_result));
+}
+#endif
+#define PLUMED_MPIW_ENTRY(name, id, version, argc, fn) { (uint32_t)sizeof(plumed_mpiw_function_entry), #name, id, version, argc, (plumed_mpiw_generic_fn)(fn) }
+/* Rows append contiguously in declaration order, including conditional rows. The identifier is metadata only; it is never an array index or byte offset. */
+static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Initialized, 0xd4498369u, 1u, 1u, plumed_mpiw_MPI_Initialized),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_dup, 0xf0dc6608u, 1u, 2u, plumed_mpiw_MPI_Comm_dup),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_free, 0x4da4e1b2u, 1u, 1u, plumed_mpiw_MPI_Comm_free),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_rank, 0x4e7672aau, 1u, 2u, plumed_mpiw_MPI_Comm_rank),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_size, 0xda2369ecu, 1u, 2u, plumed_mpiw_MPI_Comm_size),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_split, 0x97f1adf0u, 1u, 4u, plumed_mpiw_MPI_Comm_split),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Abort, 0x84f458d6u, 1u, 2u, plumed_mpiw_MPI_Abort),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Bcast, 0xe809e1cau, 1u, 5u, plumed_mpiw_MPI_Bcast),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Scatter, 0xb2fa0f58u, 1u, 8u, plumed_mpiw_MPI_Scatter),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Gather, 0xb1f903d9u, 1u, 8u, plumed_mpiw_MPI_Gather),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Allreduce, 0x788900dbu, 1u, 6u, plumed_mpiw_MPI_Allreduce),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Isend, 0xf5e9d915u, 1u, 7u, plumed_mpiw_MPI_Isend),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Wait, 0x4b15813du, 1u, 2u, plumed_mpiw_MPI_Wait),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Allgather, 0xab8b26c9u, 1u, 7u, plumed_mpiw_MPI_Allgather),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Allgatherv, 0x0f1b22f3u, 1u, 8u, plumed_mpiw_MPI_Allgatherv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Recv, 0xdd56a4bcu, 1u, 7u, plumed_mpiw_MPI_Recv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Barrier, 0xe7a052f4u, 1u, 1u, plumed_mpiw_MPI_Barrier),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Get_count, 0x71967a66u, 1u, 3u, plumed_mpiw_MPI_Get_count),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Sendrecv, 0xb09a6fc1u, 1u, 12u, plumed_mpiw_MPI_Sendrecv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Error_string, 0xd272abecu, 1u, 3u, plumed_mpiw_MPI_Error_string),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))
+  PLUMED_MPIW_ENTRY(MPI_Comm_f2c, 0x9a9e7fcdu, 1u, 1u, plumed_mpiw_MPI_Comm_f2c),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Send, 0xbd2b6912u, 1u, 6u, plumed_mpiw_MPI_Send),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Bsend, 0xa9dbf685u, 1u, 6u, plumed_mpiw_MPI_Bsend),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Ssend, 0x5edcf0deu, 1u, 6u, plumed_mpiw_MPI_Ssend),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Rsend, 0xbfa09b06u, 1u, 6u, plumed_mpiw_MPI_Rsend),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Buffer_attach, 0xe00bd480u, 1u, 2u, plumed_mpiw_MPI_Buffer_attach),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Buffer_detach, 0x74dec40fu, 1u, 2u, plumed_mpiw_MPI_Buffer_detach),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Ibsend, 0xa4d683afu, 1u, 7u, plumed_mpiw_MPI_Ibsend),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Issend, 0x8275e866u, 1u, 7u, plumed_mpiw_MPI_Issend),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Irsend, 0xb13d1d70u, 1u, 7u, plumed_mpiw_MPI_Irsend),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Irecv, 0xb69a0083u, 1u, 7u, plumed_mpiw_MPI_Irecv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Test, 0x1d207e4cu, 1u, 3u, plumed_mpiw_MPI_Test),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Request_free, 0x475f38a1u, 1u, 1u, plumed_mpiw_MPI_Request_free),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Waitany, 0x5acd4436u, 1u, 4u, plumed_mpiw_MPI_Waitany),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Testany, 0xf329c686u, 1u, 5u, plumed_mpiw_MPI_Testany),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Waitall, 0x7a57ae23u, 1u, 3u, plumed_mpiw_MPI_Waitall),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Testall, 0x593a1626u, 1u, 4u, plumed_mpiw_MPI_Testall),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Waitsome, 0xb6562e1au, 1u, 5u, plumed_mpiw_MPI_Waitsome),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Testsome, 0x5a87d17bu, 1u, 5u, plumed_mpiw_MPI_Testsome),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Iprobe, 0xd1ba8db8u, 1u, 5u, plumed_mpiw_MPI_Iprobe),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Probe, 0xfed81500u, 1u, 4u, plumed_mpiw_MPI_Probe),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Cancel, 0xed47f9abu, 1u, 1u, plumed_mpiw_MPI_Cancel),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Test_cancelled, 0xec5e3092u, 1u, 2u, plumed_mpiw_MPI_Test_cancelled),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Send_init, 0xd381e137u, 1u, 7u, plumed_mpiw_MPI_Send_init),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Bsend_init, 0x16ede22eu, 1u, 7u, plumed_mpiw_MPI_Bsend_init),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Ssend_init, 0xeea1c733u, 1u, 7u, plumed_mpiw_MPI_Ssend_init),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Rsend_init, 0x018fab06u, 1u, 7u, plumed_mpiw_MPI_Rsend_init),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Recv_init, 0x9cbb4e8au, 1u, 7u, plumed_mpiw_MPI_Recv_init),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Start, 0xfb62fbe3u, 1u, 1u, plumed_mpiw_MPI_Start),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Startall, 0xc3d7cddfu, 1u, 2u, plumed_mpiw_MPI_Startall),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Sendrecv_replace, 0x7c6ffc57u, 1u, 9u, plumed_mpiw_MPI_Sendrecv_replace),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Type_contiguous, 0xe41681d2u, 1u, 3u, plumed_mpiw_MPI_Type_contiguous),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Type_vector, 0xc7b9dbb0u, 1u, 5u, plumed_mpiw_MPI_Type_vector),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Type_indexed, 0xeb606d34u, 1u, 5u, plumed_mpiw_MPI_Type_indexed),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Type_commit, 0xf848da1fu, 1u, 1u, plumed_mpiw_MPI_Type_commit),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Type_free, 0xdacde819u, 1u, 1u, plumed_mpiw_MPI_Type_free),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Type_size, 0x95660c77u, 1u, 2u, plumed_mpiw_MPI_Type_size),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Get_elements, 0xf71eaa9au, 1u, 3u, plumed_mpiw_MPI_Get_elements),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Pack, 0x5649ba7au, 1u, 7u, plumed_mpiw_MPI_Pack),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Unpack, 0x49901f8bu, 1u, 7u, plumed_mpiw_MPI_Unpack),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Pack_size, 0x24de0131u, 1u, 4u, plumed_mpiw_MPI_Pack_size),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Gatherv, 0xc90455c9u, 1u, 9u, plumed_mpiw_MPI_Gatherv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Scatterv, 0x765eb673u, 1u, 9u, plumed_mpiw_MPI_Scatterv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Alltoall, 0xcfe270aeu, 1u, 7u, plumed_mpiw_MPI_Alltoall),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Alltoallv, 0xa4d99ed0u, 1u, 9u, plumed_mpiw_MPI_Alltoallv),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Reduce, 0x3a815604u, 1u, 7u, plumed_mpiw_MPI_Reduce),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Op_free, 0x94fea4e6u, 1u, 1u, plumed_mpiw_MPI_Op_free),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Reduce_scatter, 0x2f70a384u, 1u, 6u, plumed_mpiw_MPI_Reduce_scatter),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Scan, 0x64e2ee54u, 1u, 6u, plumed_mpiw_MPI_Scan),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Group_size, 0x7de536d5u, 1u, 2u, plumed_mpiw_MPI_Group_size),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Group_rank, 0x668fab96u, 1u, 2u, plumed_mpiw_MPI_Group_rank),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_translate_ranks, 0x2ac4d2c6u, 1u, 5u, plumed_mpiw_MPI_Group_translate_ranks),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_compare, 0xb0d34b44u, 1u, 3u, plumed_mpiw_MPI_Group_compare),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_group, 0xd11f4483u, 1u, 2u, plumed_mpiw_MPI_Comm_group),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_union, 0xc288bd65u, 1u, 3u, plumed_mpiw_MPI_Group_union),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_intersection, 0xddf0ecb4u, 1u, 3u, plumed_mpiw_MPI_Group_intersection),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_difference, 0x37101ec1u, 1u, 3u, plumed_mpiw_MPI_Group_difference),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Group_incl, 0xbe8bfe71u, 1u, 4u, plumed_mpiw_MPI_Group_incl),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_excl, 0x45fa0902u, 1u, 4u, plumed_mpiw_MPI_Group_excl),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_range_incl, 0x801adc54u, 1u, 4u, plumed_mpiw_MPI_Group_range_incl),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Group_range_excl, 0xc416deb6u, 1u, 4u, plumed_mpiw_MPI_Group_range_excl),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Group_free, 0xfd1c62d1u, 1u, 1u, plumed_mpiw_MPI_Group_free),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_compare, 0xdacd79cdu, 1u, 3u, plumed_mpiw_MPI_Comm_compare),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_create, 0x1de85fa0u, 1u, 3u, plumed_mpiw_MPI_Comm_create),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Comm_test_inter, 0x29431089u, 1u, 2u, plumed_mpiw_MPI_Comm_test_inter),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Comm_remote_size, 0xaa0c6ac3u, 1u, 2u, plumed_mpiw_MPI_Comm_remote_size),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Comm_remote_group, 0x49ee9d8fu, 1u, 2u, plumed_mpiw_MPI_Comm_remote_group),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Intercomm_create, 0x320542c0u, 1u, 6u, plumed_mpiw_MPI_Intercomm_create),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Intercomm_merge, 0x1f6a920au, 1u, 3u, plumed_mpiw_MPI_Intercomm_merge),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_create, 0xfd363844u, 1u, 6u, plumed_mpiw_MPI_Cart_create),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Dims_create, 0xfb2dd1cdu, 1u, 3u, plumed_mpiw_MPI_Dims_create),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graph_create, 0x00eb0f02u, 1u, 6u, plumed_mpiw_MPI_Graph_create),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Topo_test, 0x09cbe810u, 1u, 2u, plumed_mpiw_MPI_Topo_test),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graphdims_get, 0xc56e163bu, 1u, 3u, plumed_mpiw_MPI_Graphdims_get),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graph_get, 0x12829ea5u, 1u, 5u, plumed_mpiw_MPI_Graph_get),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cartdim_get, 0xa979e88cu, 1u, 2u, plumed_mpiw_MPI_Cartdim_get),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_get, 0x0a3d9750u, 1u, 5u, plumed_mpiw_MPI_Cart_get),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_rank, 0xf899fe26u, 1u, 3u, plumed_mpiw_MPI_Cart_rank),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_coords, 0xf0bdc30cu, 1u, 4u, plumed_mpiw_MPI_Cart_coords),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graph_neighbors_count, 0x5a79d6b6u, 1u, 3u, plumed_mpiw_MPI_Graph_neighbors_count),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graph_neighbors, 0x567d4ff6u, 1u, 4u, plumed_mpiw_MPI_Graph_neighbors),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Cart_shift, 0x4d227e7cu, 1u, 5u, plumed_mpiw_MPI_Cart_shift),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_sub, 0x1e9d3861u, 1u, 3u, plumed_mpiw_MPI_Cart_sub),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Cart_map, 0xba5a7b4cu, 1u, 5u, plumed_mpiw_MPI_Cart_map),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Graph_map, 0xefd795ebu, 1u, 5u, plumed_mpiw_MPI_Graph_map),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Get_processor_name, 0xf8e4ccc3u, 1u, 2u, plumed_mpiw_MPI_Get_processor_name),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Errhandler_free, 0xf03f8309u, 1u, 1u, plumed_mpiw_MPI_Errhandler_free),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Error_class, 0x3b9188a6u, 1u, 2u, plumed_mpiw_MPI_Error_class),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Wtime, 0x75704e2eu, 1u, 0u, plumed_mpiw_MPI_Wtime),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_ENTRY(MPI_Wtick, 0x84f54b80u, 1u, 0u, plumed_mpiw_MPI_Wtick),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Finalized, 0x105b65c7u, 1u, 1u, plumed_mpiw_MPI_Finalized),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_get_errhandler, 0x74d05159u, 1u, 2u, plumed_mpiw_MPI_Comm_get_errhandler),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_ENTRY(MPI_Comm_set_errhandler, 0xe6af3a8fu, 1u, 2u, plumed_mpiw_MPI_Comm_set_errhandler),
+#endif
+};
+#undef PLUMED_MPIW_ENTRY
+
+#define PLUMED_MPIW_HANDLE_CONSTANT(name, type) \
+  static void plumed_mpiw_value_##name(void *out) { \
+    type value = name; \
+    memcpy(out, &value, sizeof(value)); \
+  }
+#define PLUMED_MPIW_INTEGER_CONSTANT(name) \
+  static void plumed_mpiw_value_##name(void *out) { \
+    int value = (int)(name); \
+    memcpy(out, &value, sizeof(value)); \
+  }
+#define PLUMED_MPIW_POINTER_CONSTANT(name) \
+  static void plumed_mpiw_value_##name(void *out) { \
+    void *value = (void *)(name); \
+    memcpy(out, &value, sizeof(value)); \
+  }
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_FLOAT, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_DOUBLE, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_INT, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_CHAR, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_UNSIGNED, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_UNSIGNED_LONG, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_UNSIGNED_LONG_LONG, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG_DOUBLE, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_COMM_WORLD, MPI_Comm)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_COMM_SELF, MPI_Comm)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_COMM_NULL, MPI_Comm)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_POINTER_CONSTANT(MPI_IN_PLACE)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_SUM, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_PROD, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_MAX, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_MIN, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_POINTER_CONSTANT(MPI_STATUS_IGNORE)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_GROUP_NULL, MPI_Group)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_GROUP_EMPTY, MPI_Group)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_REQUEST_NULL, MPI_Request)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_DATATYPE_NULL, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_OP_NULL, MPI_Op)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_ERRHANDLER_NULL, MPI_Errhandler)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_ERRORS_ARE_FATAL, MPI_Errhandler)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_ERRORS_RETURN, MPI_Errhandler)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_BYTE, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_PACKED, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_SHORT, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_UNSIGNED_CHAR, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_UNSIGNED_SHORT, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG_LONG_INT, MPI_Datatype)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG_LONG, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_FLOAT_INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_DOUBLE_INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG_INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_2INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_SHORT_INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LONG_DOUBLE_INT, MPI_Datatype)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_MAXLOC, MPI_Op)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_MINLOC, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LAND, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_BAND, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LOR, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_BOR, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_LXOR, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_HANDLE_CONSTANT(MPI_BXOR, MPI_Op)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_UNDEFINED)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ANY_SOURCE)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ANY_TAG)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_PROC_NULL)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_IDENT)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_CONGRUENT)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_SIMILAR)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_UNEQUAL)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_CART)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_GRAPH)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_MAX_PROCESSOR_NAME)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_MAX_ERROR_STRING)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_BSEND_OVERHEAD)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_SUCCESS)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_BUFFER)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_COUNT)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TYPE)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TAG)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_COMM)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_RANK)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_REQUEST)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ROOT)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_GROUP)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_OP)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TOPOLOGY)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_DIMS)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ARG)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_UNKNOWN)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TRUNCATE)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_OTHER)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_INTERN)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_PENDING)
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+PLUMED_MPIW_POINTER_CONSTANT(MPI_BOTTOM)
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_IN_STATUS)
+#endif
+#undef PLUMED_MPIW_HANDLE_CONSTANT
+#undef PLUMED_MPIW_INTEGER_CONSTANT
+#undef PLUMED_MPIW_POINTER_CONSTANT
+
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_FLOAT = &plumed_mpiw_value_MPI_FLOAT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_DOUBLE = &plumed_mpiw_value_MPI_DOUBLE;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_INT = &plumed_mpiw_value_MPI_INT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_CHAR = &plumed_mpiw_value_MPI_CHAR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNSIGNED = &plumed_mpiw_value_MPI_UNSIGNED;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNSIGNED_LONG = &plumed_mpiw_value_MPI_UNSIGNED_LONG;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNSIGNED_LONG_LONG = &plumed_mpiw_value_MPI_UNSIGNED_LONG_LONG;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG_DOUBLE = &plumed_mpiw_value_MPI_LONG_DOUBLE;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_COMM_WORLD = &plumed_mpiw_value_MPI_COMM_WORLD;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_COMM_SELF = &plumed_mpiw_value_MPI_COMM_SELF;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_COMM_NULL = &plumed_mpiw_value_MPI_COMM_NULL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_IN_PLACE = &plumed_mpiw_value_MPI_IN_PLACE;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_SUM = &plumed_mpiw_value_MPI_SUM;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_PROD = &plumed_mpiw_value_MPI_PROD;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MAX = &plumed_mpiw_value_MPI_MAX;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MIN = &plumed_mpiw_value_MPI_MIN;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_STATUS_IGNORE = &plumed_mpiw_value_MPI_STATUS_IGNORE;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_GROUP_NULL = &plumed_mpiw_value_MPI_GROUP_NULL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_GROUP_EMPTY = &plumed_mpiw_value_MPI_GROUP_EMPTY;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_REQUEST_NULL = &plumed_mpiw_value_MPI_REQUEST_NULL;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_DATATYPE_NULL = &plumed_mpiw_value_MPI_DATATYPE_NULL;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_OP_NULL = &plumed_mpiw_value_MPI_OP_NULL;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERRHANDLER_NULL = &plumed_mpiw_value_MPI_ERRHANDLER_NULL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERRORS_ARE_FATAL = &plumed_mpiw_value_MPI_ERRORS_ARE_FATAL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERRORS_RETURN = &plumed_mpiw_value_MPI_ERRORS_RETURN;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BYTE = &plumed_mpiw_value_MPI_BYTE;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_PACKED = &plumed_mpiw_value_MPI_PACKED;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_SHORT = &plumed_mpiw_value_MPI_SHORT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG = &plumed_mpiw_value_MPI_LONG;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNSIGNED_CHAR = &plumed_mpiw_value_MPI_UNSIGNED_CHAR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNSIGNED_SHORT = &plumed_mpiw_value_MPI_UNSIGNED_SHORT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG_LONG_INT = &plumed_mpiw_value_MPI_LONG_LONG_INT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG_LONG = &plumed_mpiw_value_MPI_LONG_LONG;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_FLOAT_INT = &plumed_mpiw_value_MPI_FLOAT_INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_DOUBLE_INT = &plumed_mpiw_value_MPI_DOUBLE_INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG_INT = &plumed_mpiw_value_MPI_LONG_INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_2INT = &plumed_mpiw_value_MPI_2INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_SHORT_INT = &plumed_mpiw_value_MPI_SHORT_INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LONG_DOUBLE_INT = &plumed_mpiw_value_MPI_LONG_DOUBLE_INT;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MAXLOC = &plumed_mpiw_value_MPI_MAXLOC;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MINLOC = &plumed_mpiw_value_MPI_MINLOC;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LAND = &plumed_mpiw_value_MPI_LAND;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BAND = &plumed_mpiw_value_MPI_BAND;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LOR = &plumed_mpiw_value_MPI_LOR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BOR = &plumed_mpiw_value_MPI_BOR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_LXOR = &plumed_mpiw_value_MPI_LXOR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BXOR = &plumed_mpiw_value_MPI_BXOR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNDEFINED = &plumed_mpiw_value_MPI_UNDEFINED;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ANY_SOURCE = &plumed_mpiw_value_MPI_ANY_SOURCE;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ANY_TAG = &plumed_mpiw_value_MPI_ANY_TAG;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_PROC_NULL = &plumed_mpiw_value_MPI_PROC_NULL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_IDENT = &plumed_mpiw_value_MPI_IDENT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_CONGRUENT = &plumed_mpiw_value_MPI_CONGRUENT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_SIMILAR = &plumed_mpiw_value_MPI_SIMILAR;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_UNEQUAL = &plumed_mpiw_value_MPI_UNEQUAL;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_CART = &plumed_mpiw_value_MPI_CART;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_GRAPH = &plumed_mpiw_value_MPI_GRAPH;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MAX_PROCESSOR_NAME = &plumed_mpiw_value_MPI_MAX_PROCESSOR_NAME;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_MAX_ERROR_STRING = &plumed_mpiw_value_MPI_MAX_ERROR_STRING;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BSEND_OVERHEAD = &plumed_mpiw_value_MPI_BSEND_OVERHEAD;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_SUCCESS = &plumed_mpiw_value_MPI_SUCCESS;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_BUFFER = &plumed_mpiw_value_MPI_ERR_BUFFER;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_COUNT = &plumed_mpiw_value_MPI_ERR_COUNT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_TYPE = &plumed_mpiw_value_MPI_ERR_TYPE;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_TAG = &plumed_mpiw_value_MPI_ERR_TAG;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_COMM = &plumed_mpiw_value_MPI_ERR_COMM;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_RANK = &plumed_mpiw_value_MPI_ERR_RANK;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_REQUEST = &plumed_mpiw_value_MPI_ERR_REQUEST;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_ROOT = &plumed_mpiw_value_MPI_ERR_ROOT;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_GROUP = &plumed_mpiw_value_MPI_ERR_GROUP;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_OP = &plumed_mpiw_value_MPI_ERR_OP;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_TOPOLOGY = &plumed_mpiw_value_MPI_ERR_TOPOLOGY;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_DIMS = &plumed_mpiw_value_MPI_ERR_DIMS;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_ARG = &plumed_mpiw_value_MPI_ERR_ARG;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_UNKNOWN = &plumed_mpiw_value_MPI_ERR_UNKNOWN;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_TRUNCATE = &plumed_mpiw_value_MPI_ERR_TRUNCATE;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_OTHER = &plumed_mpiw_value_MPI_ERR_OTHER;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_INTERN = &plumed_mpiw_value_MPI_ERR_INTERN;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_PENDING = &plumed_mpiw_value_MPI_ERR_PENDING;
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_BOTTOM = &plumed_mpiw_value_MPI_BOTTOM;
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_ERR_IN_STATUS = &plumed_mpiw_value_MPI_ERR_IN_STATUS;
+#endif
+#define PLUMED_MPIW_VALUE(name, type) \
+  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, \
+    0u, "value:" #name, sizeof(plumed_mpiw_constant_accessor_fn), sizeof(type), \
+    (const void *)&plumed_mpiw_accessor_##name }
+static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_FLOAT, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_DOUBLE, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_INT, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_CHAR, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_COMM_WORLD, MPI_Comm),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_COMM_SELF, MPI_Comm),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_COMM_NULL, MPI_Comm),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_IN_PLACE, void *),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_SUM, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_PROD, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_MAX, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_MIN, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, MPI_Status *),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_GROUP_NULL, MPI_Group),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, MPI_Group),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, MPI_Request),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_DATATYPE_NULL, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_OP_NULL, MPI_Op),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERRHANDLER_NULL, MPI_Errhandler),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, MPI_Errhandler),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, MPI_Errhandler),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_BYTE, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_PACKED, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_SHORT, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LONG, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, MPI_Datatype),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_FLOAT_INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_DOUBLE_INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_LONG_INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_2INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_SHORT_INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE_INT, MPI_Datatype),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_MAXLOC, MPI_Op),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_MINLOC, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LAND, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_BAND, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LOR, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_BOR, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_LXOR, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_BXOR, MPI_Op),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNDEFINED, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ANY_SOURCE, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ANY_TAG, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_PROC_NULL, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_IDENT, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_CONGRUENT, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_SIMILAR, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_UNEQUAL, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_CART, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_GRAPH, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_MAX_PROCESSOR_NAME, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_MAX_ERROR_STRING, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_BSEND_OVERHEAD, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_SUCCESS, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_BUFFER, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_COUNT, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_TYPE, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_TAG, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_COMM, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_RANK, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_REQUEST, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_ROOT, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_GROUP, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_OP, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_TOPOLOGY, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_DIMS, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_ARG, int32_t),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_UNKNOWN, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_TRUNCATE, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_OTHER, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_INTERN, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_ERR_PENDING, int32_t),
+#endif
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+  PLUMED_MPIW_VALUE(MPI_BOTTOM, void *),
+#endif
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+  PLUMED_MPIW_VALUE(MPI_ERR_IN_STATUS, int32_t),
+#endif
+};
+
+typedef union {
+  long double long_double_value;
+  long long long_long_value;
+  void *pointer_value;
+} plumed_mpiw_scratch_alignment;
+typedef struct {
+  char c;
+  plumed_mpiw_scratch_alignment value;
+} plumed_mpiw_scratch_alignment_offset;
+#define PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(type) \
+  typedef struct { char c; type value; } \
+  PLUMED_MPIW_JOIN(plumed_mpiw_native_align_, type); \
+  PLUMED_MPIW_STATIC_ASSERT(offsetof(PLUMED_MPIW_JOIN(plumed_mpiw_native_align_, type), value) <= \
+                            offsetof(plumed_mpiw_scratch_alignment_offset, value), \
+                            "native MPI type over-aligns provider scratch")
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Comm);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Group);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Datatype);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Request);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Op);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Errhandler);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(MPI_Status);
+PLUMED_MPIW_STATIC_ASSERT(sizeof(int) == sizeof(int32_t) && (int)-1 < 0,
+                          "native MPI int must be signed 32-bit");
+static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
+  (uint32_t)sizeof(plumed_mpiw_provider_descriptor),
+  PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0u,
+  (uint32_t)(
+#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
+    1u
+#else
+    0u
+#endif
+  ),
+  "PLUMED native MPI adapter",
+  (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),
+  (uint32_t)sizeof(MPI_Datatype), (uint32_t)sizeof(MPI_Request),
+  (uint32_t)sizeof(MPI_Op), (uint32_t)sizeof(MPI_Errhandler),
+  (uint32_t)sizeof(MPI_Status),
+  (uint32_t)offsetof(MPI_Status, MPI_SOURCE),
+  (uint32_t)offsetof(MPI_Status, MPI_TAG),
+  (uint32_t)offsetof(MPI_Status, MPI_ERROR),
+#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
+  0u, 0u,
+#else
+  (uint32_t)sizeof(MPI_Fint), 1u,
+#endif
+  (uint64_t)(sizeof(plumed_mpiw_functions) / sizeof(plumed_mpiw_functions[0])),
+  plumed_mpiw_functions,
+  (uint64_t)(sizeof(plumed_mpiw_metadata) / sizeof(plumed_mpiw_metadata[0])),
+  plumed_mpiw_metadata
+};
+#undef PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT
+#undef PLUMED_MPIW_VALUE
+#undef PLUMED_MPIW_STATIC_ASSERT
+#undef PLUMED_MPIW_JOIN
+#undef PLUMED_MPIW_JOIN_INNER
+
+static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
+  return &plumed_mpiw_descriptor;
+}
+const void *plumed_mpi_implementation(void) {
+  return plumed_mpiw_get_descriptor();
+}
+#endif
 #endif
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_END */
 
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_load_mpi_wrapper(plumed_kernel_handle handle,const char *path,
-                                   plumed_nothrow_handler nothrow) {
-#ifdef __PLUMED_HAS_DLOPEN
-plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
-void *provider_handle;
-void *symbol;
-plumed_mpiw_provider_factory_pointer factory;
-const void *descriptor;
-if(!plumed_kernel_valid(kernel) || !path || !path[0]) {
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                              "plumed_kernel_load_mpi_wrapper","valid kernel handle and provider path are required");
-}
-provider_handle=dlopen(path,RTLD_NOW|RTLD_LOCAL);
-if(!provider_handle) {
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                              "plumed_kernel_load_mpi_wrapper","could not load provider library");
-}
-symbol=dlsym(provider_handle,PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL);
-factory=__PLUMED_WRAPPER_CXX_NULLPTR;
-__PLUMED_WRAPPER_STD memcpy(&factory,&symbol,
-                            sizeof(factory)<sizeof(symbol)?sizeof(factory):sizeof(symbol));
-if(!factory) {
-  dlclose(provider_handle);
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                              "plumed_kernel_load_mpi_wrapper","provider factory symbol is missing");
-}
-descriptor=factory();
-if(kernel->table->version<5 || !kernel->table->install_mpi_provider) {
-  dlclose(provider_handle);
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                              "plumed_kernel_load_mpi_wrapper","kernel lacks provider installation support");
-}
-if(kernel->table->install_mpi_provider(descriptor,nothrow,provider_handle)!=0) {
-  dlclose(provider_handle);
-  return PLUMED_KERNEL_PROVIDER_ERROR;
-}
-return PLUMED_KERNEL_OK;
-#else
-(void) handle;
-(void) path;
-return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                            "plumed_kernel_load_mpi_wrapper","wrapper was built without dlopen support");
-#endif
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_create(plumed_kernel_handle handle,plumed *out,
-                         plumed_nothrow_handler nothrow) {
-plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
-plumed_implementation *implementation;
-plumed result;
-if(!out || !plumed_kernel_valid(kernel)) {
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                              "plumed_kernel_create","valid kernel handle and output object are required");
-}
-out->p=__PLUMED_WRAPPER_CXX_NULLPTR;
-if(kernel->is_static) {
-  result=plumed_create();
-} else {
-  result=plumed_create_dlopen2(kernel->path,kernel->mode);
-}
-if(!plumed_valid(result)) {
-  plumed_finalize(result);
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                              "plumed_kernel_create","could not construct an object from the selected kernel");
-}
-implementation=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*,result.p);
-if(implementation->table!=kernel->table) {
-  plumed_finalize(result);
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_LOAD_ERROR,
-                              "plumed_kernel_create","resolved object does not belong to the selected kernel");
-}
-*out=result;
-return PLUMED_KERNEL_OK;
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-int plumed_kernel_launch_internal_threads(
-  plumed_kernel_handle handle,int ranks,plumed_kernel_rank_callback callback,
-  void *callback_context,int *result,plumed_nothrow_handler nothrow) {
-plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
-if(!plumed_kernel_valid(kernel)) {
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_ERROR,
-                              "plumed_kernel_launch_internal_threads","invalid kernel handle");
-}
-if(kernel->table->version<5 || !kernel->table->launch_internal_threads) {
-  return plumed_kernel_report(nothrow,PLUMED_KERNEL_UNSUPPORTED,
-                              "plumed_kernel_launch_internal_threads","kernel lacks internal launcher support");
-}
-return kernel->table->launch_internal_threads(
-         ranks,callback,callback_context,result,nothrow);
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-void plumed_kernel_release(plumed_kernel_handle handle) {
-plumed_kernel_handle_impl *kernel=__PLUMED_WRAPPER_STATIC_CAST(plumed_kernel_handle_impl*,handle);
-if(!plumed_kernel_valid(kernel)) {
-  return;
-}
-#ifdef __PLUMED_HAS_DLOPEN
-if(kernel->dlhandle) {
-  dlclose(kernel->dlhandle);
-}
-#endif
-if(kernel->path) {
-  plumed_free(kernel->path);
-}
-__PLUMED_WRAPPER_STD memset(kernel->magic,0,sizeof(kernel->magic));
-plumed_free(kernel);
-}
-__PLUMED_WRAPPER_C_END
-
-#ifdef __cplusplus
-} // namespace PLMD
-#endif
-
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+plumed plumed_create_dlopen2_internal(const char *path,int mode,
+                                      const void *descriptor);
+__PLUMED_WRAPPER_INTERNALS_END
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen2(const char*path,int mode) {
+  return plumed_create_dlopen2_internal(path,mode,
+                                        __PLUMED_WRAPPER_CXX_NULLPTR);
+}
+__PLUMED_WRAPPER_C_END
+
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+plumed plumed_create_dlopen2_internal(const char*path,int mode,
+                                      const void *descriptor) {
 #ifdef __PLUMED_HAS_DLOPEN
-/* returned object */
-plumed p;
-/* pointer to implementation */
-plumed_implementation* pimpl;
-/* handler */
-void* dlhandle;
-dlhandle=__PLUMED_WRAPPER_CXX_NULLPTR;
-if(path) {
-  dlhandle=plumed_attempt_dlopen(path,mode);
-}
-/* a NULL handle implies the file could not be loaded */
-if(dlhandle) {
-  p=plumed_create_dlsym(dlhandle);
-  /* obtain pimpl */
-  pimpl=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*, p.p);
-  /* make sure the handler is closed when plumed is finalized */
-  pimpl->dlclose=1;
-  return p;
-}
+  /* returned object */
+  plumed p;
+  /* pointer to implementation */
+  plumed_implementation* pimpl;
+  /* handler */
+  void* dlhandle;
+  dlhandle=__PLUMED_WRAPPER_CXX_NULLPTR;
+  if(path) {
+    dlhandle=plumed_attempt_dlopen(path,mode);
+  }
+  /* a NULL handle implies the file could not be loaded */
+  if(dlhandle) {
+    p=plumed_create_dlsym_internal(dlhandle,descriptor);
+    /* obtain pimpl */
+    pimpl=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*, p.p);
+    /* make sure the handler is closed when plumed is finalized */
+    pimpl->dlclose=1;
+    return p;
+  }
 #else
-(void) path;
-(void) mode;
+  (void) path;
+  (void) mode;
 #endif
-return plumed_create_invalid();
+  return plumed_create_invalid();
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_dlopen_with_mpi(const char *path,const void *descriptor) {
+  int mode=0;
+#ifdef __PLUMED_HAS_DLOPEN
+  mode=RTLD_NOW|RTLD_LOCAL;
+#ifdef RTLD_DEEPBIND
+#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
+  if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
+    mode|=RTLD_DEEPBIND;
+  }
+#endif
+#endif
+#endif
+  return plumed_create_dlopen2_internal(path,mode,descriptor);
 }
 __PLUMED_WRAPPER_C_END
 

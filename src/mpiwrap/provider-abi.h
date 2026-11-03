@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* The sole factory symbol resolved by plumed_kernel_load_mpi_wrapper. */
+/* Provider library factory used by the environment-selected provider loader. */
 #ifndef PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL
 #define PLUMED_MPIW_PROVIDER_FACTORY_SYMBOL "plumed_mpiw_provider_factory"
 #endif

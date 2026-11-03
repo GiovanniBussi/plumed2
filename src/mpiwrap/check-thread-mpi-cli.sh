@@ -62,7 +62,7 @@ if (cd "$tmp" && "$plumed" --tmpi-threads 2 --no-mpi driver \
   echo "launcher accepted a contradictory --no-mpi option" >&2
   exit 1
 fi
-grep -q -- "--tmpi-threads and --no-mpi cannot be requested together" "$tmp/conflict.err"
+grep -q -- "--tmpi-threads cannot be combined with --mpi or --no-mpi" "$tmp/conflict.err"
 
 cat > "$tmp/chdir.dat" <<'EOF'
 UNITS LENGTH=A ENERGY=kcal/mol TIME=ps
