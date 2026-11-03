@@ -341,3 +341,13 @@ injection checks. Use `--mpich` or `--openmpi` to select one implementation,
 `--jobs N` for build parallelism, and `--results DIRECTORY` for an empty output
 directory. `CONDA_BASE`, `MPICH_ENV`, and `OPENMPI_ENV` override environment
 locations. Every clone, full log, and exit status is retained for review.
+
+To rerun only host injection after a checker change, reuse a previous serial
+build without repeating the full suites:
+
+```sh
+./run-mpi-tests.sh --injection-only /path/to/previous-results/serial
+```
+
+This uses the current host checker and the existing serial kernel, activates
+the selected MPI environments, and saves new injection logs separately.

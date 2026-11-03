@@ -6,6 +6,7 @@ ROOT=$(cd "$(dirname "$0")" && pwd)
 PROVIDERS=()
 JOBS=${JOBS:-4}
 RESULTS=
+SERIAL_BUILD=
 CONDA_BASE=${CONDA_BASE:-${HOME}/miniconda3}
 MPICH_ENV=${MPICH_ENV:-${CONDA_BASE}/envs/mpich}
 OPENMPI_ENV=${OPENMPI_ENV:-${CONDA_BASE}/envs/openmpi}
@@ -13,6 +14,7 @@ OPENMPI_ENV=${OPENMPI_ENV:-${CONDA_BASE}/envs/openmpi}
 usage() {
   cat <<'HELP'
 Usage: ./run-mpi-tests.sh [--mpich] [--openmpi] [--jobs N] [--results DIRECTORY]
+                        [--injection-only EXISTING_SERIAL_BUILD]
 
 With no provider options, test both MPICH and Open MPI. Each provider gets a
 fresh local clone, a default-module direct-MPI build, and the full make check
@@ -22,6 +24,8 @@ clone, source reset, installation, or push is performed.
 
 The script tests committed HEAD. Commit intended changes before running it.
 All clones and logs are retained in the printed results directory.
+Use --injection-only with an existing serial build directory to rerun just
+the host-injection checks without rebuilding or repeating the full suites.
 
 Environment overrides:
   CONDA_BASE    Conda installation (default: $HOME/miniconda3)
@@ -37,9 +41,13 @@ while (($#)); do
   case $1 in
     --mpich) PROVIDERS+=(mpich); shift ;;
     --openmpi) PROVIDERS+=(openmpi); shift ;;
-    --jobs|--results)
+    --jobs|--results|--injection-only)
       if (($# < 2)); then usage >&2; exit 2; fi
-      if [[ $1 == --jobs ]]; then JOBS=$2; else RESULTS=$2; fi
+      case $1 in
+        --jobs) JOBS=$2 ;;
+        --results) RESULTS=$2 ;;
+        --injection-only) SERIAL_BUILD=$(cd "$2" && pwd) ;;
+      esac
       shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
@@ -66,6 +74,16 @@ else
 fi
 echo "Source: $ROOT ($(git -C "$ROOT" rev-parse --short HEAD))"
 echo "Results and local clones: $RESULTS"
+injection_only=no
+if [[ -n $SERIAL_BUILD ]]; then
+  injection_only=yes
+  if [[ ! -f $SERIAL_BUILD/Makefile.conf ]]; then
+    echo "No configured serial build at $SERIAL_BUILD" >&2
+    exit 2
+  fi
+else
+  SERIAL_BUILD=$RESULTS/serial
+fi
 if [[ -n $(git -C "$ROOT" status --porcelain) ]]; then
   echo 'Note: working-tree edits and untracked files are excluded; testing committed HEAD.'
 fi
@@ -128,26 +146,31 @@ run_injection() (
   set -e
   local provider=$1 extension kernel
   activate_provider "$provider"
-  extension=$(sed -n 's/^SOEXT=//p' "$RESULTS/serial/Makefile.conf")
-  kernel=$RESULTS/serial/src/lib/libplumedKernel.$extension
-  "$RESULTS/serial/regtest/scripts/check-mpi-host-injection.sh" \
+  extension=$(sed -n 's/^SOEXT=//p' "$SERIAL_BUILD/Makefile.conf")
+  kernel=$SERIAL_BUILD/src/lib/libplumedKernel.$extension
+  # Use the current checker, including fixes made after the kernel was built.
+  "$ROOT/regtest/scripts/check-mpi-host-injection.sh" \
     "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel"
 )
 
 failed=0
 set +e
-echo 'Building/testing serial PLUMED with internal thread-MPI...'
-run_serial
-serial_status=$?
-printf 'serial-thread-mpi %s\n' "$serial_status" >> "$RESULTS/status.txt"
-if ((serial_status)); then failed=1; fi
+if [[ $injection_only == no ]]; then
+  echo 'Building/testing serial PLUMED with internal thread-MPI...'
+  run_serial
+  serial_status=$?
+  printf 'serial-thread-mpi %s\n' "$serial_status" >> "$RESULTS/status.txt"
+  if ((serial_status)); then failed=1; fi
+fi
 for provider in "${PROVIDERS[@]}"; do
-  echo "Building/testing direct $provider..."
-  run_provider "$provider"
-  status=$?
-  printf '%s-direct %s\n' "$provider" "$status" >> "$RESULTS/status.txt"
-  if ((status)); then failed=1; fi
-  if [[ -f $RESULTS/serial/Makefile.conf ]]; then
+  if [[ $injection_only == no ]]; then
+    echo "Building/testing direct $provider..."
+    run_provider "$provider"
+    status=$?
+    printf '%s-direct %s\n' "$provider" "$status" >> "$RESULTS/status.txt"
+    if ((status)); then failed=1; fi
+  fi
+  if [[ -f $SERIAL_BUILD/Makefile.conf ]]; then
     echo "Testing $provider host injection..."
     run_injection "$provider" > "$RESULTS/$provider-injection.log" 2>&1
     status=$?
