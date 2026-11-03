@@ -50,7 +50,9 @@ for explicit in (False, True):
             name = reference.name[:-len(".reference")]
             if name.startswith("ff.") and int(name.split(".")[1]) >= ranks:
                 continue
-            actual = work / name
+            # Driver adds the rank suffix only when the communicator has
+            # more than one rank. The reference fixture uses four ranks.
+            actual = work / ("ff" if ranks == 1 and name == "ff.0" else name)
             expected = work / (name + ".expected")
             if not actual.is_file():
                 raise SystemExit(f"host injection did not produce {name}")
