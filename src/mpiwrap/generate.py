@@ -534,6 +534,8 @@ def render_provider_dispatch_bridges(functions, versions):
                 local = f"native_{argname}"
                 lines += [f'  NativeBuffer {local}(registry.nativeHandleSize("{handle}"));',
                           f"  std::memcpy({local}.data(), {argname}.bytes, {local}.size());"]
+                if handle == "Comm" and direction in {"in", "inout"}:
+                    lines.append(f'  validateInputComm(registry, "{name}", {local}.data());')
                 native_cells.append(f"{local}.data()")
             elif conversion in {"scalar_ref", "buffer", "char_buffer", "pointer_storage", "array", "integer_array"}:
                 pointer_value = argname
@@ -548,6 +550,9 @@ def render_provider_dispatch_bridges(functions, versions):
                 if direction in {"in", "inout"}:
                     lines.append(
                         f"  if ({argname}) std::memcpy({local}.data(), {argname}->bytes, {local}.size());")
+                    if handle == "Comm":
+                        lines.append(
+                            f'  if ({argname}) validateInputComm(registry, "{name}", {local}.data());')
                 lines.append(f"  void *{ptr} = {argname} ? {local}.data() : nullptr;")
                 native_cells.append(ptr)
                 if direction in {"out", "inout"}:
@@ -1330,18 +1335,21 @@ def render_host_adapter_wrapper(abi, callbacks, body):
     implementation = "\n".join([
         "#if defined(PLUMED_MPIW_HOST_ADAPTER)",
         "#ifdef __cplusplus",
-        'extern "C" {',
-        "#endif",
+        "namespace PLMD {",
+        "extern \"C\" {",
         body.rstrip(),
-        "#ifdef __cplusplus",
+        "}",
+        "extern \"C\" const void *plumed_mpi_implementation(void) {",
+        "  return plumed_mpiw_get_descriptor();",
+        "}",
+        "}",
+        "using PLMD::plumed_mpi_implementation;",
+        "#else",
+        body.rstrip(),
+        "const void *plumed_mpi_implementation(void) {",
+        "  return plumed_mpiw_get_descriptor();",
         "}",
         "#endif",
-        "__PLUMED_WRAPPER_C_BEGIN",
-        "int plumed_kernel_inject_native_mpi(plumed_kernel_handle kernel,",
-        "                                    plumed_nothrow_handler nothrow) {",
-        "  return plumed_kernel_inject_mpi(kernel,plumed_mpiw_get_descriptor(),nothrow);",
-        "}",
-        "__PLUMED_WRAPPER_C_END",
         "#endif",
         "",
     ])

@@ -68,11 +68,7 @@ typedef struct {
   unsigned (*use_count)(void*plumed);
   /* Available with version>=5. Installs one validated MPI provider before object creation. */
   int (*install_mpi_provider)(const void*descriptor,
-                              plumed_nothrow_handler_x nothrow,
-                              void*provider_library);
-  /* Available with version>=5. Launches the embedded thread-MPI runtime. */
-  int (*launch_internal_threads)(int, int (*)(int,const void*,std::size_t,void*), void*, int*,
-                                 plumed_nothrow_handler_x nothrow);
+                              plumed_nothrow_handler_x nothrow);
 } plumed_symbol_table_type_x;
 
 
@@ -103,11 +99,6 @@ extern "C" void plumed_plumedmain_finalize(void*plumed);
 /** Install a provider into this kernel before constructing PLUMED objects. */
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
-  plumed_nothrow_handler_x nothrow,
-  void*provider_library);
-
-extern "C" int plumed_plumedmain_launch_internal_threads(
-  int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
   plumed_nothrow_handler_x nothrow);
 
 /**

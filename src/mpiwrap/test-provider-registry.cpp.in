@@ -244,7 +244,7 @@ int run() {
   assert(null_description_registry.descriptorSnapshot()->description == nullptr);
 
   Registry late_provider;
-  late_provider.markProviderValueUsed();
+  late_provider.markProviderValueUsed("MPI_COMM_WORLD");
   assert(!late_provider.install(&descriptor, error));
   assert(error.find("before the first MPI value") != std::string::npos);
 

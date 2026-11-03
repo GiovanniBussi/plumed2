@@ -520,11 +520,9 @@ namespace PLMD {
 
 extern "C" int plumed_plumedmain_install_mpi_provider(
   const void*descriptor,
-  plumed_nothrow_handler_x nothrow,
-  void*provider_library) {
+  plumed_nothrow_handler_x nothrow) {
 #if defined(__PLUMED_HAS_MPI)
   (void) descriptor;
-  (void) provider_library;
   try {
     throw PLMD::ExceptionError("MPI provider injection is disabled in native-MPI kernels");
   } catch(...) {
@@ -535,7 +533,6 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
   }
 #elif !defined(__PLUMED_MPIWRAP)
   (void) descriptor;
-  (void) provider_library;
   try {
     throw PLMD::ExceptionError("MPI provider injection is unavailable in a fully serial kernel");
   } catch(...) {
@@ -547,13 +544,6 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
 #else
   try {
     if(PLMD::mpiwrap_provider::forceEnvironmentProvider()) {
-#if defined(__PLUMED_HAS_DLOPEN)
-      // Successful installation normally transfers this reference to the
-      // registry. A troubleshooting override deliberately bypasses it.
-      if(provider_library) {
-        dlclose(provider_library);
-      }
-#endif
       return 0;
     }
     if(!descriptor) {
@@ -561,8 +551,7 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
     }
     std::string error;
     if(!PLMD::mpiwrap_provider::currentRegistry().install(
-          static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error,
-          provider_library)) {
+          static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error)) {
       throw PLMD::ExceptionError(error);
     }
     return 0;
@@ -573,28 +562,6 @@ extern "C" int plumed_plumedmain_install_mpi_provider(
     return 1;
   }
 #endif
-}
-
-extern "C" int plumed_plumedmain_launch_internal_threads(
-  int ranks, int (*callback)(int,const void*,std::size_t,void*), void*callback_context, int*result,
-  plumed_nothrow_handler_x nothrow) {
-  try {
-#if defined(__PLUMED_HAS_THREAD_MPI)
-    return PLMD::mpiwrap_provider::launchInternalThreadMPI(
-             ranks, callback, callback_context, result);
-#else
-    (void) ranks;
-    (void) callback;
-    (void) callback_context;
-    (void) result;
-    throw PLMD::ExceptionError("internal thread-MPI support is disabled in this build");
-#endif
-  } catch(...) {
-    if(nothrow.handler) {
-      translate_lifecycle_error(nothrow);
-    }
-    return 1;
-  }
 }
 
 } // namespace PLMD
@@ -609,8 +576,7 @@ plumed_symbol_table_type_x plumed_symbol_table= {
   plumed_plumedmain_create_reference,
   plumed_plumedmain_delete_reference,
   plumed_plumedmain_use_count,
-  plumed_plumedmain_install_mpi_provider,
-  plumed_plumedmain_launch_internal_threads
+  plumed_plumedmain_install_mpi_provider
 };
 
 // values here should be consistent with those above !!!!
@@ -626,7 +592,6 @@ extern "C" void plumed_symbol_table_init() {
   plumed_symbol_table.delete_reference=plumed_plumedmain_delete_reference;
   plumed_symbol_table.use_count=plumed_plumedmain_use_count;
   plumed_symbol_table.install_mpi_provider=plumed_plumedmain_install_mpi_provider;
-  plumed_symbol_table.launch_internal_threads=plumed_plumedmain_launch_internal_threads;
 }
 
 namespace PLMD {

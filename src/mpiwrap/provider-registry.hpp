@@ -58,7 +58,7 @@ public:
   }
   /* Immutable, owned copy for injection into a nested compatible kernel. */
   const plumed_mpiw_provider_descriptor *descriptorSnapshot() const noexcept;
-  void markProviderValueUsed();
+  void markProviderValueUsed(const char *name);
   bool beginInternalLaunch(const plumed_mpiw_provider_descriptor *descriptor,
                            std::string &error);
   void finishInternalLaunch() noexcept;
@@ -119,6 +119,8 @@ bool exportComm(Registry &registry, MPI_Comm value,
                 plumed_mpiw_handle_storage *storage);
 bool exportNativeComm(Registry &registry, MPI_Comm value,
                       void *output,std::size_t capacity);
+void validateInputComm(Registry &registry, const char *function,
+                       const void *native_comm);
 
 }  // namespace mpiwrap_provider
 }  // namespace PLMD
