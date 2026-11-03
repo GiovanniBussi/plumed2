@@ -328,7 +328,9 @@ build_mpi_provider_test() {
     [[ -f "$source" ]] && objects+=("${source%.cpp}.o")
   done
   objects+=(mpi-provider-lifecycle.o)
-  local addcppflags="${ADDCPPFLAGS:-} -D__PLUMED_MPIWRAP=1 -iquote$shim_directory"
+  # Nested quoted includes in the shim must also find the test's plumed
+  # symlink (or installed include directory), not just the shim directory.
+  local addcppflags="${ADDCPPFLAGS:-} -I. -D__PLUMED_MPIWRAP=1 -iquote$shim_directory"
   $make exe "CXX=$mpi_compiler" "LD=$mpi_compiler" \
     "ADDCPPFLAGS=$addcppflags" "CXX_OBJ=${objects[*]}" 1>out 2>err
 }
