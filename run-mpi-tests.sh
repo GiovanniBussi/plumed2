@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Run outside the agent sandbox: real MPI needs process-manager/socket access.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")" && pwd)
+PROVIDERS=()
+JOBS=${JOBS:-4}
+RESULTS=
+CONDA_BASE=${CONDA_BASE:-${HOME}/miniconda3}
+MPICH_ENV=${MPICH_ENV:-${CONDA_BASE}/envs/mpich}
+OPENMPI_ENV=${OPENMPI_ENV:-${CONDA_BASE}/envs/openmpi}
+
+usage() {
+  cat <<'HELP'
+Usage: ./run-mpi-tests.sh [--mpich] [--openmpi] [--jobs N] [--results DIRECTORY]
+
+With no provider options, test both MPICH and Open MPI. Each provider gets a
+fresh local clone, a default-module direct-MPI build, and the full make check
+suite. A separate serial/internal-thread-MPI build is tested once, then used
+for host-injection checks with each selected MPI installation. No network
+clone, source reset, installation, or push is performed.
+
+The script tests committed HEAD. Commit intended changes before running it.
+All clones and logs are retained in the printed results directory.
+
+Environment overrides:
+  CONDA_BASE    Conda installation (default: $HOME/miniconda3)
+  MPICH_ENV     Conda env name or path (default: $CONDA_BASE/envs/mpich)
+  OPENMPI_ENV   Conda env name or path (default: $CONDA_BASE/envs/openmpi)
+  JOBS          Build parallelism (default: 4)
+  MPICH_CC / MPICH_CXX / OMPI_CC / OMPI_CXX
+                Native compilers used by the MPI compiler wrappers
+HELP
+}
+
+while (($#)); do
+  case $1 in
+    --mpich) PROVIDERS+=(mpich); shift ;;
+    --openmpi) PROVIDERS+=(openmpi); shift ;;
+    --jobs|--results)
+      if (($# < 2)); then usage >&2; exit 2; fi
+      if [[ $1 == --jobs ]]; then JOBS=$2; else RESULTS=$2; fi
+      shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+if ! [[ $JOBS =~ ^[1-9][0-9]*$ ]]; then
+  echo '--jobs must be a positive integer' >&2
+  exit 2
+fi
+if ((${#PROVIDERS[@]} == 0)); then PROVIDERS=(mpich openmpi); fi
+if [[ ! -f $CONDA_BASE/etc/profile.d/conda.sh ]]; then
+  echo "Cannot find $CONDA_BASE/etc/profile.d/conda.sh; set CONDA_BASE." >&2
+  exit 2
+fi
+if [[ -z $RESULTS ]]; then
+  RESULTS=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mpi-tests.XXXXXX")
+else
+  mkdir -p "$RESULTS"
+  RESULTS=$(cd "$RESULTS" && pwd)
+  if [[ -n $(ls -A "$RESULTS") ]]; then
+    echo "Results directory must be empty: $RESULTS" >&2
+    exit 2
+  fi
+fi
+echo "Source: $ROOT ($(git -C "$ROOT" rev-parse --short HEAD))"
+echo "Results and local clones: $RESULTS"
+if [[ -n $(git -C "$ROOT" status --porcelain) ]]; then
+  echo 'Note: working-tree edits and untracked files are excluded; testing committed HEAD.'
+fi
+unset PLUMED_KERNEL PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPIRUN
+export MPICH_CC=${MPICH_CC:-/usr/bin/clang}
+export MPICH_CXX=${MPICH_CXX:-/usr/bin/clang++}
+export OMPI_CC=${OMPI_CC:-/usr/bin/clang}
+export OMPI_CXX=${OMPI_CXX:-/usr/bin/clang++}
+
+activate_provider() {
+  local provider=$1 environment
+  if [[ $provider == mpich ]]; then environment=$MPICH_ENV; else environment=$OPENMPI_ENV; fi
+  # Conda's shell hooks may reference unset variables.
+  set +u
+  source "$CONDA_BASE/etc/profile.d/conda.sh"
+  conda activate "$environment"
+  set -u
+  for executable in mpicc mpicxx mpiexec; do
+    if [[ ! -x $CONDA_PREFIX/bin/$executable ]]; then
+      echo "Missing $executable in activated environment $CONDA_PREFIX" >&2
+      return 1
+    fi
+  done
+  echo "Activated $provider: $CONDA_PREFIX"
+}
+
+run_serial() (
+  set -e
+  local build=$RESULTS/serial
+  git clone --local --no-hardlinks "$ROOT" "$build" > "$RESULTS/serial-clone.log" 2>&1
+  cd "$build"
+  CC=/usr/bin/clang CXX=/usr/bin/clang++ ./configure --disable-mpi > "$RESULTS/serial-configure.log" 2>&1
+  make -j"$JOBS" > "$RESULTS/serial-build.log" 2>&1
+  make check > "$RESULTS/serial-check.log" 2>&1
+  CXX=/usr/bin/clang++ bash src/mpiwrap/check-kernel-lifecycle.sh \
+    > "$RESULTS/creation-lifecycle.log" 2>&1
+  CXX=/usr/bin/clang++ bash src/mpiwrap/check-regtest-runner.sh \
+    > "$RESULTS/runner-selection.log" 2>&1
+  CXX=/usr/bin/clang++ bash src/mpiwrap/check-thread-mpi-cli.sh \
+    "$build/src/lib/plumed-static" > "$RESULTS/thread-mpi-cli.log" 2>&1
+  CXX=/usr/bin/clang++ bash src/mpiwrap/check-thread-mpi-lifecycle.sh \
+    "$build/src/lib/install/libplumed.a" > "$RESULTS/thread-mpi-lifecycle.log" 2>&1
+)
+
+run_provider() (
+  set -e
+  local provider=$1 build=$RESULTS/$1
+  activate_provider "$provider"
+  git clone --local --no-hardlinks "$ROOT" "$build" > "$RESULTS/$provider-clone.log" 2>&1
+  cd "$build"
+  CC="$CONDA_PREFIX/bin/mpicc" CXX="$CONDA_PREFIX/bin/mpicxx" \
+    ./configure --enable-mpi --disable-thread-mpi > "$RESULTS/$provider-configure.log" 2>&1
+  # Fail rather than silently validating a serial fallback.
+  grep -q -- '-D__PLUMED_HAS_MPI=1' Makefile.conf
+  make -j"$JOBS" > "$RESULTS/$provider-build.log" 2>&1
+  make check > "$RESULTS/$provider-check.log" 2>&1
+)
+
+run_injection() (
+  set -e
+  local provider=$1 extension kernel
+  activate_provider "$provider"
+  extension=$(sed -n 's/^SOEXT=//p' "$RESULTS/serial/Makefile.conf")
+  kernel=$RESULTS/serial/src/lib/libplumedKernel.$extension
+  "$RESULTS/serial/regtest/scripts/check-mpi-host-injection.sh" \
+    "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel"
+)
+
+failed=0
+set +e
+echo 'Building/testing serial PLUMED with internal thread-MPI...'
+run_serial
+serial_status=$?
+printf 'serial-thread-mpi %s\n' "$serial_status" >> "$RESULTS/status.txt"
+if ((serial_status)); then failed=1; fi
+for provider in "${PROVIDERS[@]}"; do
+  echo "Building/testing direct $provider..."
+  run_provider "$provider"
+  status=$?
+  printf '%s-direct %s\n' "$provider" "$status" >> "$RESULTS/status.txt"
+  if ((status)); then failed=1; fi
+  if [[ -f $RESULTS/serial/Makefile.conf ]]; then
+    echo "Testing $provider host injection..."
+    run_injection "$provider" > "$RESULTS/$provider-injection.log" 2>&1
+    status=$?
+    printf '%s-injection %s\n' "$provider" "$status" >> "$RESULTS/status.txt"
+    if ((status)); then failed=1; fi
+  else
+    printf '%s-injection SKIPPED-no-serial-build\n' "$provider" >> "$RESULTS/status.txt"
+    failed=1
+  fi
+done
+set -e
+cat "$RESULTS/status.txt"
+echo "Full logs and test reports: $RESULTS"
+exit "$failed"
