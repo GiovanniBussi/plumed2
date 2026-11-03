@@ -40,6 +40,17 @@ EOF
   PATH="$TASK_DIR/$name:$PATH" "$ROOT/regtest/scripts/fixzeroes.sh" "$TASK_DIR/positive"
   diff -u "$TASK_DIR/positive" "$TASK_DIR/negative"
 
+  # Do not interpret a nonzero underflowing number as zero, and quote paths.
+  printf 'nonzero -1e-9999 -0.0001 key=-0.000\n' > "$TASK_DIR/with spaces"
+  cp "$TASK_DIR/with spaces" "$TASK_DIR/nonzero.expected"
+  PATH="$TASK_DIR/$name:$PATH" "$ROOT/regtest/scripts/fixzeroes.sh" "$TASK_DIR/with spaces"
+  cmp "$TASK_DIR/nonzero.expected" "$TASK_DIR/with spaces"
+
+  printf '\000binary -0.000\n' > "$TASK_DIR/binary"
+  cp "$TASK_DIR/binary" "$TASK_DIR/binary.expected"
+  PATH="$TASK_DIR/$name:$PATH" "$ROOT/regtest/scripts/fixzeroes.sh" "$TASK_DIR/binary"
+  cmp "$TASK_DIR/binary.expected" "$TASK_DIR/binary"
+
 }
 
 check_sed "$(command -v sed)" bsd-sed
