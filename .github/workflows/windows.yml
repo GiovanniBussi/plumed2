@@ -30,3 +30,8 @@ jobs:
 
       - name: Smoke test (kt)
         run: ./build/plumed.exe kt --temp 300
+
+      - name: Smoke test (embedded thread-MPI)
+        run: |
+          ./build/plumed.exe --has-thread-mpi
+          ./build/plumed.exe --tmpi-threads 2 kt --temp 300
