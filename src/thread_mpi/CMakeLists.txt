@@ -14,6 +14,7 @@ target_link_libraries(plumed_thread_mpi PUBLIC Threads::Threads)
 
 set(TEST_INPUTS
   launch.cpp
+  mpi-bindings.cpp
   host-runner.cpp
   internal-runner.cpp
   internal-launcher.cpp
@@ -25,6 +26,11 @@ endforeach()
 
 add_executable(thread_mpi_launch_test ${CMAKE_CURRENT_BINARY_DIR}/launch.cpp)
 target_link_libraries(thread_mpi_launch_test PRIVATE plumed_thread_mpi)
+
+add_executable(thread_mpi_bindings_test
+  ${CMAKE_CURRENT_BINARY_DIR}/mpi-bindings.cpp)
+target_include_directories(thread_mpi_bindings_test PRIVATE .)
+target_link_libraries(thread_mpi_bindings_test PRIVATE plumed_thread_mpi)
 
 add_executable(thread_mpi_internal_launcher_test
   ${CMAKE_CURRENT_BINARY_DIR}/internal-launcher.cpp
@@ -52,6 +58,8 @@ enable_testing()
 foreach(ranks IN ITEMS 1 2 4)
   add_test(NAME launch_${ranks} COMMAND thread_mpi_launch_test ${ranks})
   set_tests_properties(launch_${ranks} PROPERTIES TIMEOUT 20)
+  add_test(NAME bindings_${ranks} COMMAND thread_mpi_bindings_test ${ranks})
+  set_tests_properties(bindings_${ranks} PROPERTIES TIMEOUT 20)
   add_test(NAME internal_launcher_${ranks}
     COMMAND thread_mpi_internal_launcher_test ${ranks})
   set_tests_properties(internal_launcher_${ranks} PROPERTIES TIMEOUT 20)

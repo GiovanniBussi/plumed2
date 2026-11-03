@@ -49,16 +49,20 @@ int run(int ranks, int throw_rank) {
     return 1;
   }
 
-  int second_result = 0;
-  bool repeated_launch_rejected = false;
-  try {
-    (void)mpiwrap_provider::launchInternalThreadMPI(
-      ranks, rank_callback, nullptr, &second_result);
-  } catch (...) {
-    repeated_launch_rejected = true;
+  const int second_ranks = ranks == 4 ? 2 : ranks + 1;
+  int second_result = -1;
+  const int second_status = mpiwrap_provider::launchInternalThreadMPI(
+                              second_ranks, rank_callback, nullptr,
+                              &second_result);
+  if (second_status != 0 || second_result != second_ranks) {
+    std::cerr << "sequential internal launch result mismatch: status="
+              << second_status << " result=" << second_result
+              << " expected=" << second_ranks << '\n';
+    return 1;
   }
-  if (!repeated_launch_rejected) {
-    std::cerr << "repeated internal launch was accepted\n";
+  if (thread_mpi::tMPI_Finalized(&finalized) != thread_mpi::TMPI_SUCCESS ||
+      !finalized) {
+    std::cerr << "sequential internal launch did not finalize its worker runtime\n";
     return 1;
   }
   return 0;
