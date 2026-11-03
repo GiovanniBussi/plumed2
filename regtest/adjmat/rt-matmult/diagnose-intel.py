@@ -79,6 +79,7 @@ prints = "\nPRINT ARG=diag.vecs-1 FILE=eigenvector FMT=%.16g\n"
 # AVOID_THREAD_GATHER selects the two-pass force accumulation path; compare it
 # with the default and with one thread. Separate inputs probe alias accumulation.
 cases = [
+    ("original-no-vector", original, 2, False),
     ("default", original, 2, False),
     ("one-thread", original, 1, False),
     ("avoid-thread-gather", original.replace("ARG=c1,c1", "ARG=c1,c1 AVOID_THREAD_GATHER"), 2, False),
@@ -90,8 +91,13 @@ for name, text, threads, numerical in cases:
     directory = OUTPUT / name
     directory.mkdir(exist_ok=True)
     shutil.copyfile(TEST / "isomers.xyz", directory / "isomers.xyz")
-    (directory / "plumed.dat").write_text(text + prints)
-    env = dict(os.environ, PLUMED_NUM_THREADS=str(threads), OMP_NUM_THREADS=str(threads))
+    # Keep a no-vector case with exactly the same thread environment as the
+    # printed-vector case; the original runner leaves OMP_NUM_THREADS unset.
+    (directory / "plumed.dat").write_text(
+        text + ("" if name == "original-no-vector" else prints)
+    )
+    env = dict(os.environ, PLUMED_NUM_THREADS=str(threads), OMP_NUM_THREADS=str(threads),
+               PLUMED_MATRIX_FORCE_TRACE="1")
     command = [
         "plumed", "--no-mpi", "driver", "--plumed", "plumed.dat", "--ixyz",
         "isomers.xyz", "--dump-forces", "forces", "--dump-forces-fmt=%.16g",
@@ -104,7 +110,9 @@ for name, text, threads, numerical in cases:
         continue
     try:
         compare_forces(directory / "forces", TEST / "forces.reference")
-        for line in (directory / "eigenvector").read_text().splitlines():
+        eigenvector = directory / "eigenvector"
+        vector_lines = eigenvector.read_text().splitlines() if eigenvector.exists() else []
+        for line in vector_lines:
             if line.startswith("#") or not line.strip():
                 continue
             row = [float(value) for value in line.split()]

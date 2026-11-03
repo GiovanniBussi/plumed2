@@ -286,6 +286,8 @@ jobs:
           NV_ACC_NOTIFY=3 NVCOMPILER_OMP_DISABLE_WARNINGS=true make 2>&1 | tail -5; sort tmp/err | uniq -c | sort -rn | head -20; head -3 tmp/colvar
 
     - name: Diagnose Intel rt-matmult only
+      env:
+        PLUMED_MATRIX_FORCE_TRACE: '1'
       run: python3 regtest/adjmat/rt-matmult/diagnose-intel.py
     - name: Preserve Intel diagnostics
       if: always()
