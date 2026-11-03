@@ -175,6 +175,9 @@ jobs:
         sudo apt-get update
         #sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
         sudo apt-get install intel-basekit intel-hpckit intel-oneapi-compiler-fortran
+        # Later MPI installation only needs Ubuntu packages. Avoid querying
+        # this external repository again after the toolchain is installed.
+        sudo rm -f /etc/apt/sources.list.d/oneAPI.list
         source /opt/intel/oneapi/setvars.sh
         printenv >> $GITHUB_ENV
         echo "CXX=icpx" >> $GITHUB_ENV
