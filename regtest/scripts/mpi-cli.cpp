@@ -29,9 +29,14 @@ int main(int argc,char **argv) {
       // Test both creation paths without exposing another public handle type.
       // The host, rather than the PLUMED kernel, owns MPI initialization.
       const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
-      plumed raw=path && path[0]
-                 ? plumed_create_dlopen_with_mpi(path,PLMD::plumed_mpi_implementation())
-                 : plumed_create_with_mpi(PLMD::plumed_mpi_implementation());
+      // Environment-provider mode exercises the same serial kernel without
+      // injection; the external host still owns MPI initialization/finalization.
+      const bool environmentProvider=std::getenv("PLUMED_MPI_HOST_NO_INJECTION")!=NULL;
+      plumed raw=environmentProvider
+                 ? (path && path[0] ? plumed_create_dlopen(path) : plumed_create())
+                 : (path && path[0]
+                    ? plumed_create_dlopen_with_mpi(path,PLMD::plumed_mpi_implementation())
+                    : plumed_create_with_mpi(PLMD::plumed_mpi_implementation()));
       if(!plumed_valid(raw)) {
         plumed_finalize(raw);
         throw std::runtime_error("could not create PLUMED with the host MPI implementation");

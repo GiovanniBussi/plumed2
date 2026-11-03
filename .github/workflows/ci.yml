@@ -33,3 +33,6 @@ jobs:
   linux:
     uses: ./.github/workflows/linuxWF.yml
     secrets: inherit
+
+  mpi-provider:
+    uses: ./.github/workflows/mpi-providerWF.yml

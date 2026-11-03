@@ -351,3 +351,24 @@ build without repeating the full suites:
 
 This uses the current host checker and the existing serial kernel, activates
 the selected MPI environments, and saves new injection logs separately.
+
+### MPI installed after a serial kernel build
+
+The `mpi-providerWF.yml` CI workflow builds and installs serial PLUMED with
+internal thread-MPI before installing the selected real MPI package. Separate
+MPICH and Open MPI jobs then build an external C++98 host and a provider DSO.
+The host owns MPI initialization/finalization and exercises both injected MPI
+and `PLUMED_MPI_WRAPPER` selection, using environment-selected and explicitly
+named kernels, each with 1, 2 and 4 ranks. Results are checked against the
+existing `rt-mpi0` values, derivatives and forces. No GROMACS build is required.
+
+Run the same host test locally with an already built serial kernel:
+
+```sh
+bash regtest/scripts/check-mpi-host-injection.sh /absolute/path/to/mpicxx \
+  /absolute/path/to/mpiexec /absolute/path/to/libplumedKernel.so \
+  /absolute/path/to/provider.so
+```
+
+The optional fourth argument enables environment-provider cases in addition to
+injection cases. Omitting it retains the injection-only test.
