@@ -7,12 +7,21 @@ just try the tests with
 To do many tests in parallel, as usual
 > make -j 4
 
-Tests that request `mpiprocs` use the configured MPI launcher with native-MPI
-kernels. With kernels providing internal thread-MPI, tests invoking PLUMED
-command-line tools can use the internal launcher instead. This includes driver
-tests and generic `type=plumed` tests invoking tools such as benchmark; it is
-not restricted to driver. Tests running external engines require their native
-MPI launcher. An explicit `PLUMED_MPIRUN` overrides internal launching.
+Tests that request `mpiprocs` prefer a native-MPI kernel and its configured
+MPI launcher. On a non-native kernel, setting `PLUMED_MPI_WRAPPER` selects a
+real MPI provider for PLUMED command-line tests; the runner builds
+`regtest/scripts/mpi-cli.cpp` with `PLUMED_MPI_COMPILER` (or `mpicxx`/`mpic++`)
+and launches it under MPI. The helper initializes MPI before creating PLUMED
+objects. The same provider mode supports C++ `type=make` tests through a small
+MPI lifecycle shim. Set `PLUMED_MPI_COMPILER` to a compiler and use an MPI
+launcher that belong to the same MPI implementation as the selected provider.
+Thread-rank providers cannot run these real-MPI regtests and are rejected by the
+runner.
+Without an explicit provider, kernels providing internal thread-MPI use the
+internal launcher for PLUMED command-line tools, including driver and generic
+`type=plumed` tests such as benchmark. Tests that run external executables
+require native MPI or an explicit real-MPI provider. An explicit
+`PLUMED_MPIRUN` overrides internal thread-MPI launching.
 
 A test that cannot run with internal threads (for example, one that depends on
 an unsupported working-directory change) can set `plumed_thread_mpi=no` in its
