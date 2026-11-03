@@ -21,8 +21,13 @@ availability of the wrapper frontend is separate from selecting a provider.
 Native MPI still uses its actual handle types and direct calls. Config reports
 has mpi when either MPI provider exists, and also reports real_mpi and
 thread_mpi separately. The CLI provides --has-mpi for combined capability,
---has-real-mpi for a native build and --has-thread-mpi for the internal runtime.
-These distinguish capability from MPI initialization. The regtest runner uses
+--has-real-mpi for a native build or a selected real-MPI provider, and
+--has-thread-mpi for available internal thread-MPI (or a selected thread
+provider). Both capabilities may be true. --mpi-ranks-are-threads describes
+only the selected provider, independently of initialization; CHDIR safety uses
+the separate initialized-provider runtime check. Queries do not initialize MPI.
+The loader API for ordinary external-MPI CLI execution remains provisional;
+the regression runner uses a test-only MPI launcher for serial executables. The regtest runner uses
 --has-mpi for its skip decision and probes --has-thread-mpi for internal launch;
 older executables without that query retain their native MPI launcher.
 
