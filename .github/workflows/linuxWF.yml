@@ -324,11 +324,14 @@ jobs:
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         export OMPI_MCA_rmaps_base_oversubscribe=1
-        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPI_HOST_NO_INJECTION
+        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         unset PLUMED_MATRIX_FORCE_TRACE
-        # Check 1/2/4 native ranks and both creation paths before the full suite.
+        # The same host also tests a provider DSO with --no-injection.
+        plumed mkmpi --compiler /usr/bin/mpicc.openmpi --out "$RUNNER_TEMP/provider-openmpi.so"
+        # Check 1/2/4 native ranks, both creation paths, injection and DSO loading.
         bash regtest/scripts/check-mpi-host-injection.sh \
-          /usr/bin/mpic++.openmpi "$PLUMED_MPIRUN" "$PLUMED_KERNEL" 2>&1 | tee "$RUNNER_TEMP/injected-openmpi.log"
+          /usr/bin/mpic++.openmpi "$PLUMED_MPIRUN" "$PLUMED_KERNEL" \
+          "$RUNNER_TEMP/provider-openmpi.so" 2>&1 | tee "$RUNNER_TEMP/injected-openmpi.log"
         make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean 2>&1 | tee -a "$RUNNER_TEMP/injected-openmpi.log"
         make -C regtest checkfail 2>&1 | tee -a "$RUNNER_TEMP/injected-openmpi.log"
     - name: Rerun serial build tests with injected mpich
@@ -341,11 +344,14 @@ jobs:
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.mpich
         export OMPI_MCA_rmaps_base_oversubscribe=1
-        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPI_HOST_NO_INJECTION
+        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         unset PLUMED_MATRIX_FORCE_TRACE
-        # Check 1/2/4 native ranks and both creation paths before the full suite.
+        # The same host also tests a provider DSO with --no-injection.
+        plumed mkmpi --compiler /usr/bin/mpicc.mpich --out "$RUNNER_TEMP/provider-mpich.so"
+        # Check 1/2/4 native ranks, both creation paths, injection and DSO loading.
         bash regtest/scripts/check-mpi-host-injection.sh \
-          /usr/bin/mpicxx.mpich "$PLUMED_MPIRUN" "$PLUMED_KERNEL" 2>&1 | tee "$RUNNER_TEMP/injected-mpich.log"
+          /usr/bin/mpicxx.mpich "$PLUMED_MPIRUN" "$PLUMED_KERNEL" \
+          "$RUNNER_TEMP/provider-mpich.so" 2>&1 | tee "$RUNNER_TEMP/injected-mpich.log"
         make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean 2>&1 | tee -a "$RUNNER_TEMP/injected-mpich.log"
         make -C regtest checkfail 2>&1 | tee -a "$RUNNER_TEMP/injected-mpich.log"
     - name: Preserve injection test logs
