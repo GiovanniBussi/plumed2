@@ -77,6 +77,11 @@ mpi=env
 
 # this is the executable used for running the tests:
 plumed="${PLUMED_PROGRAM_NAME:-plumed}"
+# An injection host replaces CLTool invocations only. External-engine tests
+# still query the original executable and use their own initialization path.
+if [[ "$plumed_cli_test" = yes && -n "${PLUMED_CLI_PROGRAM_NAME:-}" ]]; then
+  plumed="$PLUMED_CLI_PROGRAM_NAME"
+fi
 
 # this is the executable used for getting the configuration:
 plumed_nompi="$plumed --no-mpi"
