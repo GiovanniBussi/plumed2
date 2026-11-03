@@ -228,6 +228,7 @@ run_case dynamic_make no yes auto no "$tmp/bin/fake-mpiexec" \
   "$tmp/provider.so" "$tmp/bin/mpicxx"
 check_log '^COMPILE -std=c++11 -c .*/mpi-native-lifecycle.cpp '
 check_log '^MAKE .*CXX=.*/mpicxx .*LD=.*/mpicxx .*__PLUMED_MPIWRAP=1 .*mpi-provider-lifecycle.o'
+check_log '^MAKE .*ADDCPPFLAGS=.*-I[.] -D__PLUMED_MPIWRAP=1'
 check_log '^MPI -np 3 env ./exe --test-ranks 3$'
 check_log '^MPI_EXE --test-ranks 3$'
 
