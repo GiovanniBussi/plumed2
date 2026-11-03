@@ -301,27 +301,59 @@ jobs:
           regtest/adjmat/rt-matmult/report.txt
           regtest/adjmat/rt-matmult/tmp/
           regtest/adjmat/rt-matmult/intel-diagnostics/
-    - name: Rerun serial build tests with injected MPI
+    - name: Prepare injection tests after the serial build
+      id: injection_setup
       # Also run after a diagnostic test failure, provided the build succeeded.
       # Native-MPI jobs already exercise their own MPI implementation.
       if: ${{ !cancelled() && steps.build.outcome == 'success' && !contains(matrix.variant, '-mpi-') }}
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y openmpi-bin libopenmpi-dev
-        /usr/bin/mpic++.openmpi -std=c++98 regtest/scripts/mpi-cli.cpp -ldl -o "$RUNNER_TEMP/plumed-mpi-host"
-        export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-mpi-host"
+        sudo apt-get install -y openmpi-bin libopenmpi-dev mpich libmpich-dev
+        /usr/bin/mpic++.openmpi -std=c++98 regtest/scripts/mpi-cli.cpp -ldl -o "$RUNNER_TEMP/plumed-openmpi-host"
+        /usr/bin/mpicxx.mpich -std=c++98 regtest/scripts/mpi-cli.cpp -ldl -o "$RUNNER_TEMP/plumed-mpich-host"
+        cmake -S src/thread_mpi -B "$RUNNER_TEMP/thread-mpi-tests"
+        cmake --build "$RUNNER_TEMP/thread-mpi-tests" -j 4
+        ctest --test-dir "$RUNNER_TEMP/thread-mpi-tests" --output-on-failure
+    - name: Rerun serial build tests with injected openmpi
+      # A failure with the other implementation must not suppress this pass.
+      if: ${{ !cancelled() && steps.injection_setup.outcome == 'success' }}
+      run: |
+        set -o pipefail
+        export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-openmpi-host"
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         export OMPI_MCA_rmaps_base_oversubscribe=1
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPI_HOST_NO_INJECTION
-        # Keep this pass separate from the temporary matrix-force diagnosis.
         unset PLUMED_MATRIX_FORCE_TRACE
-        cmake -S src/thread_mpi -B "$RUNNER_TEMP/thread-mpi-tests"
-        cmake --build "$RUNNER_TEMP/thread-mpi-tests" -j 4
-        ctest --test-dir "$RUNNER_TEMP/thread-mpi-tests" --output-on-failure
-        make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean
-        make -C regtest checkfail
+        # Check 1/2/4 native ranks and both creation paths before the full suite.
+        bash regtest/scripts/check-mpi-host-injection.sh \
+          /usr/bin/mpic++.openmpi "$PLUMED_MPIRUN" "$PLUMED_KERNEL" 2>&1 | tee "$RUNNER_TEMP/injected-openmpi.log"
+        make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean 2>&1 | tee -a "$RUNNER_TEMP/injected-openmpi.log"
+        make -C regtest checkfail 2>&1 | tee -a "$RUNNER_TEMP/injected-openmpi.log"
+    - name: Rerun serial build tests with injected mpich
+      # A failure with the other implementation must not suppress this pass.
+      if: ${{ !cancelled() && steps.injection_setup.outcome == 'success' }}
+      run: |
+        set -o pipefail
+        export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-mpich-host"
+        export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
+        export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
+        export PLUMED_MPIRUN=/usr/bin/mpiexec.mpich
+        export OMPI_MCA_rmaps_base_oversubscribe=1
+        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPI_HOST_NO_INJECTION
+        unset PLUMED_MATRIX_FORCE_TRACE
+        # Check 1/2/4 native ranks and both creation paths before the full suite.
+        bash regtest/scripts/check-mpi-host-injection.sh \
+          /usr/bin/mpicxx.mpich "$PLUMED_MPIRUN" "$PLUMED_KERNEL" 2>&1 | tee "$RUNNER_TEMP/injected-mpich.log"
+        make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean 2>&1 | tee -a "$RUNNER_TEMP/injected-mpich.log"
+        make -C regtest checkfail 2>&1 | tee -a "$RUNNER_TEMP/injected-mpich.log"
+    - name: Preserve injection test logs
+      if: ${{ !cancelled() && steps.injection_setup.outcome == 'success' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: injected-mpi-${{ matrix.variant }}
+        path: ${{ runner.temp }}/injected-*.log
     - name: Build doc
       env:
         GIT_TOKEN: ${{ secrets.GIT_TOKEN_PLUMEDBOT }}
