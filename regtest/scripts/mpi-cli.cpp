@@ -15,10 +15,19 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <stdexcept>
 
 int main(int argc,char **argv) {
+  // Host-only option; remove it before forwarding the command to PLUMED.
+  const bool inject=!(argc>1 && std::strcmp(argv[1],"--no-injection")==0);
+  if(!inject) {
+    for(int i=1; i<argc; ++i) {
+      argv[i]=argv[i+1];
+    }
+    --argc;
+  }
   if(MPI_Init(&argc,&argv)!=MPI_SUCCESS) {
     return 1;
   }
@@ -48,8 +57,7 @@ int main(int argc,char **argv) {
       const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
       // Environment-provider mode exercises the same serial kernel without
       // injection; the external host still owns MPI initialization/finalization.
-      const bool environmentProvider=std::getenv("PLUMED_MPI_HOST_NO_INJECTION")!=NULL;
-      plumed raw=environmentProvider
+      plumed raw=!inject
                  ? (path && path[0] ? plumed_create_dlopen(path) : plumed_create())
                  : (path && path[0]
                     ? plumed_create_dlopen_with_mpi(path,PLMD::plumed_mpi_implementation())

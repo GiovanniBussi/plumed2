@@ -22,16 +22,14 @@ provider = pathlib.Path(sys.argv[5]).resolve() if sys.argv[5] else None
 root, directory, launcher, kernel = [p.resolve() for p in (root, directory, launcher, kernel)]
 fixture = root / "regtest/basic/rt-mpi0"
 environment = os.environ.copy()
-for name in ("PLUMED_MPI_WRAPPER", "PLUMED_MPI_WRAPPER_FORCE", "PLUMED_LOAD_DEBUG", "PLUMED_MPI_HOST_NO_INJECTION"):
+for name in ("PLUMED_MPI_WRAPPER", "PLUMED_MPI_WRAPPER_FORCE", "PLUMED_LOAD_DEBUG"):
     environment.pop(name, None)
 environment["PLUMED_KERNEL"] = str(kernel)
 for mode in (("injection", "environment") if provider else ("injection",)):
     if mode == "environment":
         environment["PLUMED_MPI_WRAPPER"] = str(provider)
-        environment["PLUMED_MPI_HOST_NO_INJECTION"] = "1"
     else:
         environment.pop("PLUMED_MPI_WRAPPER", None)
-        environment.pop("PLUMED_MPI_HOST_NO_INJECTION", None)
     for explicit in (False, True):
         for ranks in (1, 2, 4):
             work = directory / f"{mode}-{'path' if explicit else 'selected'}-{ranks}"
@@ -47,6 +45,7 @@ for mode in (("injection", "environment") if provider else ("injection",)):
             environment["PLUMED_MPI_HOST_EXPECTED_RANKS"] = str(ranks)
             result = subprocess.run(
                 [str(launcher), "-n", str(ranks), str(directory / "mpi-host"),
+                 *(["--no-injection"] if mode == "environment" else []),
                  "driver", "--plumed=plumed.dat", "--timestep=0.05", "--ixyz",
                  str(root / "regtest/trajectories/trajectory.xyz"), "--dump-forces", "ff"],
                 cwd=work, env=environment, stdout=subprocess.PIPE,
