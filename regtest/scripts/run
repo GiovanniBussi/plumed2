@@ -24,6 +24,7 @@ done
 
 date
 echo "Running regtest in $(pwd)"
+regtest_test_dir="$PWD"
 
 if [ "$valgrind" = valgrind ] ; then
 echo "using valgrind"
@@ -81,17 +82,16 @@ plumed="${PLUMED_PROGRAM_NAME:-plumed}"
 plumed_nompi="$plumed --no-mpi"
 
 root=$($plumed_nompi info --root)
+test_root=$(cd "$regtest_test_dir/../../.." && pwd)
 
 if test -z "$root" ; then
   echo "FAILURE: plumed executable not available"
   exit 1
 fi
 
-cd ../../../../
-if [[ "${PWD}"/ != "$root" ]] ; then
+if [[ "${test_root}"/ != "$root" ]] ; then
 echo "WARNING using plumed from $root"
 fi
-cd -
 
 
 if ((mpiprocs>0)); then
@@ -121,17 +121,59 @@ else
   has_thread_mpi=no
 fi
 
-if [[ "$has_mpi" = no ]]; then
-  if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-    if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-    else
-      echo "SKIP_ON_TRAVIS found!"
-    fi
-  else
-    echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+has_real_mpi=no
+if $plumed_nompi config -q has real_mpi >/dev/null 2>&1 ; then
+  has_real_mpi=yes
+elif $plumed_nompi info --configuration 2>/dev/null | grep -q -- '-D__PLUMED_HAS_MPI'; then
+  # Older kernels may not expose the real_mpi config query.
+  has_real_mpi=yes
+elif [[ -z "${PLUMED_MPI_WRAPPER:-}" && "$has_mpi" = yes && "$has_thread_mpi" = no ]]; then
+  # Last-resort compatibility with older native-MPI executables.
+  has_real_mpi=yes
+fi
+
+plumed_mpi_provider=no
+if [[ "$has_real_mpi" = yes ]]; then
+  : # Native MPI remains the preferred path and uses the configured launcher.
+elif [[ -n "${PLUMED_MPI_WRAPPER:-}" ]]; then
+  if $plumed_nompi --mpi-ranks-are-threads >/dev/null 2>&1 ; then
+    echo "FAILURE (PLUMED_MPI_WRAPPER selects a thread-rank provider; this runner requires a real MPI provider)"
+    exit 1
   fi
-  exit 0
+  if [[ "$plumed_cli_test" != yes && "$type" != make ]]; then
+    echo "FAILURE (PLUMED_MPI_WRAPPER supports PLUMED CLI and C++ make tests)"
+    exit 1
+  fi
+  if ! $plumed_nompi config -q has dlopen >/dev/null 2>&1 ; then
+    echo "FAILURE (PLUMED_MPI_WRAPPER requires a kernel built with dlopen support)"
+    exit 1
+  fi
+  mpi_compiler=${PLUMED_MPI_COMPILER:-}
+  if [[ -z "$mpi_compiler" ]]; then
+    mpi_compiler=$(command -v mpicxx || command -v mpic++ || true)
+  else
+    mpi_compiler=$(command -v "$mpi_compiler" || true)
+  fi
+  if [[ -z "$mpi_compiler" || ! -x "$mpi_compiler" ]]; then
+    echo "FAILURE (set PLUMED_MPI_COMPILER to the MPI C++ compiler for PLUMED_MPI_WRAPPER tests)"
+    exit 1
+  fi
+  if [[ "$plumed_cli_test" = yes ]]; then
+    mpi_cli="$PWD/mpi-cli"
+    mpi_cli_source="$test_root/regtest/scripts/mpi-cli.cpp"
+    if [[ ! -f "$mpi_cli_source" ]]; then
+      echo "FAILURE (MPI CLI helper not found: $mpi_cli_source)"
+      exit 1
+    fi
+    if ! "$mpi_compiler" -std=c++11 "$mpi_cli_source" -o "$mpi_cli" -ldl >mpi-cli-build.out 2>mpi-cli-build.err; then
+      cat mpi-cli-build.out mpi-cli-build.err
+      echo "FAILURE (could not build MPI CLI helper with $mpi_compiler)"
+      exit 1
+    fi
+    plumed="$mpi_cli"
+  fi
+  echo "++ Using environment-selected MPI provider with $mpiprocs ranks"
+  plumed_mpi_provider=yes
 elif [[ "$has_thread_mpi" = yes ]]; then
   if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" = no ]]; then
     if [[ "${plumed_chdir:-no}" = yes ]]; then
@@ -149,19 +191,20 @@ elif [[ "$has_thread_mpi" = yes ]]; then
     plumed="$plumed --tmpi-threads $mpiprocs"
     plumed_internal_launch=yes
   else
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-    fi
-  fi
-  if [[ "$plumed_internal_launch" != yes ]]; then
+    echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
     exit 0
   fi
+elif [[ "$has_mpi" = no ]]; then
+  if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
+    if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
+      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+    else
+      echo "SKIP_ON_TRAVIS found!"
+    fi
+  else
+    echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+  fi
+  exit 0
 fi
 
 else
@@ -236,15 +279,59 @@ if type -t plumed_custom_skip 1>/dev/null ; then
 fi
 
 if $plumed_nompi --is-installed ; then
-  export PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
-  export PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
+  program_base=$(basename "${PLUMED_PROGRAM_NAME:-plumed}")
+  if [[ -z "${PLUMED_KERNEL:-}" ]]; then
+    export PLUMED_KERNEL="$root/../lib${program_base}Kernel.$($plumed_nompi info --soext)"
+  fi
+  if [[ -z "${PLUMED_LIB:-}" ]]; then
+    export PLUMED_LIB="$root/../lib${program_base}.$($plumed_nompi info --soext)"
+  fi
 else
-  export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
-  export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
+  if [[ -z "${PLUMED_KERNEL:-}" ]]; then
+    export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
+  fi
+  if [[ -z "${PLUMED_LIB:-}" ]]; then
+    export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
+  fi
 fi
 if type -t plumed_regtest_before 1>/dev/null ; then
   plumed_regtest_before || exit 1
 fi
+
+build_mpi_provider_test() {
+  if [[ "$plumed_mpi_provider" != yes ]]; then
+    $make exe 1>out 2>err
+    return $?
+  fi
+  case "$plumed_language" in
+    c++|c++98|c++11|c++14|c++17) ;;
+    *)
+      echo "FAILURE (environment MPI providers require a C++ make test)"
+      return 1
+      ;;
+  esac
+  local lifecycle_source="$test_root/regtest/scripts/mpi-native-lifecycle.cpp"
+  local shim_directory="$test_root/regtest/scripts/mpi-provider-shim"
+  if [[ ! -f "$lifecycle_source" || ! -f "$shim_directory/mpi.h" ]]; then
+    echo "FAILURE (MPI provider shim sources are missing)"
+    return 1
+  fi
+  if ! "$mpi_compiler" -std=c++11 -c "$lifecycle_source" -o mpi-provider-lifecycle.o >mpi-lifecycle-build.out 2>mpi-lifecycle-build.err; then
+    cat mpi-lifecycle-build.out mpi-lifecycle-build.err
+    echo "FAILURE (could not build the native MPI lifecycle shim with $mpi_compiler)"
+    return 1
+  fi
+  local sources=${plumed_src:-*.cpp}
+  local source
+  local objects=()
+  for source in $sources; do
+    [[ -f "$source" ]] && objects+=("${source%.cpp}.o")
+  done
+  objects+=(mpi-provider-lifecycle.o)
+  local addcppflags="${ADDCPPFLAGS:-} -D__PLUMED_MPIWRAP=1 -iquote$shim_directory"
+  $make exe "CXX=$mpi_compiler" "LD=$mpi_compiler" \
+    "ADDCPPFLAGS=$addcppflags" "CXX_OBJ=${objects[*]}" 1>out 2>err
+}
 
 case "$type" in
 (simplemd)
@@ -356,9 +443,15 @@ EOF
   elif test "$plumed_language" = c++98 || test "$plumed_language" = c++11 || test "$plumed_language" = c++14 ; then
     sed "s/-std=c++[0-9][0-9]/-std=$plumed_language/g" Makefile > __Makefile.tmp
     mv __Makefile.tmp Makefile
-    make exe 1>out 2> err
+    build_mpi_provider_test || {
+      echo "FAILURE (could not build test executable)"
+      exit 1
+    }
   else
-    make exe 1>out 2> err
+    build_mpi_provider_test || {
+      echo "FAILURE (could not build test executable)"
+      exit 1
+    }
   fi
   $mpi $valgrind ./exe $arg >> out 2>> err
  ;;
