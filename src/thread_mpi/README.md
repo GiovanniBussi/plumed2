@@ -48,3 +48,9 @@ python3 src/thread_mpi/check-symbol-isolation.py /path/to/gromacs
 
 MPI provider design, wrapper behavior, and validation limits are documented in
 [`../mpiwrap/README.md`](../mpiwrap/README.md).
+
+The standalone suite includes a GROMACS-style `MPI_*` macro-surface test using
+`mpi_bindings.h`: 1, 2 and 4 ranks exchange a committed contiguous datatype and
+check communicator and predefined-value bindings. This uses the embedded tMPI
+sources; it does not build GROMACS or claim to test GROMACS integration.
+Sequential internal launches with different rank counts are also checked.

@@ -1,0 +1,68 @@
+name: Serial kernel with later-installed MPI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  mpi-provider:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [mpich, openmpi]
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install serial build dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y g++ make libblas-dev liblapack-dev
+    - name: Build PLUMED before installing MPI
+      run: |
+        ./configure --disable-mpi --enable-thread-mpi --disable-dependency-tracking --prefix="$HOME/serial-plumed"
+        make -j 4
+        make install
+        echo "$HOME/serial-plumed/bin" >> "$GITHUB_PATH"
+        echo "LD_LIBRARY_PATH=$HOME/serial-plumed/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+        if grep -Eq -- '-D__PLUMED_HAS_MPI(=1)?([[:space:]]|$)' Makefile.conf; then
+          echo 'Expected a kernel built without native MPI' >&2
+          exit 1
+        fi
+    - name: Test internal thread-MPI without GROMACS
+      run: |
+        cmake -S src/thread_mpi -B build-thread-mpi
+        cmake --build build-thread-mpi -j 4
+        ctest --test-dir build-thread-mpi --output-on-failure
+    - name: Install real MPI after PLUMED
+      run: |
+        if [[ '${{ matrix.provider }}' == mpich ]]; then
+          sudo apt-get install -y mpich libmpich-dev
+          echo 'MPI_CXX=/usr/bin/mpicxx.mpich' >> "$GITHUB_ENV"
+          echo 'MPI_CC=/usr/bin/mpicc.mpich' >> "$GITHUB_ENV"
+          echo 'MPIEXEC=/usr/bin/mpiexec.mpich' >> "$GITHUB_ENV"
+        else
+          sudo apt-get install -y openmpi-bin libopenmpi-dev
+          echo 'MPI_CXX=/usr/bin/mpic++.openmpi' >> "$GITHUB_ENV"
+          echo 'MPI_CC=/usr/bin/mpicc.openmpi' >> "$GITHUB_ENV"
+          echo 'MPIEXEC=/usr/bin/mpiexec.openmpi' >> "$GITHUB_ENV"
+          echo 'OMPI_MCA_rmaps_base_oversubscribe=1' >> "$GITHUB_ENV"
+        fi
+    - name: Test native injection and dynamic provider
+      run: |
+        set -o pipefail
+        plumed mkmpi --compiler "$MPI_CC" --out "$PWD/provider.so"
+        # MPI_Init/Finalize belong to the small external host, never the kernel.
+        # Test both creation APIs and 1/2/4 ranks for each provider path.
+        bash regtest/scripts/check-mpi-host-injection.sh \
+          "$MPI_CXX" "$MPIEXEC" "$HOME/serial-plumed/lib/libplumedKernel.so" \
+          "$PWD/provider.so" 2>&1 | tee mpi-provider-tests.log
+    - name: Preserve build and test diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: serial-kernel-${{ matrix.provider }}
+        path: |
+          config.log
+          Makefile.conf
+          mpi-provider-tests.log
+          build-thread-mpi/Testing/Temporary/LastTest.log
