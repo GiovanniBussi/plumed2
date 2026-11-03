@@ -354,8 +354,11 @@ the selected MPI environments, and saves new injection logs separately.
 
 ### MPI installed after a serial kernel build
 
-After the existing Linux serial-build tests, CI installs Open MPI and compiles
-a small C++98 host. The same serial kernel is tested again through injection;
+After the existing Linux serial-build tests, CI installs Open MPI and MPICH and
+compiles a small C++98 host for each. Each host first checks injection with
+1, 2 and 4 ranks and both creation paths, then reruns the suite. A failure with
+one MPI implementation does not suppress the other pass; logs are retained.
+The same serial kernel is tested again through injection;
 there is no provider DSO and no PLUMED rebuild. The host owns MPI initialization
 and finalization. `PLUMED_CLI_PROGRAM_NAME` selects it for CLTool tests only,
 while explicit `PLUMED_KERNEL` and `PLUMED_LIB` preserve the installed library
