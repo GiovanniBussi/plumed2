@@ -345,7 +345,11 @@ jobs:
         export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-mpich-host"
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
-        export PLUMED_MPIRUN=/usr/bin/mpiexec.mpich
+        # Ubuntu 24.04 MPICH is built against external PMIx, incompatible with
+        # its Hydra launcher (each process silently becomes a singleton).
+        # Use the PMIx-capable launcher; the host and provider still use MPICH.
+        # https://github.com/pmodels/mpich/issues/7064
+        export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         export OMPI_MCA_rmaps_base_oversubscribe=1
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         unset PLUMED_MATRIX_FORCE_TRACE
