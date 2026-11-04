@@ -351,6 +351,9 @@ jobs:
         # https://github.com/pmodels/mpich/issues/7064
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         export OMPI_MCA_rmaps_base_oversubscribe=1
+        # Hosted runners cannot provide the RDMA queues UCX auto-detects.
+        # Exercise MPICH using CPU transports available on a single runner.
+        export UCX_TLS=tcp,sm,self
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         unset PLUMED_MATRIX_FORCE_TRACE
         # The same host also tests a provider DSO with --no-injection.
