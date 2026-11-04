@@ -282,6 +282,14 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
     if(a.length()==0) {
       continue;
     }
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+    // Explicit CLI inquiries describe the runtime selected by injection or the
+    // environment (and otherwise the embedded default), without initializing it.
+    if(a=="--has-mpi" || a=="--has-real-mpi" ||
+        a=="--has-thread-mpi" || a=="--mpi-ranks-are-threads") {
+      mpiwrap_ensure_provider_selected();
+    }
+#endif
     if(a=="help" || a=="-h" || a=="--help") {
       printhelp=true;
       break;
