@@ -1,4 +1,4 @@
-USE=core thread_mpi
+USE=core tools thread_mpi
 
 ADDCPPFLAGS += -I../thread_mpi -DSIZEOF_LONG_LONG_INT
 
