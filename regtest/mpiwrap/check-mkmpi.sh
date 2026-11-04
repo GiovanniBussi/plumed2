@@ -5,8 +5,8 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mkmpi-test.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 export PLUMED_ROOT="$TASK_DIR/installed tree"
-mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/include/plumed" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
-printf '/* public header */\n' > "$PLUMED_ROOT/include/plumed/Plumed.h"
+mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/include/plumed/wrapper" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
+printf '/* public header */\n' > "$PLUMED_ROOT/include/plumed/wrapper/Plumed.h"
 export PLUMED_INCLUDEDIR="$PLUMED_ROOT/include"
 export PLUMED_PROGRAM_NAME=plumed
 printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\n" > "$PLUMED_ROOT/src/config/compile_options.sh"
@@ -40,7 +40,7 @@ if [[ $(cat "$output") != 'new provider' ]]; then
   echo 'mkmpi did not publish the provider' >&2; exit 1
 fi
 for expected in "$literal_flag" '-L/path with spaces' '-shared' \
-  "-I$PLUMED_ROOT/include/plumed"; do
+  "-I$PLUMED_ROOT/include/plumed/wrapper"; do
   if ! grep -Fx -- "$expected" "$ARGUMENT_LOG" >/dev/null; then
     echo "mkmpi changed argument: $expected" >&2; exit 1
   fi

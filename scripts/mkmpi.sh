@@ -55,7 +55,7 @@ plumed_mpi_root=${PLUMED_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 header=
 header_candidates=()
 if [[ -n "${PLUMED_INCLUDEDIR:-}" ]]; then
-  header_candidates+=("$PLUMED_INCLUDEDIR/${PLUMED_PROGRAM_NAME:-plumed}/Plumed.h")
+  header_candidates+=("$PLUMED_INCLUDEDIR/${PLUMED_PROGRAM_NAME:-plumed}/wrapper/Plumed.h")
 fi
 header_candidates+=("$plumed_mpi_root/src/wrapper/Plumed.h"
   "$plumed_mpi_root/src/include/${PLUMED_PROGRAM_NAME:-plumed}/Plumed.h")
