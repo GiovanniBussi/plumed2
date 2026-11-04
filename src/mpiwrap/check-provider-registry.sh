@@ -12,11 +12,9 @@ for capacity in default 16 24; do
   if [ "$capacity" = 24 ]; then
     capacity_flag="-DPLUMED_MPIW_HANDLE_CAPACITY=24 -DPLUMED_MPIW_STATUS_CAPACITY=192"
   fi
-  "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -pthread $capacity_flag \
+  "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -pthread -D__PLUMED_MPIWRAP $capacity_flag \
     -I"$repo_root/src/mpiwrap" \
-    -include "$repo_root/src/mpiwrap/mpiwrap-pointers.h" \
-    -x c++ "$repo_root/src/mpiwrap/provider-pointer-definitions.inc" \
-    -x c++ "$repo_root/src/mpiwrap/provider-registry.cpp.inc" \
+    -x c++ "$repo_root/src/mpiwrap/mpiwrap.cpp" \
     -x c++ "$repo_root/src/mpiwrap/test-provider-registry.cpp.in" \
     -o "$tmpdir/test-provider-registry-$capacity"
   "$tmpdir/test-provider-registry-$capacity"

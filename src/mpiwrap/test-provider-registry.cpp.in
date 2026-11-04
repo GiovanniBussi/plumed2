@@ -10,10 +10,6 @@
 #include <string>
 
 namespace PLMD {
-[[noreturn]] void mpiwrap_unavailable(const char *name) {
-  throw std::runtime_error(name ? name : "unavailable MPI function");
-}
-
 namespace mpiwrap_provider_test {
 
 void fakeRank(void *communicator_storage, void *rank_storage, void *result) {
