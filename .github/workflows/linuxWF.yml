@@ -336,6 +336,9 @@ jobs:
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
+        # An absolute mpiexec path can prepend /usr/bin in rank environments.
+        # Keep the Python selected by setup-python, with its installed packages.
+        export PLUMED_PYTHON_SELECT="$(python3 -c 'import sys; print(sys.executable)')"
         export OMPI_MCA_rmaps_base_oversubscribe=1
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean
@@ -427,6 +430,9 @@ jobs:
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
+        # An absolute mpiexec path can prepend /usr/bin in rank environments.
+        # Keep the Python selected by setup-python, with its installed packages.
+        export PLUMED_PYTHON_SELECT="$(python3 -c 'import sys; print(sys.executable)')"
         export OMPI_MCA_rmaps_base_oversubscribe=1
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
         make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean
