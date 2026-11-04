@@ -160,7 +160,11 @@ use `plumed_create_dlsym`.
 
 Constructing an object does not select a provider. Its default communicators
 remain unresolved until actual MPI use and obtain SELF only after MPI is
-initialized. The unresolved state is independent of native handle bytes, so a
+initialized. `Get_comm()` can still be used to forward an unresolved
+communicator before initialization. In an internal thread-MPI build, its
+storage contains the provider's `MPI_COMM_NULL` sentinel, and wrapper MPI calls
+reject that value. Other providers retain their native pre-initialization
+behavior. The unresolved state is independent of native handle bytes, so a
 native zero-valued communicator remains distinguishable from a placeholder.
 
 The host must keep the injected adapter code and MPI runtime loaded while the

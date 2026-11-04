@@ -622,11 +622,13 @@ const plumed_mpiw_provider_descriptor *Registry::descriptorSnapshot() const noex
 }
 
 void Registry::markProviderValueUsed(const char *name) {
-  const bool preinit_self = name && std::strcmp(name, "MPI_COMM_SELF") == 0 &&
-                            runtimeKind() == PLUMED_MPIW_RUNTIME_THREAD_MPI &&
-                            !mpiwrap_is_thread_mpi_active();
+  const bool preinit_communicator = name &&
+                                    (std::strcmp(name, "MPI_COMM_SELF") == 0 ||
+                                     std::strcmp(name, "MPI_COMM_NULL") == 0) &&
+                                    runtimeKind() == PLUMED_MPIW_RUNTIME_THREAD_MPI &&
+                                    !mpiwrap_is_thread_mpi_active();
   std::lock_guard<std::mutex> lock(mutex_);
-  if (preinit_self) {
+  if (preinit_communicator) {
     return;
   }
   provider_value_used_ = true;

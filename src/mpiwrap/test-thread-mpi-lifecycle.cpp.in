@@ -97,13 +97,7 @@ int main() {
     }
   }
   GuardContext context{};
-  bool rejected_unresolved=false;
-  try {
-    (void)context.deferred.Get_comm();
-  } catch(const std::exception &) {
-    rejected_unresolved=true;
-  }
-  if(!rejected_unresolved) {
+  if(!rejectsNullCommunicator(context.deferred.Get_comm())) {
     return 9;
   }
   context.preinit_self=MPI_COMM_SELF;

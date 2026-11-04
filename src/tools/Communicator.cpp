@@ -308,10 +308,14 @@ void Communicator::Barrier()const {
 
 MPI_Comm & Communicator::Get_comm() {
   resolveCommunicator();
-  // A fully disabled kernel retains its inert serial surrogate. An installed
-  // provider instead requires an actual handle, even if its native value is zero.
-  plumed_massert(!mpiwrap_provider_installed() || communicatorResolved,
-                 "MPI communicator is unavailable before MPI initialization");
+  // Preserve a safe sentinel for callers that only forward the communicator
+  // before MPI initialization. Keep it unresolved so actual MPI use cannot
+  // mistake it for a valid native handle; the provider rejects MPI_COMM_NULL.
+#if defined(__PLUMED_MPIWRAP)
+  if(!communicatorResolved && mpiwrap_provider_installed() && !initialized()) {
+    communicator=MPI_COMM_NULL;
+  }
+#endif
   return communicator;
 }
 
