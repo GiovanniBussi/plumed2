@@ -48,6 +48,7 @@ plumed_modules=
 plumed_long=
 
 plumed_language=c++
+plumed_mpi_harness=no
 
 source ./config
 
@@ -150,7 +151,7 @@ elif [[ "$has_thread_mpi" = yes ]]; then
   fi
   # The launcher dispatches PLUMED CLTools, including generic commands such as
   # benchmark. External engines need a native-MPI PLUMED build.
-  if [[ "$plumed_cli_test" = yes && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]]; then
+  if [[ ( "$plumed_cli_test" = yes || ( "$type" = make && "$plumed_mpi_harness" = yes ) ) && "$plumed_thread_mpi" != no && -z "${PLUMED_MPIRUN:-}" ]]; then
     echo "++ Using PLUMED internal thread-MPI with $mpiprocs ranks"
     mpi=env
     plumed="$plumed --tmpi-threads $mpiprocs"
@@ -377,7 +378,23 @@ EOF
   else
     $make exe 1>out 2>err
   fi
-  $mpi $valgrind ./exe $arg >> out 2>> err
+  if [[ "$plumed_mpi_harness" = yes ]]; then
+    if [[ "$plumed_language" != c++ ]]; then
+      echo "FAILURE: plumed_mpi_harness requires the configured C++ language mode"
+      exit 1
+    fi
+    if ((mpiprocs<1)); then
+      echo "FAILURE: plumed_mpi_harness requires mpiprocs greater than zero"
+      exit 1
+    fi
+    if [[ "$plumed_internal_launch" = yes ]]; then
+      $valgrind ./exe -n "$mpiprocs" $arg >> out 2>> err
+    else
+      $mpi $valgrind ./exe -n "$mpiprocs" $arg >> out 2>> err
+    fi
+  else
+    $mpi $valgrind ./exe $arg >> out 2>> err
+  fi
  ;;
 (plumed)
   $mpi $valgrind $plumed $arg > out 2> err

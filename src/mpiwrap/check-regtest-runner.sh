@@ -102,6 +102,7 @@ run_case() {
   local program_name=${10:-plumed}
   local cli_program_name=${11:-}
   local test_arguments='--test-ranks 3'
+  if [[ ${12:-no} = yes ]]; then test_arguments=''; fi
   if [[ "$test_type" = plumed ]]; then test_arguments="benchmark $test_arguments"; fi
   local dir="$tmp/regtest/case/$name"
   mkdir -p "$dir"
@@ -111,6 +112,7 @@ mpiprocs=3
 arg="$test_arguments"
 plumed_thread_mpi=$per_test
 plumed_chdir=$chdir
+plumed_mpi_harness=${12:-no}
 EOF
   if [[ "$test_type" = simplemd ]]; then echo 'nstep 1' > "$dir/in"; fi
   if [[ "$test_type" = make ]]; then echo 'int main() { return 0; }' > "$dir/test.cpp"; fi
@@ -167,6 +169,12 @@ check_log 'PLUMED --tmpi-threads 3 simplemd in'
 
 run_case external no yes auto no "" "MPI NOT INSTALLED" no make
 test ! -s "$TEST_LAUNCH_LOG"
+
+run_case make-internal no yes auto no "" "Using PLUMED internal thread-MPI with 3 ranks" no make plumed "" yes
+check_log '^MPI_EXE -n 3$'
+
+run_case make-native yes no auto no "$tmp/bin/fake-mpiexec" "" no make plumed "" yes
+check_log '^MPI -np 3 env ./exe -n 3$'
 
 run_case native yes no auto no "" "" no
 check_log '^CONFIG -np 3 '

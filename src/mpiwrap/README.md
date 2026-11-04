@@ -99,6 +99,23 @@ counts must be covered by the maintained launcher check. An unrecoverable rank
 exception terminates the process rather than unwinding through blocked peers;
 recoverable errors use the existing command exception translation.
 
+Standalone C++ programs can use the internal `mpiwrap_provider::launchRanks`
+entry declared in `thread-mpi-launcher.hpp`. CLTools uses this same entry for
+internal launch. Select `internal_thread_mpi` for embedded workers, or
+`standalone_owned` for a native-MPI program launched by `mpiexec`; the latter
+initializes MPI, checks the requested process count, executes one callback per
+process, then finalizes. `host_owned` requires already initialized native MPI
+and never initializes or finalizes it. The supplied native communicator bytes
+are valid during the callback; construct rank-local objects there. This is an
+internal C++ facility, not a new `Plumed.h` or symbol-table API.
+
+C++ make regtests opt in with `plumed_mpi_harness=yes` and a positive
+`mpiprocs` in `config`. The runner passes `-n N` to the executable and uses
+`mpiexec -np N ./exe -n N` for direct MPI or `./exe -n N` for internal tMPI.
+The executable parses `-n` and calls the shared launcher. Existing make tests
+keep their previous behavior. `regtest/basic/rt-mpiwrap-launcher` is a four-rank
+launcher smoke test, not the complete mapped-API test (which is still pending).
+
 ## Inject the host MPI from Plumed.h
 
 When the host needs to inject the MPI implementation already used by its MD
