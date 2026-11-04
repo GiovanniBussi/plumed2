@@ -51,12 +51,17 @@ for provider in mpich openmpi; do
     done
   done
   for language in c99 cxx98; do
-    case $language in
-      c99) linker=$cc ;;
-      cxx98) linker=$cxx ;;
-    esac
+    # Both bodies implement the C API only, including the C++98 object.
+    # Linking with the C driver must not require legacy MPI C++ bindings.
+    linker=$cc
     library="$tmp/provider-$provider-$language.dylib"
     "$linker" -shared "$tmp/adapter-$provider-default-$language.o" -o "$library"
+    python3 - "$library" <<'PYTHON'
+import ctypes
+import os
+import sys
+ctypes.CDLL(sys.argv[1], mode=os.RTLD_NOW)
+PYTHON
     if ! nm -g "$library" | grep -E '[[:space:]]_?plumed_mpiw_provider_factory$' >/dev/null; then
       echo "$provider $language provider is missing its unmangled factory" >&2
       exit 1

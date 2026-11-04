@@ -5024,6 +5024,15 @@ __PLUMED_WRAPPER_EXTERN_C_END
 #if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED)
 #define PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED 1
 #if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)
+/* A standalone provider uses only the MPI C API, even in C++ mode. */
+#if defined(PLUMED_MPIW_NATIVE_ADAPTER)
+#ifndef OMPI_SKIP_MPICXX
+#define OMPI_SKIP_MPICXX 1
+#endif
+#ifndef MPICH_SKIP_MPICXX
+#define MPICH_SKIP_MPICXX 1
+#endif
+#endif
 #include <mpi.h>
 #endif
 #include <limits.h>

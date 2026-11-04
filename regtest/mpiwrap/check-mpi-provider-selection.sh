@@ -15,12 +15,12 @@ mkdir "$TASK_DIR/paths with spaces" "$TASK_DIR/temporary builds"
 export TMPDIR="$TASK_DIR/temporary builds"
 cp "$provider" "$TASK_DIR/paths with spaces/provider.so"
 PLUMED_MPI_WRAPPER="$TASK_DIR/paths with spaces/provider.so" \
-  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/library.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/library.log" 2>&1 || { cat "$TASK_DIR/library.log" >&2; exit 1; }
 
 # Exercise the actual driver too: a Mach-O executable can be accepted by
 # dlopen on macOS even though it is a compiler rather than a provider DSO.
 PLUMED_MPI_WRAPPER="$compiler" \
-  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/direct-compiler.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/direct-compiler.log" 2>&1 || { cat "$TASK_DIR/direct-compiler.log" >&2; exit 1; }
 
 export MPI_TEST_COMPILER="$compiler"
 export MPI_TEST_COMPILER_MARKER="$TASK_DIR/compiler-ran"
@@ -33,7 +33,7 @@ exec "$MPI_TEST_COMPILER" "$@"
 COMPILER
 chmod +x "$selected_compiler"
 PLUMED_MPI_WRAPPER="$selected_compiler" \
-  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/compiler.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/compiler.log" 2>&1 || { cat "$TASK_DIR/compiler.log" >&2; exit 1; }
 if [[ ! -s "$MPI_TEST_COMPILER_MARKER" ]]; then
   echo 'provider selection did not invoke the selected compiler' >&2; exit 1
 fi
