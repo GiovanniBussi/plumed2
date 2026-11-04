@@ -8,7 +8,7 @@ fi
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-host-injection.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
-"$1" -std=c++98 "$ROOT/regtest/scripts/mpi-cli.cpp" -ldl -o "$TASK_DIR/mpi-host"
+"$1" -std=c++98 -DPLUMED_MPI_HOST_LINK_RUNTIME=1 "$ROOT/regtest/scripts/mpi-cli.cpp" -ldl -o "$TASK_DIR/mpi-host"
 # Separate launcher/runtime failures from any host-header or kernel behavior.
 "$1" -std=c++98 "$ROOT/regtest/scripts/mpi-native-probe.cpp" -o "$TASK_DIR/native-probe"
 if command -v ldd >/dev/null 2>&1; then

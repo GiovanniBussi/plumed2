@@ -1564,7 +1564,7 @@ def render_host_adapter_wrapper(abi, callbacks, body):
     wrapper = ROOT / "src/wrapper/Plumed.h"
     source = wrapper.read_text()
     prelude = "\n".join([
-        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED)",
+        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || defined(PLUMED_MPIW_HOST_ADAPTER)) && !defined(PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED)",
         "#define PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED 1",
         "#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)",
         "/* A standalone provider uses only the MPI C API, even in C++ mode. */",
@@ -1588,7 +1588,7 @@ def render_host_adapter_wrapper(abi, callbacks, body):
         "",
     ])
     implementation = "\n".join([
-        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED)",
+        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || defined(PLUMED_MPIW_HOST_ADAPTER)) && !defined(PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED)",
         "#define PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED 1",
         "#ifdef __cplusplus",
         "namespace PLMD {",

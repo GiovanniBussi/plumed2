@@ -120,9 +120,11 @@ launcher smoke test, not the complete mapped-API test (which is still pending).
 ## Inject the host MPI from Plumed.h
 
 When the host needs to inject the MPI implementation already used by its MD
-code, define `PLUMED_MPIW_HOST_ADAPTER` and
-`__PLUMED_WRAPPER_IMPLEMENTATION` in exactly one translation unit before
-including `Plumed.h`. Include the host MPI bindings first. For GROMACS
+code, define `PLUMED_MPIW_HOST_ADAPTER` in exactly one translation unit before
+including `Plumed.h`. This embeds the host adapter independently of the wrapper
+implementation, so the host can link normally to `libplumed`. Define
+`__PLUMED_WRAPPER_IMPLEMENTATION` as well only when embedding the wrapper
+implementation, for example for runtime loading. Include the host MPI bindings first. For GROMACS
 thread-MPI, include `thread_mpi/mpi_bindings.h` first and ensure
 `GMX_THREAD_MPI` has its numeric build value. Include `gromacs/version.h` so
 `GMX_VERSION` is available, or explicitly define `PLUMED_MPIW_GROMACS_VERSION`

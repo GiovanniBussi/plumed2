@@ -2,12 +2,15 @@
   MPI-aware PLUMED command launcher used by MPI provider regression tests.
 
   Compile this file with the MPI C++ compiler belonging to the provider under
-  test. Keeping the wrapper implementation in this translation unit makes the
-  native provider adapter use that same MPI ABI and runtime.
+  test and link normally to libplumed for full-suite runs. The native provider
+  adapter is compiled here so it uses the host MPI ABI and runtime. Focused
+  loader checks can instead define PLUMED_MPI_HOST_LINK_RUNTIME=1.
 */
+#if defined(PLUMED_MPI_HOST_LINK_RUNTIME) && PLUMED_MPI_HOST_LINK_RUNTIME
 #define __PLUMED_HAS_DLOPEN 1
 #define __PLUMED_WRAPPER_LINK_RUNTIME 1
 #define __PLUMED_WRAPPER_IMPLEMENTATION 1
+#endif
 #define PLUMED_MPIW_HOST_ADAPTER 1
 
 #include <mpi.h>
