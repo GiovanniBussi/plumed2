@@ -1579,7 +1579,7 @@ def render_host_adapter_wrapper(abi, callbacks, body):
         "",
     ])
     implementation = "\n".join([
-        "#if (defined(PLUMED_MPIW_HOST_ADAPTER) || defined(PLUMED_MPIW_NATIVE_ADAPTER)) && !defined(PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED)",
+        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED)",
         "#define PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED 1",
         "#ifdef __cplusplus",
         "namespace PLMD {",
