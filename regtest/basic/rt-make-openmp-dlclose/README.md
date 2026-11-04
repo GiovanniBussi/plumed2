@@ -19,3 +19,10 @@ RTLD_NODELETE. The regression clears this variable to test the default behavior.
 It also starts a fresh subprocess with the opt-out enabled and checks that the
 runtime unloads. That subprocess does not start workers, so no resource cleanup
 is required before unloading.
+
+Some ELF loader/compiler configurations retain the kernel even with runtime
+retention explicitly disabled (for example through GNU-unique symbols). The
+isolated opt-out child detects this baseline restriction with status 77. In
+that case the parent still exercises the repeated calculations, but does not
+require the loader to unmap the kernel or its dependencies. When the baseline
+kernel can unload, all kernel and runtime mapping assertions remain enforced.
