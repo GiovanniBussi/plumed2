@@ -3741,7 +3741,8 @@ __PLUMED_WRAPPER_ANONYMOUS_END /*}*/
 /* BEGINNING OF DEFINITIONS */
 
 /* MPIW_HOST_ADAPTER_PRELUDE_BEGIN */
-#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(__PLUMED_wrapper_Plumed_implementation)
+#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED)
+#define PLUMED_MPIW_ADAPTER_PRELUDE_INCLUDED 1
 #if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)
 #include <mpi.h>
 #endif
@@ -3828,7 +3829,8 @@ typedef const plumed_mpiw_provider_descriptor *(*plumed_mpiw_factory_fn)(void);
 /* MPIW_HOST_ADAPTER_PRELUDE_END */
 
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_BEGIN */
-#if defined(PLUMED_MPIW_HOST_ADAPTER) || defined(PLUMED_MPIW_NATIVE_ADAPTER)
+#if (defined(PLUMED_MPIW_HOST_ADAPTER) || defined(PLUMED_MPIW_NATIVE_ADAPTER)) && !defined(PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED)
+#define PLUMED_MPIW_ADAPTER_IMPLEMENTATION_INCLUDED 1
 #ifdef __cplusplus
 namespace PLMD {
 extern "C" {
@@ -7658,12 +7660,21 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
   return &plumed_mpiw_descriptor;
 }
-}
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
 extern "C" const void *plumed_mpi_implementation(void) {
-return plumed_mpiw_get_descriptor();
+  return plumed_mpiw_get_descriptor();
+}
+#endif
+#if defined(PLUMED_MPIW_NATIVE_ADAPTER)
+const plumed_mpiw_provider_descriptor *plumed_mpiw_provider_factory(void) {
+  return plumed_mpiw_get_descriptor();
+}
+#endif
 }
 }
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
 using PLMD::plumed_mpi_implementation;
+#endif
 #else
 /* Minimal native-MPI provider adapter. All conversions happen in the kernel. */
 

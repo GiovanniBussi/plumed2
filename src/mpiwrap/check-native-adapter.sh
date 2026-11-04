@@ -24,15 +24,19 @@ for provider in mpich openmpi; do
     "$cc" -std=c99 -Wall -Wextra -Werror $extra_cflags $capacity_flag -x c \
       "$module_dir/test-native-adapter.c.in" -o "$tmp/test-$provider-$capacity-c"
     "$tmp/test-$provider-$capacity-c"
-    "$cc" -x c -std=c99 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+    "$cc" -x c -std=c99 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 \
+      -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-c99.o"
-    "$cxx" -std=c++98 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+    "$cxx" -std=c++98 -Wall -Wextra -Werror $capacity_flag -DPLUMED_MPIW_NATIVE_ADAPTER=1 \
+      -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-$capacity-cxx98.o"
     "$cc" -x c -std=c99 -Wall -Wextra -Werror -DPLUMED_MPIW_HANDLE_CAPACITY=1 \
-      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 \
+      -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-tiny-wrapper-c99.o"
     "$cxx" -std=c++98 -Wall -Wextra -Werror -DPLUMED_MPIW_HANDLE_CAPACITY=1 \
-      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 -c \
+      -DPLUMED_MPIW_STATUS_CAPACITY=1 -DPLUMED_MPIW_NATIVE_ADAPTER=1 \
+      -c \
       "$module_dir/mpiwrap_implementation.cpp" -o "$tmp/adapter-$provider-tiny-wrapper-cxx98.o"
     for host_language in c cxx98; do
       case $host_language in
@@ -45,6 +49,26 @@ for provider in mpich openmpi; do
         "$module_dir/test-host-header-adapter.c.in" \
         -o "$tmp/host-$provider-$capacity-$host_language.o"
     done
+  done
+  for language in c99 cxx98; do
+    case $language in
+      c99) linker=$cc ;;
+      cxx98) linker=$cxx ;;
+    esac
+    library="$tmp/provider-$provider-$language.dylib"
+    "$linker" -shared "$tmp/adapter-$provider-default-$language.o" -o "$library"
+    if ! nm -g "$library" | grep -E '[[:space:]]_?plumed_mpiw_provider_factory$' >/dev/null; then
+      echo "$provider $language provider is missing its unmangled factory" >&2
+      exit 1
+    fi
+    if nm -u "$library" | grep -E '[[:space:]]_?plumed([[:alnum:]_]*)([[:space:]]|$)' >/dev/null; then
+      echo "$provider $language provider has an unresolved PLUMED dependency" >&2
+      exit 1
+    fi
+    if command -v otool >/dev/null 2>&1 && otool -L "$library" | grep -i plumed >/dev/null; then
+      echo "$provider $language provider links a PLUMED library" >&2
+      exit 1
+    fi
   done
 done
 

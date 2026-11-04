@@ -45,6 +45,10 @@ for expected in "$literal_flag" '-L/path with spaces' '-shared' \
     echo "mkmpi changed argument: $expected" >&2; exit 1
   fi
 done
+if [[ $(uname -s) == Darwin ]] && \
+    ! grep -Fx -- '-Wl,-install_name,@rpath/provider.so' "$ARGUMENT_LOG" >/dev/null; then
+  echo 'mkmpi used a temporary directory as the dylib install name' >&2; exit 1
+fi
 if "$ROOT/scripts/mkmpi.sh" --compiler relative/mpicc --out "$output" 2>/dev/null; then
   echo 'mkmpi accepted a relative compiler path' >&2; exit 1
 fi

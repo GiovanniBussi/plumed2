@@ -91,10 +91,16 @@ cat > "$adapter_source" <<'ADAPTER'
 #define __PLUMED_WRAPPER_IMPLEMENTATION 0
 #define __PLUMED_WRAPPER_CXX 0
 #include <Plumed.h>
+#include <Plumed.h>
 ADAPTER
+platform_link_flags=()
+if [[ $(uname -s) == Darwin ]]; then
+  platform_link_flags+=("-Wl,-install_name,@rpath/$(basename "$output")")
+fi
 "$compiler" ${configured_compile_flags[@]+"${configured_compile_flags[@]}"} \
   -I"$(dirname "$header")" ${cflags[@]+"${cflags[@]}"} "$adapter_source" \
-  "${configured_link_flags[@]}" ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
+  "${configured_link_flags[@]}" "${platform_link_flags[@]}" \
+  ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
     echo "mkmpi: MPI adapter compilation/link failed with $compiler" >&2
     exit 1
   }
