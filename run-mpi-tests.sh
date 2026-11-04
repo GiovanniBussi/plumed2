@@ -186,11 +186,19 @@ run_injection() (
   "$CONDA_PREFIX/bin/mpicxx" -std=c++98 "$ROOT/regtest/scripts/mpi-cli.cpp" \
     -L"$SERIAL_BUILD/src/lib" -Wl,-rpath,"$SERIAL_BUILD/src/lib" -lplumed \
     -o "$host"
+  # Make tests and hooks that call plumed directly use this same serial build.
+  export PATH="$SERIAL_BUILD/src/lib:$PATH"
+  export PLUMED_PROGRAM_NAME=$cli
   export PLUMED_CLI_PROGRAM_NAME=$host
   export PLUMED_KERNEL=$kernel
   export PLUMED_LIB=$library
   export PLUMED_MPIRUN=$CONDA_PREFIX/bin/mpiexec
-  export PLUMED_PYTHON_SELECT="$(python3 -c 'import sys; print(sys.executable)')"
+  # An explicit selection bypasses the tests' optional-package checks. Only
+  # select automatically when both required trajectory packages are available;
+  # otherwise leave normal detection/skipping active. Preserve a user override.
+  if [[ -z ${PLUMED_PYTHON_SELECT:-} ]] && python3 -c 'import MDAnalysis; import mdtraj' 2>/dev/null; then
+    export PLUMED_PYTHON_SELECT="$(python3 -c 'import sys; print(sys.executable)')"
+  fi
   unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
   if [[ $provider == openmpi ]]; then export OMPI_MCA_rmaps_base_oversubscribe=1; fi
   make --no-print-directory -j"$JOBS" -C "$SERIAL_BUILD/regtest" testclean \
