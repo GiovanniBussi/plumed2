@@ -561,19 +561,6 @@ def render_provider_callbacks(functions):
     return "\n".join(lines) + "\n"
 
 
-def render_capacity_header():
-    template = (DEVELOPMENT / "mpiwrap-capacity.h.in").read_text()
-    values = {
-        "@MPIWRAP_HANDLE_CAPACITY@": "((sizeof(void *) > 8U) ? sizeof(void *) : 8U)",
-        "@MPIWRAP_STATUS_CAPACITY@": "128",
-    }
-    for marker, value in values.items():
-        if template.count(marker) != 1:
-            raise ValueError(f"capacity header template must contain one {marker}")
-        template = template.replace(marker, value)
-    return template
-
-
 def render_provider_dispatch_bridges(functions, versions):
     """Generate the kernel-side normalized-to-native dispatcher bridges."""
     definitions = ["// Generated canonical-dispatch bridges for the typed frontend."]
@@ -1670,7 +1657,6 @@ def generate(output, write=True):
     dispatch_bridges, dispatch_bindings = render_provider_dispatch_bridges(functions, versions)
     constant_bridges = render_provider_constant_bridges(constants_doc["constants"])
     files = {
-        "mpiwrap-capacity.h": render_capacity_header(),
         "mpiwrap.h": render_header(functions, types_doc["types"], constants),
         "mpiwrap-pointers.h": render_pointers(functions, constants),
         "provider-pointer-definitions.inc": render_provider_pointer_definitions(functions, constants),

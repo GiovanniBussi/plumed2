@@ -72,12 +72,13 @@ array strides and status conversion; injected implementations call native MPI.
 The nullable description is copied at installation for diagnostics only.
 `ranks_are_threads` describes execution; absence of a function means unavailable.
 
-PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *)); configure with
---with-mpiwrap-handle-capacity=BYTES to choose a positive byte count. Use
---with-mpiwrap-status-capacity=BYTES to change the status default of 128 bytes.
-Configured sizes reach all kernel translation units and installed public
-headers. Rebuild clients using wrapper types when changing these sizes;
-explicit compiler overrides must agree with the kernel. Native MPI's direct
+PLUMED_MPIW_HANDLE_CAPACITY defaults to max(8, sizeof(void *));
+PLUMED_MPIW_STATUS_CAPACITY defaults to 128 bytes. Rare overrides can be supplied
+as compiler definitions, for example
+-DPLUMED_MPIW_HANDLE_CAPACITY=24 -DPLUMED_MPIW_STATUS_CAPACITY=192.
+Use the same definitions for the kernel and every client using wrapper types,
+and rebuild them together. Installed headers retain the defaults; configure
+does not select or propagate these overrides. Native MPI's direct
 types are independent of these capacities, as is the thin native provider;
 provider installation checks that its native values fit the receiving kernel. Handle storage is a zero-filled
 byte-array POD. Provider ABI major 3 uses fixed per-function pointer transport
@@ -353,17 +354,16 @@ published conservatively from MPI-2.1, when required by the standard. The same
 guards protect implementations and table rows. Synthetic MPI-1.1 probes verify
 that older headers need not declare omitted functions or constants.
 
-A configured-capacity installation check uses a separate configured checkout:
+The capacity-override installation check uses a configured checkout:
 
-    ./configure --disable-mpi --with-mpiwrap-handle-capacity=24 \
-      --with-mpiwrap-status-capacity=192
+    ./configure --disable-mpi
     MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ \
       bash src/mpiwrap/check-capacity-install.sh /path/to/mpich/mpicxx \
       /path/to/openmpi/mpicxx
 
 It runs the public install-headers recipe and compiles installed headers
-without capacity defines. This checks propagation; the build/runtime matrix
-above remains separate validation.
+with explicit compiler definitions for 24-byte handles and 192-byte status
+storage. The build/runtime matrix above remains separate validation.
 
 A separate MPI host checks injection into an already-built serial kernel:
 

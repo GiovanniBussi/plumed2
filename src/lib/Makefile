@@ -685,7 +685,6 @@ $(DIRSLINKS): %.links:
 
 install-headers:
 	bash ../maketools/install.headers "$(DESTDIR)$(includedir)/$(program_name)/" $(subst ../,,$(DIRS))
-	cp ../../mpiwrap-capacity-installed.h "$(DESTDIR)$(includedir)/$(program_name)/mpiwrap/mpiwrap-capacity.h"
 
 
 
