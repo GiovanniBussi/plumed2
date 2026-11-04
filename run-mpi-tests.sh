@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
 PROVIDERS=()
+THREAD_ONLY=no
 JOBS=${JOBS:-4}
 RESULTS=
 SERIAL_BUILD=
@@ -13,19 +14,22 @@ OPENMPI_ENV=${OPENMPI_ENV:-${CONDA_BASE}/envs/openmpi}
 
 usage() {
   cat <<'HELP'
-Usage: ./run-mpi-tests.sh [--mpich] [--openmpi] [--jobs N] [--results DIRECTORY]
+Usage: ./run-mpi-tests.sh [--mpich] [--openmpi] [--thread-only] [--jobs N]
+                        [--results DIRECTORY]
                         [--injection-only EXISTING_SERIAL_BUILD]
 
 With no provider options, test both MPICH and Open MPI. Each provider gets a
 fresh local clone, a default-module direct-MPI build, and the full make check
 suite. A separate serial/internal-thread-MPI build is tested once, then used
-for host-injection checks with each selected MPI installation. No network
-clone, source reset, installation, or push is performed.
+for host-injection and environment-provider loading checks with each selected
+MPI installation. Use --thread-only to test internal thread-MPI without Conda
+or an installed real MPI. No network clone, source reset, installation, or
+push is performed.
 
 The script tests committed HEAD. Commit intended changes before running it.
 All clones and logs are retained in the printed results directory.
 Use --injection-only with an existing serial build directory to rerun just
-the host-injection checks without rebuilding or repeating the full suites.
+the injection/provider-loading checks without rebuilding or repeating the full suites.
 
 Environment overrides:
   CONDA_BASE    Conda installation (default: $HOME/miniconda3)
@@ -39,6 +43,7 @@ HELP
 
 while (($#)); do
   case $1 in
+    --thread-only) THREAD_ONLY=yes; shift ;;
     --mpich) PROVIDERS+=(mpich); shift ;;
     --openmpi) PROVIDERS+=(openmpi); shift ;;
     --jobs|--results|--injection-only)
@@ -57,8 +62,15 @@ if ! [[ $JOBS =~ ^[1-9][0-9]*$ ]]; then
   echo '--jobs must be a positive integer' >&2
   exit 2
 fi
-if ((${#PROVIDERS[@]} == 0)); then PROVIDERS=(mpich openmpi); fi
-if [[ ! -f $CONDA_BASE/etc/profile.d/conda.sh ]]; then
+if [[ $THREAD_ONLY == yes ]]; then
+  if ((${#PROVIDERS[@]} > 0)) || [[ -n $SERIAL_BUILD ]]; then
+    echo '--thread-only cannot be combined with provider options or --injection-only.' >&2
+    exit 2
+  fi
+elif ((${#PROVIDERS[@]} == 0)); then
+  PROVIDERS=(mpich openmpi)
+fi
+if [[ $THREAD_ONLY == no && ! -f $CONDA_BASE/etc/profile.d/conda.sh ]]; then
   echo "Cannot find $CONDA_BASE/etc/profile.d/conda.sh; set CONDA_BASE." >&2
   exit 2
 fi
@@ -88,6 +100,7 @@ if [[ -n $(git -C "$ROOT" status --porcelain) ]]; then
   echo 'Note: working-tree edits and untracked files are excluded; testing committed HEAD.'
 fi
 unset PLUMED_KERNEL PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_MPIRUN
+unset PLUMED_PROGRAM_NAME PLUMED_CLI_PROGRAM_NAME PLUMED_LIB PLUMED_ROOT
 export MPICH_CC=${MPICH_CC:-/usr/bin/clang}
 export MPICH_CXX=${MPICH_CXX:-/usr/bin/clang++}
 export OMPI_CC=${OMPI_CC:-/usr/bin/clang}
@@ -115,7 +128,8 @@ run_serial() (
   local build=$RESULTS/serial
   git clone --local --no-hardlinks "$ROOT" "$build" > "$RESULTS/serial-clone.log" 2>&1
   cd "$build"
-  CC=/usr/bin/clang CXX=/usr/bin/clang++ ./configure --disable-mpi > "$RESULTS/serial-configure.log" 2>&1
+  CC=/usr/bin/clang CXX=/usr/bin/clang++ ./configure --disable-mpi --enable-thread-mpi > "$RESULTS/serial-configure.log" 2>&1
+  grep -q -- '-D__PLUMED_HAS_THREAD_MPI' Makefile.conf
   make -j"$JOBS" > "$RESULTS/serial-build.log" 2>&1
   make check > "$RESULTS/serial-check.log" 2>&1
   CXX=/usr/bin/clang++ bash src/mpiwrap/check-kernel-lifecycle.sh \
@@ -144,13 +158,16 @@ run_provider() (
 
 run_injection() (
   set -e
-  local provider=$1 extension kernel
+  local provider=$1 extension kernel adapter
   activate_provider "$provider"
   extension=$(sed -n 's/^SOEXT=//p' "$SERIAL_BUILD/Makefile.conf")
   kernel=$SERIAL_BUILD/src/lib/libplumedKernel.$extension
+  adapter=$RESULTS/provider-$provider.$extension
+  PLUMED_ROOT="$SERIAL_BUILD" bash "$SERIAL_BUILD/scripts/mkmpi.sh" \
+    --compiler "$CONDA_PREFIX/bin/mpicc" --out "$adapter"
   # Use the current checker, including fixes made after the kernel was built.
   "$ROOT/regtest/scripts/check-mpi-host-injection.sh" \
-    "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel"
+    "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel" "$adapter"
 )
 
 failed=0
@@ -171,7 +188,7 @@ for provider in "${PROVIDERS[@]}"; do
     if ((status)); then failed=1; fi
   fi
   if [[ -f $SERIAL_BUILD/Makefile.conf ]]; then
-    echo "Testing $provider host injection..."
+    echo "Testing $provider injection and environment-provider loading..."
     run_injection "$provider" > "$RESULTS/$provider-injection.log" 2>&1
     status=$?
     printf '%s-injection %s\n' "$provider" "$status" >> "$RESULTS/status.txt"
