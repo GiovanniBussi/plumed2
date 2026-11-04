@@ -8,6 +8,10 @@ PLUMED module is needed. Each callback owns its buffers, handles, and objects.
 The same body exercises all 118 mapped functions. The tests verify values,
 rank/group/topology relationships, derived datatype layout, request completion
 indices/statuses, buffer attachment, packing, persistent requests, and inquiries.
+Completion scenarios run twice, with explicit statuses and ignored statuses.
+The wrapper uses canonical `nullptr` for ignored status arrays; native builds
+use their actual `MPI_STATUSES_IGNORE` value. Data, completion indices, and
+request-handle updates are checked in both modes.
 Ready sends have matching receives posted before a barrier. A full native MPI
 run also exercises standard reduction and error-handler callback registration.
 Providers intentionally omit these callback constructors; the test verifies

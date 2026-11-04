@@ -284,6 +284,15 @@ void topology(MPI_Comm world, int rank) {
   }
 }
 
+MPI_Status *ignore_all_statuses() {
+#if defined(__PLUMED_HAS_MPI)
+  return MPI_STATUSES_IGNORE;
+#else
+  // The wrapper's canonical ignored-status representation is nullptr.
+  return nullptr;
+#endif
+}
+
 void requests(MPI_Comm world, int rank) {
   const int next=(rank+1)%4, previous=(rank+3)%4;
   int input=rank+100, output=-1, count=-1;
@@ -390,97 +399,109 @@ void requests(MPI_Comm world, int rank) {
       CHECK(detached==buffer.data() && bytes==static_cast<int>(buffer.size()));
     }
   }
-  // Completion algorithms check live receives, not just already-null requests.
-  for(int mode=0; mode<6; ++mode) {
-    const bool available=mode==0 ? HAS(Wait) : mode==1 ? HAS(Waitany) :
-                         mode==2 ? HAS(Waitany) : mode==3 ? HAS(Waitall) :
-                         mode==4 ? HAS(Testall) : HAS(Waitsome);
-    if(!available) {
-      continue;
-    }
-    int values[2]= {-1,-1}, outgoing[2]= {rank+200,rank+300};
-    MPI_Request receive[2]= {MPI_REQUEST_NULL,MPI_REQUEST_NULL}, send[2]= {MPI_REQUEST_NULL,MPI_REQUEST_NULL};
-    MPI_Status statuses[2] {};
-    for(int i=0; i<2; ++i) {
-      CALL(Irecv,&values[i],1,MPI_INT,previous,40+2*mode+i,world,&receive[i]);
-      CALL(Isend,&outgoing[i],1,MPI_INT,next,40+2*mode+i,world,&send[i]);
-    }
-    bool seen[2]= {false,false};
-    int completed=0;
-    while(completed<2) {
-      int flag=0, index=MPI_UNDEFINED, outcount=0, indices[2]= {-1,-1};
-      if(mode==0) {
-        index=seen[0] ? 1 : 0;
-        if(HAS(Test)) {
-          CALL(Test,&receive[index],&flag,&statuses[0]);
-        } else {
-          // Missing Test is already checked for a clean unavailable exception.
-          // The body still validates this receive through the blocking API.
-          CALL(Wait,&receive[index],&statuses[0]);
-          flag=1;
-        }
-        outcount=flag;
-        indices[0]=index;
-      } else if(mode==1) {
-        CALL(Waitany,2,receive,&index,&statuses[0]);
-        outcount=index==MPI_UNDEFINED ? 0 : 1;
-        indices[0]=index;
-      } else if(mode==2) {
-        if(HAS(Testany)) {
-          CALL(Testany,2,receive,&index,&flag,&statuses[0]);
-        } else {
-          CALL(Waitany,2,receive,&index,&statuses[0]);
-          flag=1;
-        }
-        outcount=flag && index!=MPI_UNDEFINED ? 1 : 0;
-        indices[0]=index;
-      } else if(mode==3 || mode==4) {
-        if(mode==3) {
-          CALL(Waitall,2,receive,statuses);
-          flag=1;
-        } else {
-          CALL(Testall,2,receive,&flag,statuses);
-        }
-        if(flag) {
-          outcount=2;
-          indices[0]=0;
-          indices[1]=1;
-        }
-      } else {
-        CALL(Waitsome,2,receive,&outcount,indices,statuses);
+  // Repeat completion scenarios with explicit and ignored status storage.
+  for(int ignored=0; ignored<2; ++ignored) {
+    // Completion algorithms check live receives, not just already-null requests.
+    for(int mode=0; mode<6; ++mode) {
+      const bool available=mode==0 ? HAS(Wait) : mode==1 ? HAS(Waitany) :
+                           mode==2 ? HAS(Waitany) : mode==3 ? HAS(Waitall) :
+                           mode==4 ? HAS(Testall) : HAS(Waitsome);
+      if(!available) {
+        continue;
       }
-      CHECK(outcount>=0 && outcount<=2);
-      for(int i=0; i<outcount; ++i) {
-        CHECK(indices[i]>=0 && indices[i]<2 && !seen[indices[i]]);
-        CHECK(statuses[i].MPI_SOURCE==previous && statuses[i].MPI_TAG==40+2*mode+indices[i]);
-        CHECK(values[indices[i]]==previous+(indices[i]==0 ? 200 : 300));
-        CHECK(receive[indices[i]]==MPI_REQUEST_NULL);
-        seen[indices[i]]=true;
-        ++completed;
+      int values[2]= {-1,-1}, outgoing[2]= {rank+200,rank+300};
+      MPI_Request receive[2]= {MPI_REQUEST_NULL,MPI_REQUEST_NULL}, send[2]= {MPI_REQUEST_NULL,MPI_REQUEST_NULL};
+      MPI_Status statuses[2] {};
+      MPI_Status *single_status=ignored ? MPI_STATUS_IGNORE : &statuses[0];
+      MPI_Status *all_statuses=ignored ? ignore_all_statuses() : statuses;
+      for(int i=0; i<2; ++i) {
+        CALL(Irecv,&values[i],1,MPI_INT,previous,40+2*mode+i,world,&receive[i]);
+        CALL(Isend,&outgoing[i],1,MPI_INT,next,40+2*mode+i,world,&send[i]);
       }
-      if(outcount==0) {
-        std::this_thread::yield();
+      bool seen[2]= {false,false};
+      int completed=0;
+      while(completed<2) {
+        int flag=0, index=MPI_UNDEFINED, outcount=0, indices[2]= {-1,-1};
+        if(mode==0) {
+          index=seen[0] ? 1 : 0;
+          if(HAS(Test)) {
+            CALL(Test,&receive[index],&flag,single_status);
+          } else {
+            // Missing Test is already checked for a clean unavailable exception.
+            // The body still validates this receive through the blocking API.
+            CALL(Wait,&receive[index],single_status);
+            flag=1;
+          }
+          outcount=flag;
+          indices[0]=index;
+        } else if(mode==1) {
+          CALL(Waitany,2,receive,&index,single_status);
+          outcount=index==MPI_UNDEFINED ? 0 : 1;
+          indices[0]=index;
+        } else if(mode==2) {
+          if(HAS(Testany)) {
+            CALL(Testany,2,receive,&index,&flag,single_status);
+          } else {
+            CALL(Waitany,2,receive,&index,single_status);
+            flag=1;
+          }
+          outcount=flag && index!=MPI_UNDEFINED ? 1 : 0;
+          indices[0]=index;
+        } else if(mode==3 || mode==4) {
+          if(mode==3) {
+            CALL(Waitall,2,receive,all_statuses);
+            flag=1;
+          } else {
+            CALL(Testall,2,receive,&flag,all_statuses);
+          }
+          if(flag) {
+            outcount=2;
+            indices[0]=0;
+            indices[1]=1;
+          }
+        } else {
+          CALL(Waitsome,2,receive,&outcount,indices,all_statuses);
+        }
+        CHECK(outcount>=0 && outcount<=2);
+        for(int i=0; i<outcount; ++i) {
+          CHECK(indices[i]>=0 && indices[i]<2 && !seen[indices[i]]);
+          if(!ignored) {
+            CHECK(statuses[i].MPI_SOURCE==previous && statuses[i].MPI_TAG==40+2*mode+indices[i]);
+          }
+          CHECK(values[indices[i]]==previous+(indices[i]==0 ? 200 : 300));
+          CHECK(receive[indices[i]]==MPI_REQUEST_NULL);
+          seen[indices[i]]=true;
+          ++completed;
+        }
+        if(outcount==0) {
+          std::this_thread::yield();
+        }
       }
+      CALL(Waitall,2,send,all_statuses);
     }
-    CALL(Waitall,2,send,statuses);
   }
-  if(HAS(Testsome)) {
-    int outgoing=rank+400, received=-1, outcount=-1, index=-1;
-    MPI_Request receive=MPI_REQUEST_NULL;
-    CALL(Irecv,&received,1,MPI_INT,previous,60,world,&receive);
-    // No rank sends until all have observed their incomplete request.
-    CALL(Testsome,1,&receive,&outcount,&index,&status);
-    CHECK(outcount==0 && receive!=MPI_REQUEST_NULL);
-    CALL(Barrier,world);
-    CALL(Isend,&outgoing,1,MPI_INT,next,60,world,&pending);
-    do {
-      CALL(Testsome,1,&receive,&outcount,&index,&status);
-    } while(outcount==0);
-    CHECK(outcount==1 && index==0 && received==previous+400);
-    CHECK(status.MPI_SOURCE==previous && status.MPI_TAG==60);
-    CALL(Wait,&pending,MPI_STATUS_IGNORE);
-    CALL(Testsome,1,&receive,&outcount,&index,&status);
-    CHECK(outcount==MPI_UNDEFINED);
+  for(int ignored=0; ignored<2; ++ignored) {
+    if(HAS(Testsome)) {
+      int outgoing=rank+400, received=-1, outcount=-1, index=-1;
+      MPI_Request receive=MPI_REQUEST_NULL;
+      MPI_Status *some_status=ignored ? ignore_all_statuses() : &status;
+      CALL(Irecv,&received,1,MPI_INT,previous,60,world,&receive);
+      // No rank sends until all have observed their incomplete request.
+      CALL(Testsome,1,&receive,&outcount,&index,some_status);
+      CHECK(outcount==0 && receive!=MPI_REQUEST_NULL);
+      CALL(Barrier,world);
+      CALL(Isend,&outgoing,1,MPI_INT,next,60,world,&pending);
+      do {
+        CALL(Testsome,1,&receive,&outcount,&index,some_status);
+      } while(outcount==0);
+      CHECK(outcount==1 && index==0 && received==previous+400);
+      if(!ignored) {
+        CHECK(status.MPI_SOURCE==previous && status.MPI_TAG==60);
+      }
+      CALL(Wait,&pending,MPI_STATUS_IGNORE);
+      CALL(Testsome,1,&receive,&outcount,&index,some_status);
+      CHECK(outcount==MPI_UNDEFINED);
+    }
   }
   if(HAS(Waitany)) {
     int index=-1, flag=0;
