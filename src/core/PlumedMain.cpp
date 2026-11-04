@@ -440,6 +440,7 @@ PlumedMain::PlumedMain():
   stopwatch_fwd(log),
   actionSet_fwd(*this),
   passtools(DataPassingTools::create(sizeof(double))) {
+  OpenMP::retainRuntime();
   passtools->usingNaturalUnits=false;
   increaseReferenceCounter();
   log.link(comm);
