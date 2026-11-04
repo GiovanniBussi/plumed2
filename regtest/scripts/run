@@ -128,7 +128,11 @@ else
 fi
 
 has_real_mpi=no
-if $plumed_nompi config -q has real_mpi >/dev/null 2>&1 ; then
+if $plumed_nompi --has-real-mpi >/dev/null 2>&1 ; then
+  # An injecting host can supply real MPI to a serial kernel at runtime.
+  # Check the live runtime before falling back to build-time configuration.
+  has_real_mpi=yes
+elif $plumed_nompi config -q has real_mpi >/dev/null 2>&1 ; then
   has_real_mpi=yes
 elif $plumed_nompi info --configuration 2>/dev/null | grep -q -- '-D__PLUMED_HAS_MPI'; then
   # Older kernels may not expose the real_mpi config query.

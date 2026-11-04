@@ -28,6 +28,10 @@ if [[ "$*" = "--has-mpi" ]]; then
   fi
   exit 1
 fi
+if [[ "$*" = "--no-mpi --has-real-mpi" ]]; then
+  [[ ${TEST_INJECTED_REAL_MPI:-no} = yes ]]
+  exit
+fi
 if [[ "$*" = "--no-mpi config -q has real_mpi" ]]; then
   if [[ ${TEST_OLD_CONFIG:-no} = yes ]]; then
     echo 'unknown feature real_mpi' >&2
@@ -147,7 +151,7 @@ check_log() {
 cat > "$tmp/bin/mpi-host" <<'EOF'
 #!/usr/bin/env bash
 printf 'HOST %s\n' "$*" >> "$TEST_LAUNCH_LOG"
-TEST_NATIVE_MPI=yes TEST_THREAD_MPI=no exec "$(dirname "$0")/plumed" "$@"
+TEST_INJECTED_REAL_MPI=yes TEST_NATIVE_MPI=no TEST_THREAD_MPI=yes exec "$(dirname "$0")/plumed" "$@"
 EOF
 chmod +x "$tmp/bin/mpi-host"
 
@@ -218,6 +222,7 @@ echo "regtest runner selection passed (CLI types, external executable, native, l
 run_case injected_cli no yes auto no "$tmp/bin/fake-mpiexec" "" no driver plumed "$tmp/bin/mpi-host"
 check_log '^HOST driver --test-ranks 3$'
 check_log '^MPI -np 3 '
+grep -q '^HOST --no-mpi --has-real-mpi$' "$TEST_LAUNCH_LOG"
 run_case injected_external no yes auto no "$tmp/bin/fake-mpiexec" "MPI NOT INSTALLED" no make plumed "$tmp/bin/mpi-host"
 test ! -s "$TEST_LAUNCH_LOG"
 echo 'CLI-only injection host selection checks passed'
