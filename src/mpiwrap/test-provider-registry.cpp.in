@@ -56,6 +56,10 @@ void fakeConstant(void *output) {
   std::memcpy(output, &value, sizeof(value));
 }
 
+void fakeConstantAlternative(void *output) {
+  fakeConstant(output);
+}
+
 plumed_mpiw_provider_descriptor makeDescriptor(
   plumed_mpiw_function_entry *functions, std::uint64_t function_count,
   plumed_mpiw_metadata_entry *metadata, std::uint64_t metadata_count,
@@ -236,6 +240,32 @@ int run() {
         conflicting_functions, 3, metadata, 2, "conflict");
   assert(!registry.install(&conflict, error));
   assert(error.find("conflicting") != std::string::npos);
+
+  // Independent header instantiations share a native runtime but have their
+  // own transport/accessor addresses. Keep the first installed table alive.
+  plumed_mpiw_generic_fn runtime_identity =
+    reinterpret_cast<plumed_mpiw_generic_fn>(&fakeFinalized);
+  plumed_mpiw_metadata_entry identified_metadata[] = {
+    metadata[0],
+    {
+      sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_OPAQUE, 0,
+      "identity:runtime", sizeof(runtime_identity), 0, &runtime_identity
+    },
+  };
+  auto identified = makeDescriptor(functions, 3, identified_metadata, 2, "identified");
+  Registry independent_headers;
+  assert(independent_headers.install(&identified, error));
+  plumed_mpiw_constant_accessor_fn other_constant = &fakeConstantAlternative;
+  identified_metadata[0].value = &other_constant;
+  identified.functions = conflicting_functions;
+  assert(independent_headers.install(&identified, error));
+  assert(independent_headers.dispatch("MPI_Comm_rank", UINT32_C(0x4e7672aa), 1, 2) ==
+         reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank));
+  identified_metadata[0].native_value_size = sizeof(std::int64_t);
+  assert(!independent_headers.install(&identified, error));
+  identified_metadata[0].native_value_size = sizeof(std::int32_t);
+  runtime_identity = reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank);
+  assert(!independent_headers.install(&identified, error));
 
   Registry null_description_registry;
   plumed_mpiw_provider_descriptor no_description = makeDescriptor(

@@ -165,7 +165,8 @@ std::uint64_t compatibilityFingerprint(
 
 bool sameFunctions(
   const std::unordered_map<std::string, Registry::FunctionEntry> &left,
-  const std::unordered_map<std::string, Registry::FunctionEntry> &right) {
+  const std::unordered_map<std::string, Registry::FunctionEntry> &right,
+  bool compare_addresses = true) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -175,7 +176,7 @@ bool sameFunctions(
         entry.second.signature_id != match->second.signature_id ||
         entry.second.signature_version != match->second.signature_version ||
         entry.second.argument_count != match->second.argument_count ||
-        entry.second.function != match->second.function) {
+        (compare_addresses && entry.second.function != match->second.function)) {
       return false;
     }
   }
@@ -332,12 +333,12 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
     }
     if (std::strcmp(entry.name, "identity:runtime") == 0) {
       if (entry.value_type != PLUMED_MPIW_VALUE_OPAQUE ||
-          entry.value_size != sizeof(void *) || entry.native_value_size != 0 ||
+          entry.value_size != sizeof(plumed_mpiw_generic_fn) || entry.native_value_size != 0 ||
           !entry.value) {
-        return setError(error, "invalid thread-MPI runtime identity metadata");
+        return setError(error, "invalid MPI runtime identity metadata");
       }
       const unsigned char *bytes = static_cast<const unsigned char *>(entry.value);
-      runtime_identity.assign(bytes, bytes + sizeof(void *));
+      runtime_identity.assign(bytes, bytes + entry.value_size);
       continue;
     }
     const bool user_callback = std::strcmp(
@@ -461,7 +462,7 @@ struct Registry::DescriptorSnapshot {
     }
   }
 
-  bool sameMetadata(const DescriptorSnapshot &other) const {
+  bool sameMetadata(const DescriptorSnapshot &other, bool compare_accessors = true) const {
     if (metadata.size() != other.metadata.size()) {
       return false;
     }
@@ -481,7 +482,8 @@ struct Registry::DescriptorSnapshot {
       if (left.value_type != right.value_type || left.flags != right.flags ||
           left.value_size != right.value_size ||
           left.native_value_size != right.native_value_size ||
-          metadata_values[i] != other.metadata_values[match]) {
+          ((compare_accessors || left.value_type != PLUMED_MPIW_VALUE_ACCESSOR) &&
+           metadata_values[i] != other.metadata_values[match])) {
         return false;
       }
     }
@@ -537,14 +539,19 @@ bool Registry::install(const plumed_mpiw_provider_descriptor *descriptor,
 
   std::lock_guard<std::mutex> lock(mutex_);
   if (installed_) {
+    // Header-local transport wrappers and constant accessors have distinct
+    // addresses in independent callers. Native runtime identity permits those
+    // differences; without it retain the conservative exact-address check.
+    const bool same_runtime = !runtime_identity_.empty() &&
+                              runtime_identity_ == next_identity;
     if (runtime_kind_ == next_runtime_kind &&
-        descriptor_function_comm_rank_ == next_comm_rank &&
-        descriptor_function_initialized_ == next_initialized &&
+        (same_runtime || (descriptor_function_comm_rank_ == next_comm_rank &&
+                          descriptor_function_initialized_ == next_initialized)) &&
         runtime_identity_ == next_identity &&
         compatibility_fingerprint_ == next_fingerprint &&
-        sameFunctions(functions_, next_functions) && metadata_ == next_metadata &&
-        descriptor_snapshot_->sameMetadata(*next_snapshot) &&
-        values_ == next_values) {
+        sameFunctions(functions_, next_functions, !same_runtime) &&
+        metadata_ == next_metadata &&
+        descriptor_snapshot_->sameMetadata(*next_snapshot, !same_runtime)) {
       if (provider_library) {
         provider_libraries_.push_back(provider_library);
       }
