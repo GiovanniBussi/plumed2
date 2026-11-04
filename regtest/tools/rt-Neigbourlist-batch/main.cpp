@@ -36,13 +36,11 @@ int main(int argc, char** argv) {
         pbc.setBox(Tensor{8,0,0, 2,6,0, 1,1,4});
       }
       const bool usePbc=boxType!=0;
-      for(const bool serial : {
-            false,true
-          }) {
+      for(const bool serial : {false,true}) {
         for(unsigned style=0; style<3; ++style) {
           const std::vector<unsigned> sizes=style==2 ?
-                                            std::vector<unsigned> {0,1,2,1023,1024,1025,2051,12301} :
-                                            std::vector<unsigned> {0,1,2,31,32,33,65,161};
+              std::vector<unsigned>{0,1,2,1023,1024,1025,2051,12301} :
+              std::vector<unsigned>{0,1,2,31,32,33,65,161};
           for(const unsigned n : sizes) {
             const unsigned nA=n;
             const unsigned nB=style==0 ? 0 : n;
@@ -68,9 +66,7 @@ int main(int argc, char** argv) {
                 positions[other+2]=Vector{std::nextafter(1.0,0.0),0,0};
               }
             }
-            for(const double cutoff : {
-                  0.0,1.0,4.0,100.0
-                }) {
+            for(const double cutoff : {0.0,1.0,4.0,100.0}) {
               std::unique_ptr<NeighborList> nl;
               if(style==0) {
                 nl=std::make_unique<NeighborList>(a,serial,usePbc,pbc,comm,cutoff,1);
