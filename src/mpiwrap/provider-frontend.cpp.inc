@@ -2,6 +2,7 @@
 #include "mpiwrap.h"
 #include "provider-registry.hpp"
 
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -40,6 +41,16 @@ void mpiwrap_ensure_provider_selected() {
   }
   mpiwrap_provider::ensureProviderSelected();
   if (!pointers::ready.load(std::memory_order_acquire)) {
+#if !defined(__PLUMED_HAS_THREAD_MPI)
+    // A fully serial wrapper kernel has no default provider to select. Keep
+    // its inert communicator surrogate usable unless a host explicitly
+    // requested a provider, in which case selection must publish pointers or
+    // report its configuration/load error.
+    const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
+    if (!selected || !selected[0]) {
+      return;
+    }
+#endif
     throw std::runtime_error("MPI provider selection completed without publishing function pointers");
   }
 }
