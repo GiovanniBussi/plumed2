@@ -58,9 +58,9 @@ is validated before use. Matching bytes do not make a handle valid across
 unrelated MPI runtimes.
 
 The wrapper and native adapter communicate through a versioned C-compatible
-provider descriptor. Kernel-table version 5 adds the injection entry
-after the unchanged version-4 prefix; the provider descriptor has its own ABI
-version. Fixed entry layouts are frozen within a provider ABI major; new optional
+provider descriptor. Injection uses the existing command interface, advertised
+by getApiVersion >= 11; the kernel symbol table remains version 4. The provider
+descriptor has its own ABI version. Fixed entry layouts are frozen within a provider ABI major; new optional
 capabilities use named metadata entries. Each injected implementation takes
 one pointer per argument plus a result-storage pointer, following the draft;
 there is no array of argument pointers. Function pointers use a generic
@@ -267,17 +267,29 @@ environment. The pinned thread-MPI source has a one-rank
 out-of-place Allreduce defect; the wrapper handles its size-one identity case
 without relying on that defective operation.
 
-The internal adapter currently advertises 26 entries, including fixes or
-emulation for Allreduce, Allgather, Allgatherv, Wait, Waitsome, Testsome, Rsend,
-and Irsend. Ready sends delegate to the corresponding standard sends; callers
-must have posted the matching receive before starting either ready send.
-Ssend/Issend remain unavailable because tMPI's standard sends can complete
-through eager buffering before a receive starts. Bsend remains unavailable
-because it needs the separate attached-buffer completion contract.
-Successful Wait clears the wrapper request even though upstream leaves the
-released pointer unchanged. Upstream Waitsome/Testsome index and status packing is bypassed
-through Waitany/Testany. Testall remains unavailable because the pinned upstream
-implementation modifies requests when its completion flag is false.
+The embedded and injected tMPI adapters use the same thin native-call renderer.
+Shared PLUMED code supplies Allgather/Allgatherv using the provider's basic C
+predefined datatypes and standard C sizeof values. Custom and compound types
+throw clearly on these fallback paths; provider-native collectives retain their
+normal datatype support. The tMPI metadata explicitly states that its
+communicators are intracommunicators, since it lacks Comm_test_inter.
+
+Ready sends Rsend/Irsend delegate to Send/Isend; callers must have posted the
+matching receive before starting either ready send. Ssend/Issend remain
+unavailable because standard sends can complete through eager buffering before
+a receive starts. Bsend remains unavailable because it needs the separate
+attached-buffer completion contract.
+
+Wait uses the shared Waitany replacement because upstream Wait leaves a stale
+request handle. Test and Testany remain unavailable: a bounded standalone
+reproducer demonstrates that they do not progress matching nonblocking messages.
+Testsome therefore lacks a compliant prerequisite, and Waitsome remains
+unavailable because a Waitany-only replacement cannot guarantee its required
+fairness. Shared some-function replacements remain available to providers that
+supply the necessary compliant primitives. Testall remains unavailable because
+upstream modifies requests while returning a false completion flag.
+Errhandler_free is omitted because upstream can free a borrowed runtime handler;
+no replacement silently assumes ownership.
 
 ## Verification
 
