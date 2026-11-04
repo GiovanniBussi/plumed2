@@ -211,10 +211,10 @@ run_injection() (
   # Use the current checker, including fixes made after the kernel was built.
   "$ROOT/regtest/mpiwrap/check-mpi-host-injection.sh" \
     "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel" "$adapter"
-  "$ROOT/regtest/mpiwrap/check-mpi-provider-selection.sh" \
+  bash "$ROOT/regtest/mpiwrap/check-mpi-provider-selection.sh" \
     "$cli" "$adapter" "$CONDA_PREFIX/bin/mpicc"
   PLUMED_MPI_WRAPPER="$adapter" \
-    "$ROOT/regtest/mpiwrap/check-mpi-provider-chdir.sh" "$host"
+    bash "$ROOT/regtest/mpiwrap/check-mpi-provider-chdir.sh" "$host"
 )
 
 failed=0
