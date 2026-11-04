@@ -254,7 +254,10 @@
     "MPI_UNSIGNED_CHAR",
     "MPI_UNSIGNED_LONG",
     "MPI_UNSIGNED_LONG_LONG",
-    "MPI_UNSIGNED_SHORT"
+    "MPI_UNSIGNED_SHORT",
+    "MPI_SIGNED_CHAR",
+    "MPI_C_BOOL",
+    "MPI_INT64_T"
   ],
   "gromacs_thread_mpi_constants": [
     "MPI_ANY_SOURCE",
@@ -307,7 +310,10 @@
     "MPI_UNSIGNED",
     "MPI_UNSIGNED_CHAR",
     "MPI_UNSIGNED_LONG_LONG",
-    "MPI_UNSIGNED_SHORT"
+    "MPI_UNSIGNED_SHORT",
+    "MPI_SIGNED_CHAR",
+    "MPI_C_BOOL",
+    "MPI_INT64_T"
   ],
   "mpi_standard_functions": {
     "default": "1.1",
@@ -325,7 +331,10 @@
       "MPI_IN_PLACE": "2.0",
       "MPI_LONG_LONG_INT": "2.1",
       "MPI_LONG_LONG": "2.1",
-      "MPI_UNSIGNED_LONG_LONG": "2.1"
+      "MPI_UNSIGNED_LONG_LONG": "2.1",
+      "MPI_SIGNED_CHAR": "2.1",
+      "MPI_C_BOOL": "2.2",
+      "MPI_INT64_T": "2.2"
     }
   }
 }

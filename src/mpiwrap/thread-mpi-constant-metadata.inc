@@ -52,3 +52,6 @@
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_ERR_DIMS", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(int), &constant_accessor_MPI_ERR_DIMS },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_ERR_UNKNOWN", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(int), &constant_accessor_MPI_ERR_UNKNOWN },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_ERR_IN_STATUS", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(int), &constant_accessor_MPI_ERR_IN_STATUS },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_SIGNED_CHAR", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Datatype), &constant_accessor_MPI_SIGNED_CHAR },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_C_BOOL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Datatype), &constant_accessor_MPI_C_BOOL },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_INT64_T", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Datatype), &constant_accessor_MPI_INT64_T },

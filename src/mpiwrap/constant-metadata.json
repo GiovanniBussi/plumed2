@@ -1134,6 +1134,48 @@
       "translation": "checked numeric conversion using provider-reported native C int size/signedness",
       "native_adapter": "implemented",
       "native_type": "int32_t"
+    },
+    {
+      "class": "provider_handle",
+      "standard_api_name": "MPI_SIGNED_CHAR",
+      "mpi5_binding": "retained C constant; provider value is never assumed portable",
+      "provider_value": "obtained lazily from selected native adapter; transport as exact typed handle",
+      "thread_mpi_2026_4": {
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_SIGNED_CHAR"
+      },
+      "semantic_test": "constant:MPI_SIGNED_CHAR",
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
+    },
+    {
+      "class": "provider_handle",
+      "standard_api_name": "MPI_C_BOOL",
+      "mpi5_binding": "retained C constant; provider value is never assumed portable",
+      "provider_value": "obtained lazily from selected native adapter; transport as exact typed handle",
+      "thread_mpi_2026_4": {
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_C_BOOL"
+      },
+      "semantic_test": "constant:MPI_C_BOOL",
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
+    },
+    {
+      "class": "provider_handle",
+      "standard_api_name": "MPI_INT64_T",
+      "mpi5_binding": "retained C constant; provider value is never assumed portable",
+      "provider_value": "obtained lazily from selected native adapter; transport as exact typed handle",
+      "thread_mpi_2026_4": {
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_INT64_T"
+      },
+      "semantic_test": "constant:MPI_INT64_T",
+      "translation": "typed opaque handle bytes through accessor; never numeric-convert",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Datatype"
     }
   ]
 }

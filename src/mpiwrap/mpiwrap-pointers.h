@@ -205,6 +205,9 @@ extern plumed_mpiw_provider_constant_fn constant_ERR_INTERN;
 extern plumed_mpiw_provider_constant_fn constant_ERR_PENDING;
 extern plumed_mpiw_provider_constant_fn constant_BOTTOM;
 extern plumed_mpiw_provider_constant_fn constant_ERR_IN_STATUS;
+extern plumed_mpiw_provider_constant_fn constant_SIGNED_CHAR;
+extern plumed_mpiw_provider_constant_fn constant_C_BOOL;
+extern plumed_mpiw_provider_constant_fn constant_INT64_T;
 }
 } // namespace PLMD::pointers
 namespace PLMD {

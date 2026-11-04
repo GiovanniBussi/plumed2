@@ -1367,3 +1367,54 @@ static int32_t plumed_mpiw_bridge_constant_MPI_ERR_IN_STATUS(void *output, uint3
   std::memcpy(output, &value, sizeof(value));
   return 0;
 }
+static int32_t plumed_mpiw_bridge_constant_MPI_SIGNED_CHAR(void *output, uint32_t capacity) {
+  if (!output || capacity < sizeof(MPI_Datatype)) {
+    return -1;
+  }
+  Registry &registry = currentRegistry();
+  NativeBuffer native_value(registry.nativeConstantSize("MPI_SIGNED_CHAR"));
+  if (!registry.copyNativeValue("MPI_SIGNED_CHAR", native_value.data(), native_value.size())) {
+    return -1;
+  }
+  MPI_Datatype value{};
+  if (native_value.size() > sizeof(value.storage.bytes)) {
+    return -1;
+  }
+  std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
+static int32_t plumed_mpiw_bridge_constant_MPI_C_BOOL(void *output, uint32_t capacity) {
+  if (!output || capacity < sizeof(MPI_Datatype)) {
+    return -1;
+  }
+  Registry &registry = currentRegistry();
+  NativeBuffer native_value(registry.nativeConstantSize("MPI_C_BOOL"));
+  if (!registry.copyNativeValue("MPI_C_BOOL", native_value.data(), native_value.size())) {
+    return -1;
+  }
+  MPI_Datatype value{};
+  if (native_value.size() > sizeof(value.storage.bytes)) {
+    return -1;
+  }
+  std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
+static int32_t plumed_mpiw_bridge_constant_MPI_INT64_T(void *output, uint32_t capacity) {
+  if (!output || capacity < sizeof(MPI_Datatype)) {
+    return -1;
+  }
+  Registry &registry = currentRegistry();
+  NativeBuffer native_value(registry.nativeConstantSize("MPI_INT64_T"));
+  if (!registry.copyNativeValue("MPI_INT64_T", native_value.data(), native_value.size())) {
+    return -1;
+  }
+  MPI_Datatype value{};
+  if (native_value.size() > sizeof(value.storage.bytes)) {
+    return -1;
+  }
+  std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}

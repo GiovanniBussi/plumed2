@@ -268,3 +268,18 @@ void get_MPI_ERR_IN_STATUS(void *output) {
   std::memcpy(output, &value, sizeof(value));
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_ERR_IN_STATUS = &get_MPI_ERR_IN_STATUS;
+void get_MPI_SIGNED_CHAR(void *output) {
+  const thread_mpi::tMPI_Datatype value = TMPI_SIGNED_CHAR;
+  std::memcpy(output, &value, sizeof(value));
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_SIGNED_CHAR = &get_MPI_SIGNED_CHAR;
+void get_MPI_C_BOOL(void *output) {
+  const thread_mpi::tMPI_Datatype value = TMPI_C_BOOL;
+  std::memcpy(output, &value, sizeof(value));
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_C_BOOL = &get_MPI_C_BOOL;
+void get_MPI_INT64_T(void *output) {
+  const thread_mpi::tMPI_Datatype value = TMPI_INT64_T;
+  std::memcpy(output, &value, sizeof(value));
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_INT64_T = &get_MPI_INT64_T;

@@ -200,5 +200,8 @@ plumed_mpiw_provider_constant_fn constant_ERR_INTERN = nullptr;
 plumed_mpiw_provider_constant_fn constant_ERR_PENDING = nullptr;
 plumed_mpiw_provider_constant_fn constant_BOTTOM = nullptr;
 plumed_mpiw_provider_constant_fn constant_ERR_IN_STATUS = nullptr;
+plumed_mpiw_provider_constant_fn constant_SIGNED_CHAR = nullptr;
+plumed_mpiw_provider_constant_fn constant_C_BOOL = nullptr;
+plumed_mpiw_provider_constant_fn constant_INT64_T = nullptr;
 }
 } // namespace PLMD::pointers

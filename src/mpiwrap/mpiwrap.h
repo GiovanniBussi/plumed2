@@ -272,6 +272,9 @@ std::int32_t mpiwrap_ERR_INTERN();
 std::int32_t mpiwrap_ERR_PENDING();
 void * mpiwrap_BOTTOM();
 std::int32_t mpiwrap_ERR_IN_STATUS();
+MPI_Datatype mpiwrap_SIGNED_CHAR();
+MPI_Datatype mpiwrap_C_BOOL();
+MPI_Datatype mpiwrap_INT64_T();
 int mpiwrap_Init(int *argc, char ***argv);
 bool mpiwrap_has_Init();
 int mpiwrap_Finalize();
@@ -2793,6 +2796,9 @@ inline bool mpiwrap_has_Comm_set_errhandler() {
 #define MPI_ERR_PENDING (::PLMD::mpiwrap_ERR_PENDING())
 #define MPI_BOTTOM (::PLMD::mpiwrap_BOTTOM())
 #define MPI_ERR_IN_STATUS (::PLMD::mpiwrap_ERR_IN_STATUS())
+#define MPI_SIGNED_CHAR (::PLMD::mpiwrap_SIGNED_CHAR())
+#define MPI_C_BOOL (::PLMD::mpiwrap_C_BOOL())
+#define MPI_INT64_T (::PLMD::mpiwrap_INT64_T())
 #endif // provider-only MPI name remapping
 #endif // native/provider declarations
 #endif // header guard
