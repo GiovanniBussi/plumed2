@@ -15,12 +15,12 @@ mkdir "$TASK_DIR/paths with spaces" "$TASK_DIR/temporary builds"
 export TMPDIR="$TASK_DIR/temporary builds"
 cp "$provider" "$TASK_DIR/paths with spaces/provider.so"
 PLUMED_MPI_WRAPPER="$TASK_DIR/paths with spaces/provider.so" \
-  "$program" --no-mpi info > "$TASK_DIR/library.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/library.log" 2>&1
 
 # Exercise the actual driver too: a Mach-O executable can be accepted by
 # dlopen on macOS even though it is a compiler rather than a provider DSO.
 PLUMED_MPI_WRAPPER="$compiler" \
-  "$program" --no-mpi info > "$TASK_DIR/direct-compiler.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/direct-compiler.log" 2>&1
 
 export MPI_TEST_COMPILER="$compiler"
 export MPI_TEST_COMPILER_MARKER="$TASK_DIR/compiler-ran"
@@ -33,7 +33,7 @@ exec "$MPI_TEST_COMPILER" "$@"
 COMPILER
 chmod +x "$selected_compiler"
 PLUMED_MPI_WRAPPER="$selected_compiler" \
-  "$program" --no-mpi info > "$TASK_DIR/compiler.log" 2>&1
+  "$program" --no-mpi --has-real-mpi > "$TASK_DIR/compiler.log" 2>&1
 if [[ ! -s "$MPI_TEST_COMPILER_MARKER" ]]; then
   echo 'provider selection did not invoke the selected compiler' >&2; exit 1
 fi
@@ -42,7 +42,7 @@ chmod +x "$TASK_DIR/failing-compiler"
 # Retain the executable's upstream exception handling; require failure and a
 # useful provider diagnostic without imposing a particular process exit code.
 for selection in "$TASK_DIR/missing.so" relative/compiler "$TASK_DIR/failing-compiler"; do
-  if PLUMED_MPI_WRAPPER="$selection" "$program" --no-mpi info \
+  if PLUMED_MPI_WRAPPER="$selection" "$program" --no-mpi --has-real-mpi \
       > "$TASK_DIR/error.log" 2>&1; then
     echo "invalid provider selection succeeded: $selection" >&2; exit 1
   fi
@@ -68,7 +68,7 @@ esac
   "${shared_flags[@]}" "$TASK_DIR/no-factory.cpp" \
   -o "$TASK_DIR/no-factory.so"
 chmod +x "$TASK_DIR/no-factory.so"
-if PLUMED_MPI_WRAPPER="$TASK_DIR/no-factory.so" "$program" --no-mpi info \
+if PLUMED_MPI_WRAPPER="$TASK_DIR/no-factory.so" "$program" --no-mpi --has-real-mpi \
     > "$TASK_DIR/factory-error.log" 2>&1; then
   echo 'provider selection accepted a library without a factory' >&2; exit 1
 fi
@@ -77,7 +77,7 @@ if ! grep -F 'no provider factory' "$TASK_DIR/factory-error.log" >/dev/null; the
 fi
 "${CXX:-c++}" -std=c++98 -fPIC -DTEST_BAD_FACTORY -I"$ROOT/src/mpiwrap" \
   "${shared_flags[@]}" "$TASK_DIR/no-factory.cpp" -o "$TASK_DIR/bad-provider.so"
-if PLUMED_MPI_WRAPPER="$TASK_DIR/bad-provider.so" "$program" --no-mpi info \
+if PLUMED_MPI_WRAPPER="$TASK_DIR/bad-provider.so" "$program" --no-mpi --has-real-mpi \
     > "$TASK_DIR/abi-error.log" 2>&1; then
   echo 'provider selection accepted an invalid descriptor' >&2; exit 1
 fi

@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <mutex>
+#include <vector>
 #include "provider-selection.h"
 #if defined(__PLUMED_HAS_DLOPEN)
 #include "../config/Config.h"
@@ -147,8 +148,27 @@ void compileSelectedProvider(const char *compiler, const std::string &output) {
     const_cast<char *>("--compiler"), const_cast<char *>(compiler),
     const_cast<char *>("--out"), const_cast<char *>(output.c_str()), nullptr
   };
+  // A kernel loaded directly by a host has not run the plumed shell wrappers.
+  // Supply their configured paths to this child only; changing the process
+  // environment would race with other callers and unrelated application code.
+  const std::string root = "PLUMED_ROOT=" + config::getPlumedRoot();
+  const std::string includedir = "PLUMED_INCLUDEDIR=" + config::getPlumedIncludedir();
+  const std::string program = "PLUMED_PROGRAM_NAME=" + config::getPlumedProgramName();
+  std::vector<char *> child_environment;
+  for(char **entry = environ; entry && *entry; ++entry) {
+    if(std::strncmp(*entry,"PLUMED_ROOT=",12)!=0 &&
+        std::strncmp(*entry,"PLUMED_INCLUDEDIR=",18)!=0 &&
+        std::strncmp(*entry,"PLUMED_PROGRAM_NAME=",20)!=0) {
+      child_environment.push_back(*entry);
+    }
+  }
+  child_environment.push_back(const_cast<char *>(root.c_str()));
+  child_environment.push_back(const_cast<char *>(includedir.c_str()));
+  child_environment.push_back(const_cast<char *>(program.c_str()));
+  child_environment.push_back(nullptr);
   pid_t child;
-  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments, environ);
+  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments,
+                                child_environment.data());
   if (error != 0) {
     throw std::runtime_error("could not start MPI provider compiler: " +
                              std::string(std::strerror(error)));
