@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd)
 PROVIDERS=()
 THREAD_ONLY=no
+FOCUSED_ONLY=no
 JOBS=${JOBS:-4}
 RESULTS=
 SERIAL_BUILD=
@@ -17,6 +18,7 @@ usage() {
 Usage: ./run-mpi-tests.sh [--mpich] [--openmpi] [--thread-only] [--jobs N]
                         [--results DIRECTORY]
                         [--injection-only EXISTING_SERIAL_BUILD]
+                        [--focused-only EXISTING_SERIAL_BUILD]
 
 With no provider options, test both MPICH and Open MPI. Each provider gets a
 fresh local clone, a default-module direct-MPI build, and the full make check
@@ -33,7 +35,8 @@ Commit intended PLUMED changes before starting a fresh build. All clones and
 logs are retained in the printed results directory.
 Use --injection-only with an existing serial build directory to run the full
 regression suite through a linked MPI host, plus focused injection and
-provider-loading checks, without rebuilding PLUMED.
+provider-loading checks, without rebuilding PLUMED. Use --focused-only with
+the same build to skip the full suite and run just the focused checks.
 
 Environment overrides:
   CONDA_BASE    Conda installation (default: $HOME/miniconda3)
@@ -50,12 +53,13 @@ while (($#)); do
     --thread-only) THREAD_ONLY=yes; shift ;;
     --mpich) PROVIDERS+=(mpich); shift ;;
     --openmpi) PROVIDERS+=(openmpi); shift ;;
-    --jobs|--results|--injection-only)
+    --jobs|--results|--injection-only|--focused-only)
       if (($# < 2)); then usage >&2; exit 2; fi
       case $1 in
         --jobs) JOBS=$2 ;;
         --results) RESULTS=$2 ;;
-        --injection-only) SERIAL_BUILD=$(cd "$2" && pwd) ;;
+        --injection-only) SERIAL_BUILD=$(cd "$2" && pwd); FOCUSED_ONLY=no ;;
+        --focused-only) SERIAL_BUILD=$(cd "$2" && pwd); FOCUSED_ONLY=yes ;;
       esac
       shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -68,7 +72,7 @@ if ! [[ $JOBS =~ ^[1-9][0-9]*$ ]]; then
 fi
 if [[ $THREAD_ONLY == yes ]]; then
   if ((${#PROVIDERS[@]} > 0)) || [[ -n $SERIAL_BUILD ]]; then
-    echo '--thread-only cannot be combined with provider options or --injection-only.' >&2
+    echo '--thread-only cannot be combined with provider options or an existing serial build.' >&2
     exit 2
   fi
 elif ((${#PROVIDERS[@]} == 0)); then
@@ -201,10 +205,12 @@ run_injection() (
   fi
   unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
   if [[ $provider == openmpi ]]; then export OMPI_MCA_rmaps_base_oversubscribe=1; fi
-  make --no-print-directory -j"$JOBS" -C "$SERIAL_BUILD/regtest" testclean \
-    > "$RESULTS/$provider-injected-clean.log" 2>&1
-  make -C "$SERIAL_BUILD/regtest" checkfail \
-    > "$RESULTS/$provider-injected-check.log" 2>&1
+  if [[ $FOCUSED_ONLY == no ]]; then
+    make --no-print-directory -j"$JOBS" -C "$SERIAL_BUILD/regtest" testclean \
+      > "$RESULTS/$provider-injected-clean.log" 2>&1
+    make -C "$SERIAL_BUILD/regtest" checkfail \
+      > "$RESULTS/$provider-injected-check.log" 2>&1
+  fi
 
   PLUMED_ROOT="$SERIAL_BUILD" bash "$SERIAL_BUILD/scripts/mkmpi.sh" \
     --compiler "$CONDA_PREFIX/bin/mpicc" --out "$adapter"

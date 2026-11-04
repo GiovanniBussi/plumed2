@@ -11,7 +11,9 @@ through a C++98 MPI host linked to the existing serial build, then runs the
 focused injection, provider-selection, and nested-CHDIR checks. This uses the
 same linked-host setup as the serial MPI injection CI job and supports local
 macOS or Linux MPI installations exposed through the MPICH/Open MPI Conda
-environment settings. It retains all logs in its results directory.
+environment settings. It retains all logs in its results directory. Use
+`run-mpi-tests.sh --focused-only SERIAL_BUILD` to rerun just the focused
+checks, rebuilding the hosts and providers without repeating the full suite.
 
 `check-mpi-host-injection.sh MPI_CXX MPIEXEC SERIAL_KERNEL [PROVIDER_LIBRARY]`
 is the focused injection check used by `run-mpi-tests.sh` and CI for Open MPI
