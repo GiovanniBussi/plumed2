@@ -193,8 +193,9 @@ is C++98-compatible and does not link a PLUMED kernel.
 Use a `.dylib` output name on macOS. Pass each additional compiler or linker
 argument separately with repeated `--cflag ARG` or `--ldflag ARG` options;
 arguments are never shell-evaluated. The selected compiler must support C++.
-The adapter sources are installed with PLUMED, so this command does not need
-the original source checkout. Failed builds preserve an existing output.
+The command compiles a small generated stub against the installed public
+`Plumed.h`; it does not need adapter source files or the original source
+checkout. Failed builds preserve an existing output.
 
 Building a provider does not initialize MPI: the host remains responsible
 for its MPI lifecycle. Set `PLUMED_MPI_WRAPPER` to an absolute provider-library path

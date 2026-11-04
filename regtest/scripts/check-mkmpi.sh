@@ -5,10 +5,10 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mkmpi-test.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 export PLUMED_ROOT="$TASK_DIR/installed tree"
-mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/src/mpiwrap" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
-for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h; do
-  cp "$ROOT/src/mpiwrap/$source" "$PLUMED_ROOT/src/mpiwrap/"
-done
+mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/include/plumed" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
+printf '/* public header */\n' > "$PLUMED_ROOT/include/plumed/Plumed.h"
+export PLUMED_INCLUDEDIR="$PLUMED_ROOT/include"
+export PLUMED_PROGRAM_NAME=plumed
 printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\n" > "$PLUMED_ROOT/src/config/compile_options.sh"
 export ARGUMENT_LOG="$TASK_DIR/arguments"
 cat > "$TASK_DIR/compiler dir/mpicc" <<'COMPILER'
@@ -40,7 +40,7 @@ if [[ $(cat "$output") != 'new provider' ]]; then
   echo 'mkmpi did not publish the provider' >&2; exit 1
 fi
 for expected in "$literal_flag" '-L/path with spaces' '-shared' \
-  "$PLUMED_ROOT/src/mpiwrap/mpiwrap_implementation.cpp"; do
+  "-I$PLUMED_ROOT/include/plumed"; do
   if ! grep -Fx -- "$expected" "$ARGUMENT_LOG" >/dev/null; then
     echo "mkmpi changed argument: $expected" >&2; exit 1
   fi
@@ -59,4 +59,4 @@ temporary=("$TASK_DIR/output dir"/.plumed-mkmpi.*)
 if ((${#temporary[@]})); then
   echo 'mkmpi left temporary build directories behind' >&2; exit 1
 fi
-echo 'mkmpi arguments, installed sources, cleanup, and publication passed'
+echo 'mkmpi public-header arguments, cleanup, and publication passed'

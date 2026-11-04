@@ -3741,7 +3741,7 @@ __PLUMED_WRAPPER_ANONYMOUS_END /*}*/
 /* BEGINNING OF DEFINITIONS */
 
 /* MPIW_HOST_ADAPTER_PRELUDE_BEGIN */
-#if defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_ && !defined(__PLUMED_wrapper_Plumed_implementation)
+#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(__PLUMED_wrapper_Plumed_implementation)
 #if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)
 #include <mpi.h>
 #endif
@@ -3827,746 +3827,8 @@ typedef const plumed_mpiw_provider_descriptor *(*plumed_mpiw_factory_fn)(void);
 #endif
 /* MPIW_HOST_ADAPTER_PRELUDE_END */
 
-#if __PLUMED_WRAPPER_IMPLEMENTATION_  /*{*/
-#ifndef __PLUMED_wrapper_Plumed_implementation /*{*/
-#define __PLUMED_wrapper_Plumed_implementation
-
-/*
-  the following macros only control the implementation
-*/
-
-/*
-  1: enable the definition of plumed_symbol_table_reexport
-  0: does not enable the definition of plumed_symbol_table_reexport
-
-  This is only needed in the official plumed library to make
-  the symbol table available. This is a hack to reexport the function table
-  and is only needed when creating the library libplumed.so.
-*/
-
-#ifndef __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE
-#define __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE 0
-#endif
-
-/*
-  1: write on stderr changes in reference counters
-  0: do not write changes in reference counters
-
-  Used for debugging.
-
-  Only used in definitions.
-*/
-
-#ifndef __PLUMED_WRAPPER_DEBUG_REFCOUNT
-#define __PLUMED_WRAPPER_DEBUG_REFCOUNT 0
-#endif
-
-/*
-  1: emit plumed_kernel_register function (default)
-  0: do not emit plumed_kernel_register function
-
-  This function is only needed to avoid an extra warning when loading old (<=2.4) kernels.
-  We might change its default in the future.
-
-  Used only in definitions.
-*/
-
-#ifndef __PLUMED_WRAPPER_KERNEL_REGISTER
-#define __PLUMED_WRAPPER_KERNEL_REGISTER 1
-#endif
-
-/*
-  1: emit Fortran wrappers
-  0: do not emit Fortran wrappers (default)
-
-  Used only in definitions.
-*/
-
-#ifndef __PLUMED_WRAPPER_FORTRAN
-#define __PLUMED_WRAPPER_FORTRAN 0
-#endif
-
-/*
-  With internal interface, it does not make sense to emit kernel register or fortran interfaces
-*/
-
-#if ! __PLUMED_WRAPPER_EXTERN /*{*/
-#undef __PLUMED_WRAPPER_KERNEL_REGISTER
-#define __PLUMED_WRAPPER_KERNEL_REGISTER 0
-#undef __PLUMED_WRAPPER_FORTRAN
-#define __PLUMED_WRAPPER_FORTRAN 0
-#endif /*}*/
-
-#ifdef __PLUMED_HAS_DLOPEN
-#include <dlfcn.h> /* dlopen dlerror dlsym */
-#endif
-
-#if __PLUMED_WRAPPER_CXX_STD
-#include <cstdio>  /* fprintf */
-#include <cstring> /* memcpy strlen strncpy memcmp memmove strcmp memcpy */
-#include <cassert> /* assert */
-#include <cstdlib> /* getenv malloc free abort */
-#include <climits> /* CHAR_BIT */
-#else
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <limits.h>
-#endif
-
-/**
-  Function pointer to plumed_create
-*/
-
-typedef void*(*plumed_create_pointer)(void);
-/**
-  Function pointer to plumed_cmd
-*/
-typedef void(*plumed_cmd_pointer)(void*,const char*,const void*);
-
-/**
-  Function pointer to plumed_finalize
-*/
-typedef void(*plumed_finalize_pointer)(void*);
-
-/**
-   Holder for plumedmain function pointers.
-*/
-typedef struct {
-  plumed_create_pointer create;
-  plumed_cmd_pointer cmd;
-  plumed_finalize_pointer finalize;
-} plumed_plumedmain_function_holder;
-
-/**
-  Holder for plumed symbol table.
-
-  The table contains pointers to function exported from plumed. Functions can be added increasing the version number.
-  Notice that the default way to extend functionalities is by adding cmd strings. This is a last resort, and all new
-  functions should be explicitly motivated. Here's the addition:
-
-  version=2, cmd_nothrow.
-
-  This function accepts an extra argument `plumed_nothrow_handler*handler`.
-  In case an exception is thrown within plumed, it just calls `handler->handler(handler->ptr,code,message,opt)` and return.
-  An alternative would have been to install an error handler (with a call to cmd("setErrorHandler")). However, the cost
-  of doing it everytime Plumed::cmd is called is too high. On the other hand, installing it only at object construction
-  is very risky since and object created in that way would not report any error if manipulated from the C interface.
-  So, it looks like this is the only possibility.
-
-  version=3, cmd_safe and cmd_safe_nothrow
-
-  These are functions that accept a plumed_safeptr object, which can carry information about the passed type and size.
-  Since new information should be passed at every cmd call, this can only be obtained by adding new cmd calls.
-
-  version=4, thread-safe reference counter
-
-  These functions allow to access a thread-safe reference counter that is stored within the PlumedMain object.
-  This allows avoiding to enable atomic access also the C compiler used build Plumed.c. It's added here and not as a new
-  cmd since this is a very low-level functionality.
-*/
-typedef struct {
-  /**
-    Version number.
-
-    Minimum value is 1.
-  */
-  int version;
-  /**
-    Pointers to standard plumed functions (create/cmd/finalize).
-
-    Always available.
-  */
-  plumed_plumedmain_function_holder functions;
-  /**
-    Pointer to a cmd function guaranteed not to throw exceptions.
-
-    Available with version>=2.
-  */
-  void (*cmd_nothrow)(void*plumed,const char*key,const void*val,plumed_nothrow_handler);
-  /**
-    Pointer to a cmd function that accepts typeinfos.
-
-    Available with version>=3.
-  */
-  void (*cmd_safe)(void*plumed,const char*key,plumed_safeptr);
-
-  /**
-    Pointer to a cmd function guaranteed not to throw exceptions and that accepts typeinfos.
-
-    Available with version>=3.
-  */
-  void (*cmd_safe_nothrow)(void*plumed,const char*key,plumed_safeptr,plumed_nothrow_handler);
-
-  /**
-    Pointer to a function that increments the internal reference counter.
-
-    Available with version>=4.
-  */
-  unsigned (*create_reference)(void*);
-  /**
-    Pointer to a function that decrements the internal reference counter.
-
-    Available with version>=4.
-  */
-  unsigned (*delete_reference)(void*);
-  /**
-    Pointer to a function that returns the internal reference counter.
-
-    Available with version>=4.
-  */
-  unsigned (*use_count)(void*);
-} plumed_symbol_table_type;
-
-/* Utility to convert function pointers to pointers, just for the sake of printing them */
-#define __PLUMED_CONVERT_FPTR(ptr,fptr) { ptr=__PLUMED_WRAPPER_CXX_NULLPTR; __PLUMED_WRAPPER_STD memcpy(&ptr,&fptr,(sizeof(fptr)>sizeof(ptr)?sizeof(ptr):sizeof(fptr))); }
-
-#define __PLUMED_GETENV __PLUMED_WRAPPER_STD getenv
-#define __PLUMED_FPRINTF __PLUMED_WRAPPER_STD fprintf
-
-/**
-  Historically (PLUMED<=2.4) register for plumedmain function pointers.
-  As of PLUMED>=2.5, this function does not do anything except for reporting the attempt to register
-  something. It always returns NULL. The function should be here anyway to allow an incomplete
-  libplumedKernel (<=2.4), expecting this function to be present, to be loaded correctly.
-*/
-#if __PLUMED_WRAPPER_KERNEL_REGISTER
-/* Since it is only called from outside, it must be hardcoded to be extern */
-__PLUMED_WRAPPER_EXTERN_C_BEGIN /*{*/
-extern plumed_plumedmain_function_holder* plumed_kernel_register(const plumed_plumedmain_function_holder*);
-plumed_plumedmain_function_holder* plumed_kernel_register(const plumed_plumedmain_function_holder* f) {
-  void* tmpptr;
-  if(f) {
-    if(__PLUMED_GETENV("PLUMED_LOAD_DEBUG")) {
-      __PLUMED_FPRINTF(stderr,"+++ Ignoring registration at %p (",__PLUMED_WRAPPER_STATIC_CAST(const void*,f));
-      __PLUMED_CONVERT_FPTR(tmpptr,f->create);
-      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
-      __PLUMED_CONVERT_FPTR(tmpptr,f->cmd);
-      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
-      __PLUMED_CONVERT_FPTR(tmpptr,f->finalize);
-      __PLUMED_FPRINTF(stderr,"%p) +++\n",tmpptr);
-    }
-  }
-  return __PLUMED_WRAPPER_CXX_NULLPTR;
-}
-__PLUMED_WRAPPER_EXTERN_C_END /*}*/
-#endif
-
-#if defined( __PLUMED_HAS_DLOPEN) /*{*/
-/**
-Try to dlopen a path with a given mode.
-If the dlopen command fails, it tries to strip the `Kernel` part of the name.
-
-This function is declared static (internal linkage) so that it is not visible from outside.
-It is first declared then defined to make sure it is a regular C static function.
-*/
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-void* plumed_attempt_dlopen(const char*path,int mode) {
-  char* pathcopy;
-  void* p;
-  char* pc;
-  __PLUMED_WRAPPER_STD size_t strlenpath;
-  __PLUMED_WRAPPER_STD size_t pos;
-  int found;
-  pathcopy=__PLUMED_WRAPPER_CXX_NULLPTR;
-  p=__PLUMED_WRAPPER_CXX_NULLPTR;
-  pc=__PLUMED_WRAPPER_CXX_NULLPTR;
-  strlenpath=0;
-  pos=0;
-  found=0;
-  dlerror();
-  p=dlopen(path,mode);
-  if(!p) {
-    /*
-      Something went wrong. We try to remove "Kernel" string from the PLUMED_KERNEL variable
-      and load directly the shared library. Notice that this particular path is only expected
-      to be necessary when using PLUMED<=2.4 and the symbols in the main executable are
-      not visible. All the other cases (either PLUMED>=2.5 or symbols in the main executable visible)
-      should work correctly without entering here.
-    */
-    __PLUMED_FPRINTF(stderr,"+++ An error occurred. Message from dlopen(): %s +++\n",dlerror());
-    strlenpath=__PLUMED_WRAPPER_STD strlen(path);
-    pathcopy=__PLUMED_WRAPPER_STATIC_CAST(char*, plumed_malloc(strlenpath+1));
-    if(!pathcopy) {
-      __PLUMED_FPRINTF(stderr,"+++ Allocation error +++\n");
-      __PLUMED_WRAPPER_STD abort();
-    }
-    __PLUMED_WRAPPER_STD memcpy(pathcopy,path,strlenpath+1);
-    /* search the last occurrence of "Kernel" using indexes, so that no pointer outside the buffer is ever formed */
-    if(strlenpath>=6) {
-      pos=strlenpath-5;
-      while(pos>0) {
-        pos--;
-        if(!__PLUMED_WRAPPER_STD memcmp(pathcopy+pos,"Kernel",6)) {
-          found=1;
-          break;
-        }
-      }
-    }
-    if(found) {
-      pc=pathcopy+pos;
-      __PLUMED_WRAPPER_STD memmove(pc, pc+6, __PLUMED_WRAPPER_STD strlen(pc)-5);
-      __PLUMED_FPRINTF(stderr,"+++ This error is expected if you are trying to load a kernel <=2.4\n");
-      __PLUMED_FPRINTF(stderr,"+++ Trying %s +++\n",pathcopy);
-      dlerror();
-      p=dlopen(pathcopy,mode);
-      if(!p) {
-        __PLUMED_FPRINTF(stderr,"+++ An error occurred. Message from dlopen(): %s +++\n",dlerror());
-      }
-    }
-    plumed_free(pathcopy);
-  }
-  return p;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-/**
-  Utility to search for a function.
-*/
-#ifdef __cplusplus
-#define __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr) func=reinterpret_cast<functype>(tmpptr)
-#else
-#define __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr)  *(void **)&func=tmpptr
-#endif
-#define __PLUMED_SEARCH_FUNCTION(functype,tmpptr,handle,func,name,debug) \
-  if(!func) { \
-    tmpptr=dlsym(handle,name); \
-    if(tmpptr) { \
-      __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr); \
-      if(debug) __PLUMED_FPRINTF(stderr,"+++ %s found at %p +++\n",name,tmpptr); \
-    } else { \
-      if(debug) __PLUMED_FPRINTF(stderr,"+++ Function %s not found\n",name); \
-    } \
-  }
-
-/**
-Search symbols in a dlopened library.
-
-This function is declared static (internal linkage) so that it is not visible from outside.
-*/
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-void plumed_search_symbols(void* handle, plumed_plumedmain_function_holder* f,plumed_symbol_table_type** table) {
-  plumed_plumedmain_function_holder functions;
-  plumed_symbol_table_type* table_ptr;
-  void* tmpptr;
-  char* debug;
-  functions.create=__PLUMED_WRAPPER_CXX_NULLPTR;
-  functions.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
-  functions.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
-  table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-  tmpptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /*
-    Notice that as of PLUMED 2.5 we ignore self registrations.
-    Pointers are searched in the form of a single pointer to a structure, which
-    is the standard way in PLUMED 2.5, as well as using alternative names used in
-    PLUMED 2.0 to 2.4 (e.g. plumedmain_create) and in some intermediate versions between
-    PLUMED 2.4 and 2.5 (e.g. plumed_plumedmain_create). The last chance is probably
-    unnecessary and might be removed at some point.
-  */
-  debug=__PLUMED_GETENV("PLUMED_LOAD_DEBUG");
-  table_ptr=__PLUMED_WRAPPER_STATIC_CAST(plumed_symbol_table_type*, dlsym(handle,"plumed_symbol_table"));
-  if(table_ptr) {
-    functions=table_ptr->functions;
-  }
-  if(debug) {
-    if(table_ptr) {
-      __PLUMED_FPRINTF(stderr,"+++ plumed_symbol_table version %i found at %p +++\n",table_ptr->version,__PLUMED_WRAPPER_STATIC_CAST(void*,table_ptr));
-      __PLUMED_FPRINTF(stderr,"+++ plumed_function_pointers found at %p (",__PLUMED_WRAPPER_STATIC_CAST(void*,&table_ptr->functions));
-      __PLUMED_CONVERT_FPTR(tmpptr,functions.create);
-      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
-      __PLUMED_CONVERT_FPTR(tmpptr,functions.cmd);
-      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
-      __PLUMED_CONVERT_FPTR(tmpptr,functions.finalize);
-      __PLUMED_FPRINTF(stderr,"%p) +++\n",tmpptr);
-    } else {
-      __PLUMED_FPRINTF(stderr,"+++ plumed_symbol_table (available in PLUMED>=2.5) not found, perhaps kernel is older +++\n");
-    }
-  }
-  /* only searches if they were not found already */
-  __PLUMED_SEARCH_FUNCTION(plumed_create_pointer,tmpptr,handle,functions.create,"plumedmain_create",debug);
-  __PLUMED_SEARCH_FUNCTION(plumed_create_pointer,tmpptr,handle,functions.create,"plumed_plumedmain_create",debug);
-  __PLUMED_SEARCH_FUNCTION(plumed_cmd_pointer,tmpptr,handle,functions.cmd,"plumedmain_cmd",debug);
-  __PLUMED_SEARCH_FUNCTION(plumed_cmd_pointer,tmpptr,handle,functions.cmd,"plumed_plumedmain_cmd",debug);
-  __PLUMED_SEARCH_FUNCTION(plumed_finalize_pointer,tmpptr,handle,functions.finalize,"plumedmain_finalize",debug);
-  __PLUMED_SEARCH_FUNCTION(plumed_finalize_pointer,tmpptr,handle,functions.finalize,"plumed_plumedmain_finalize",debug);
-  if(functions.create && functions.cmd && functions.finalize) {
-    if(debug) {
-      __PLUMED_FPRINTF(stderr,"+++ PLUMED was loaded correctly +++\n");
-    }
-    *f=functions;
-    if(table) {
-      *table=table_ptr;
-    }
-  } else {
-    if(!functions.create) {
-      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_create not found +++\n");
-    }
-    if(!functions.cmd) {
-      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_cmd not found +++\n");
-    }
-    if(!functions.finalize) {
-      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_finalize not found +++\n");
-    }
-    f->create=__PLUMED_WRAPPER_CXX_NULLPTR;
-    f->cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
-    f->finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
-    if(table) {
-      *table=__PLUMED_WRAPPER_CXX_NULLPTR;
-    }
-  }
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-#endif /*}*/
-
-
-#if __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE
-
-/*
-  Here is the case where plumed_symbol_table is
-  visible as extern. We first declare it (together with plumed_symbol_table_init) ...
-*/
-
-__PLUMED_WRAPPER_EXTERN_C_BEGIN
-extern
-plumed_symbol_table_type plumed_symbol_table;
-__PLUMED_WRAPPER_EXTERN_C_END
-__PLUMED_WRAPPER_EXTERN_C_BEGIN
-extern
-void plumed_symbol_table_init(void);
-__PLUMED_WRAPPER_EXTERN_C_END
-
-/*
-  ... and then make available a function that returns the address
-  of the symbol table.
-*/
-__PLUMED_WRAPPER_C_BEGIN
-plumed_symbol_table_type* plumed_symbol_table_reexport() {
-  /* make sure the table is initialized */
-  plumed_symbol_table_init();
-  return &plumed_symbol_table;
-}
-__PLUMED_WRAPPER_C_END
-
-#else
-
-/*
-  Here is the case where plumed_symbol_table is not
-  visible as extern. We thus assume that plumed_symbol_table_reexport is
-  available.
-*/
-
-__PLUMED_WRAPPER_EXTERN_C_BEGIN
-extern plumed_symbol_table_type* plumed_symbol_table_reexport();
-__PLUMED_WRAPPER_EXTERN_C_END
-#endif
-
-
-/*
-  Returns the global pointers, either those available at link time or those
-  found in the library loaded at PLUMED_KERNEL env var.
-  If plumed_symbol_table_ptr is not NULL, it is used to return a pointer to the symbol table
-  (if available).
-  Notice that problems can be detected checking if the functions have a NULL ptr.
-  On the other hand, the symbol table pointer might be NULL just because the plumed version is <=2.4.
-  If handle is not NULL, it is used to return a dlopen handle that could be subsequently dlclosed.
-*/
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-void plumed_retrieve_functions(plumed_plumedmain_function_holder* functions, plumed_symbol_table_type** plumed_symbol_table_ptr,void** handle) {
-#if ! __PLUMED_WRAPPER_LINK_RUNTIME
-  /*
-    Real interface, constructed using the symbol table obtained with plumed_symbol_table_reexport.
-    This makes the symbols hardcoded and independent of a mis-set PLUMED_KERNEL variable.
-  */
-  plumed_symbol_table_type* ptr=plumed_symbol_table_reexport();
-  if(plumed_symbol_table_ptr) {
-    *plumed_symbol_table_ptr=ptr;
-  }
-  if(handle) {
-    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-  if(functions) {
-    *functions=ptr->functions;
-  }
-#elif ! defined(__PLUMED_HAS_DLOPEN)
-  /*
-    When dlopen is not available, we hard code them to NULL
-  */
-  __PLUMED_FPRINTF(stderr,"+++ PLUMED has been compiled without dlopen and without a static kernel +++\n");
-  plumed_plumedmain_function_holder g= {__PLUMED_WRAPPER_CXX_NULLPTR,__PLUMED_WRAPPER_CXX_NULLPTR,__PLUMED_WRAPPER_CXX_NULLPTR};
-  if(plumed_symbol_table_ptr) {
-    *plumed_symbol_table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-  if(handle) {
-    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-  if(functions) {
-    *functions=g;
-  }
-#else
-  /*
-    On the other hand, for runtime binding, we use dlsym to find the relevant functions.
-  */
-  plumed_plumedmain_function_holder g;
-  /* search is done once and only once */
-  const char* path;
-  void* p;
-  char* debug;
-  int dlopenmode;
-  /* possible value of PLUMED_LOAD_NAMESPACE environment variable */
-  char *load_namespace;
-  g.create=__PLUMED_WRAPPER_CXX_NULLPTR;
-  g.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
-  g.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
-  path=__PLUMED_GETENV("PLUMED_KERNEL");
-  p=__PLUMED_WRAPPER_CXX_NULLPTR;
-  debug=__PLUMED_GETENV("PLUMED_LOAD_DEBUG");
-  dlopenmode=0;
-  if(plumed_symbol_table_ptr) {
-    *plumed_symbol_table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-  if(handle) {
-    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
-  }
-#ifdef __PLUMED_DEFAULT_KERNEL
-  /*
-    This variable allows a default path for the kernel to be hardcoded.
-    Can be useful for hardcoding the predefined plumed location
-    still allowing the user to override this choice setting PLUMED_KERNEL.
-    The path should be chosen at compile time adding e.g.
-    -D__PLUMED_DEFAULT_KERNEL=/opt/local/lib/libplumed.dylib
-  */
-  /* This is required to add quotes */
-#define PLUMED_QUOTE_DIRECT(name) #name
-#define PLUMED_QUOTE(macro) PLUMED_QUOTE_DIRECT(macro)
-  if(! (path && (*path) )) {
-    path=PLUMED_QUOTE(__PLUMED_DEFAULT_KERNEL);
-  }
-#endif
-#if defined(__PLUMED_PROGRAM_NAME) && defined(__PLUMED_SOEXT)
-  if(! (path && (*path) )) {
-    path="lib" __PLUMED_PROGRAM_NAME "Kernel." __PLUMED_SOEXT;
-  }
-#endif
-  if(path && (*path)) {
-    __PLUMED_FPRINTF(stderr,"+++ Loading the PLUMED kernel runtime +++\n");
-    __PLUMED_FPRINTF(stderr,"+++ PLUMED_KERNEL=\"%s\" +++\n",path);
-    if(debug) {
-      __PLUMED_FPRINTF(stderr,"+++ Loading with mode RTLD_NOW");
-    }
-    dlopenmode=RTLD_NOW;
-    load_namespace = __PLUMED_GETENV("PLUMED_LOAD_NAMESPACE");
-    if(load_namespace && !__PLUMED_WRAPPER_STD strcmp(load_namespace,"GLOBAL")) {
-      dlopenmode=dlopenmode|RTLD_GLOBAL;
-      if(debug) {
-        __PLUMED_FPRINTF(stderr,"|RTLD_GLOBAL");
-      }
-    } else {
-      dlopenmode=dlopenmode|RTLD_LOCAL;
-      if(debug) {
-        __PLUMED_FPRINTF(stderr,"|RTLD_LOCAL");
-      }
-    }
-#ifdef RTLD_DEEPBIND
-#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
-    if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
-      dlopenmode=dlopenmode|RTLD_DEEPBIND;
-      if(debug) {
-        __PLUMED_FPRINTF(stderr,"|RTLD_DEEPBIND");
-      }
-    }
-#endif
-#endif
-    if(debug) {
-      __PLUMED_FPRINTF(stderr," +++\n");
-    }
-    p=plumed_attempt_dlopen(path,dlopenmode);
-    if(p) {
-      plumed_search_symbols(p,&g,plumed_symbol_table_ptr);
-    }
-  }
-  if(handle) {
-    *handle=p;
-  }
-  if(functions) {
-    *functions=g;
-  }
-#endif
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-/**
-  Implementation.
-  Small object used to store pointers directly into the plumed object defined in Plumed.h.
-  This allows avoiding the extra function call to plumed_retrieve_functions at every cmd,
-  at the cost of an extra indirection.
-*/
-typedef struct {
-  /* allows errors with pointers to be found when debugging */
-  char magic[6];
-  /* reference count. this is only used with PLUMED<=2.8. Later versions have an internal thread-safe reference counter. */
-  int refcount;
-  /* handler to dlopened library. NULL if there was no library opened */
-  void* dlhandle;
-  /* non zero if, upon destruction, the library should be dlclosed */
-  int dlclose;
-  /* 1 if path to kernel was taken from PLUMED_KERNEL var, 0 otherwise */
-  int used_plumed_kernel;
-  /* function pointers */
-  plumed_plumedmain_function_holder functions;
-  /* pointer to the symbol table. NULL if kernel <=2.4 */
-  plumed_symbol_table_type* table;
-  /* pointer to plumed object */
-  void* p;
-} plumed_implementation;
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-plumed_implementation* plumed_malloc_pimpl() {
-  plumed_implementation* pimpl;
-  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
-  pimpl=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*, plumed_malloc(sizeof(plumed_implementation)));
-  if(!pimpl) {
-    __PLUMED_FPRINTF(stderr,"+++ Allocation error +++\n");
-    __PLUMED_WRAPPER_STD abort();
-  }
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  __PLUMED_WRAPPER_STD memcpy(pimpl->magic,"pLuMEd",6);
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->refcount=1;
-#if __PLUMED_WRAPPER_DEBUG_REFCOUNT
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  __PLUMED_FPRINTF(stderr,"refcount: new at %p\n",__PLUMED_WRAPPER_STATIC_CAST(void*,pimpl));
-#endif
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->dlhandle=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->dlclose=0;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->used_plumed_kernel=0;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->functions.create=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->functions.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->functions.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->table=__PLUMED_WRAPPER_CXX_NULLPTR;
-  /* cppcheck-suppress nullPointerRedundantCheck */
-  pimpl->p=__PLUMED_WRAPPER_CXX_NULLPTR;
-  return pimpl;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-#ifndef NDEBUG
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-int plumed_check_pimpl(plumed_implementation*pimpl) {
-  if(!pimpl) {
-    return 0;
-  }
-  if(__PLUMED_WRAPPER_STD memcmp(pimpl->magic,"pLuMEd",6)) {
-    return 0;
-  }
-  return 1;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-#endif
-
-/* C wrappers: */
-
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create(void) {
-  /* returned object */
-  plumed p;
-  /* pointer to implementation */
-  plumed_implementation* pimpl;
-  /* possible value of PLUMED_LOAD_DLCLOSE environment variable */
-  char *load_dlclose;
-  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
-  pimpl=plumed_malloc_pimpl();
-  /* store pointers in pimpl */
-  plumed_retrieve_functions(&pimpl->functions,&pimpl->table,&pimpl->dlhandle);
-#if __PLUMED_WRAPPER_LINK_RUNTIME
-  /* note if PLUMED_KERNEL variable was used */
-  pimpl->used_plumed_kernel=1;
-#endif
-  /* note if handle should not be dlclosed */
-  pimpl->dlclose=1;
-  load_dlclose = __PLUMED_GETENV("PLUMED_LOAD_DLCLOSE");
-  if(load_dlclose && !__PLUMED_WRAPPER_STD strcmp(load_dlclose,"no")) {
-    pimpl->dlclose=0;
-  }
-  /* in case of failure, return */
-  /* the resulting object should be plumed_finalized, though you cannot use plumed_cmd */
-  if(!pimpl->functions.create) {
-    /* store pimpl in returned object */
-    p.p=pimpl;
-    return p;
-  }
-  assert(pimpl->functions.cmd);
-  assert(pimpl->functions.finalize);
-  /* obtain object */
-  pimpl->p=(*(pimpl->functions.create))();
-  /* notice: we do not assert pimpl->p since in principle it might be nullptr */
-  /* user might identify this using plumed_valid() */
-  /* store pimpl in returned object */
-  p.p=pimpl;
-  return p;
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlopen(const char*path) {
-  int dlopenmode;
-  /* plumed_create_dlopen always uses RTLD_LOCAL and, when possible, RTLD_DEEPBIND to allow multiple versions */
-#ifdef __PLUMED_HAS_DLOPEN
-  dlopenmode=RTLD_NOW|RTLD_LOCAL;
-#ifdef RTLD_DEEPBIND
-#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
-  if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
-    dlopenmode=dlopenmode|RTLD_DEEPBIND;
-  }
-#endif
-#endif
-#else
-  dlopenmode=0;
-#endif
-  return plumed_create_dlopen2(path,dlopenmode);
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlsym(void* dlhandle) {
-  /* returned object */
-  plumed p;
-  /* pointer to implementation */
-  plumed_implementation* pimpl;
-  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
-  pimpl=plumed_malloc_pimpl();
-#ifdef __PLUMED_HAS_DLOPEN
-  pimpl->dlhandle=dlhandle;
-  plumed_search_symbols(pimpl->dlhandle,&pimpl->functions,&pimpl->table);
-#endif
-  if(!pimpl->functions.create) {
-    p.p=pimpl;
-    return p;
-  }
-  assert(pimpl->functions.cmd);
-  assert(pimpl->functions.finalize);
-  /* obtain object */
-  pimpl->p=(*(pimpl->functions.create))();
-  /* notice: we do not assert pimpl->p since in principle it might be nullptr */
-  /* user might identify this using plumed_valid() */
-  /* store pimpl in returned object */
-  p.p=pimpl;
-  return p;
-}
-__PLUMED_WRAPPER_C_END
-
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_BEGIN */
-#if defined(PLUMED_MPIW_HOST_ADAPTER)
+#if defined(PLUMED_MPIW_HOST_ADAPTER) || defined(PLUMED_MPIW_NATIVE_ADAPTER)
 #ifdef __cplusplus
 namespace PLMD {
 extern "C" {
@@ -12229,12 +11491,759 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
   return &plumed_mpiw_descriptor;
 }
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
 const void *plumed_mpi_implementation(void) {
   return plumed_mpiw_get_descriptor();
 }
 #endif
+#if defined(PLUMED_MPIW_NATIVE_ADAPTER)
+const plumed_mpiw_provider_descriptor *plumed_mpiw_provider_factory(void) {
+  return plumed_mpiw_get_descriptor();
+}
+#endif
+#endif
 #endif
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_END */
+
+#if __PLUMED_WRAPPER_IMPLEMENTATION_  /*{*/
+#ifndef __PLUMED_wrapper_Plumed_implementation /*{*/
+#define __PLUMED_wrapper_Plumed_implementation
+
+/*
+  the following macros only control the implementation
+*/
+
+/*
+  1: enable the definition of plumed_symbol_table_reexport
+  0: does not enable the definition of plumed_symbol_table_reexport
+
+  This is only needed in the official plumed library to make
+  the symbol table available. This is a hack to reexport the function table
+  and is only needed when creating the library libplumed.so.
+*/
+
+#ifndef __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE
+#define __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE 0
+#endif
+
+/*
+  1: write on stderr changes in reference counters
+  0: do not write changes in reference counters
+
+  Used for debugging.
+
+  Only used in definitions.
+*/
+
+#ifndef __PLUMED_WRAPPER_DEBUG_REFCOUNT
+#define __PLUMED_WRAPPER_DEBUG_REFCOUNT 0
+#endif
+
+/*
+  1: emit plumed_kernel_register function (default)
+  0: do not emit plumed_kernel_register function
+
+  This function is only needed to avoid an extra warning when loading old (<=2.4) kernels.
+  We might change its default in the future.
+
+  Used only in definitions.
+*/
+
+#ifndef __PLUMED_WRAPPER_KERNEL_REGISTER
+#define __PLUMED_WRAPPER_KERNEL_REGISTER 1
+#endif
+
+/*
+  1: emit Fortran wrappers
+  0: do not emit Fortran wrappers (default)
+
+  Used only in definitions.
+*/
+
+#ifndef __PLUMED_WRAPPER_FORTRAN
+#define __PLUMED_WRAPPER_FORTRAN 0
+#endif
+
+/*
+  With internal interface, it does not make sense to emit kernel register or fortran interfaces
+*/
+
+#if ! __PLUMED_WRAPPER_EXTERN /*{*/
+#undef __PLUMED_WRAPPER_KERNEL_REGISTER
+#define __PLUMED_WRAPPER_KERNEL_REGISTER 0
+#undef __PLUMED_WRAPPER_FORTRAN
+#define __PLUMED_WRAPPER_FORTRAN 0
+#endif /*}*/
+
+#ifdef __PLUMED_HAS_DLOPEN
+#include <dlfcn.h> /* dlopen dlerror dlsym */
+#endif
+
+#if __PLUMED_WRAPPER_CXX_STD
+#include <cstdio>  /* fprintf */
+#include <cstring> /* memcpy strlen strncpy memcmp memmove strcmp memcpy */
+#include <cassert> /* assert */
+#include <cstdlib> /* getenv malloc free abort */
+#include <climits> /* CHAR_BIT */
+#else
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <limits.h>
+#endif
+
+/**
+  Function pointer to plumed_create
+*/
+
+typedef void*(*plumed_create_pointer)(void);
+/**
+  Function pointer to plumed_cmd
+*/
+typedef void(*plumed_cmd_pointer)(void*,const char*,const void*);
+
+/**
+  Function pointer to plumed_finalize
+*/
+typedef void(*plumed_finalize_pointer)(void*);
+
+/**
+   Holder for plumedmain function pointers.
+*/
+typedef struct {
+  plumed_create_pointer create;
+  plumed_cmd_pointer cmd;
+  plumed_finalize_pointer finalize;
+} plumed_plumedmain_function_holder;
+
+/**
+  Holder for plumed symbol table.
+
+  The table contains pointers to function exported from plumed. Functions can be added increasing the version number.
+  Notice that the default way to extend functionalities is by adding cmd strings. This is a last resort, and all new
+  functions should be explicitly motivated. Here's the addition:
+
+  version=2, cmd_nothrow.
+
+  This function accepts an extra argument `plumed_nothrow_handler*handler`.
+  In case an exception is thrown within plumed, it just calls `handler->handler(handler->ptr,code,message,opt)` and return.
+  An alternative would have been to install an error handler (with a call to cmd("setErrorHandler")). However, the cost
+  of doing it everytime Plumed::cmd is called is too high. On the other hand, installing it only at object construction
+  is very risky since and object created in that way would not report any error if manipulated from the C interface.
+  So, it looks like this is the only possibility.
+
+  version=3, cmd_safe and cmd_safe_nothrow
+
+  These are functions that accept a plumed_safeptr object, which can carry information about the passed type and size.
+  Since new information should be passed at every cmd call, this can only be obtained by adding new cmd calls.
+
+  version=4, thread-safe reference counter
+
+  These functions allow to access a thread-safe reference counter that is stored within the PlumedMain object.
+  This allows avoiding to enable atomic access also the C compiler used build Plumed.c. It's added here and not as a new
+  cmd since this is a very low-level functionality.
+*/
+typedef struct {
+  /**
+    Version number.
+
+    Minimum value is 1.
+  */
+  int version;
+  /**
+    Pointers to standard plumed functions (create/cmd/finalize).
+
+    Always available.
+  */
+  plumed_plumedmain_function_holder functions;
+  /**
+    Pointer to a cmd function guaranteed not to throw exceptions.
+
+    Available with version>=2.
+  */
+  void (*cmd_nothrow)(void*plumed,const char*key,const void*val,plumed_nothrow_handler);
+  /**
+    Pointer to a cmd function that accepts typeinfos.
+
+    Available with version>=3.
+  */
+  void (*cmd_safe)(void*plumed,const char*key,plumed_safeptr);
+
+  /**
+    Pointer to a cmd function guaranteed not to throw exceptions and that accepts typeinfos.
+
+    Available with version>=3.
+  */
+  void (*cmd_safe_nothrow)(void*plumed,const char*key,plumed_safeptr,plumed_nothrow_handler);
+
+  /**
+    Pointer to a function that increments the internal reference counter.
+
+    Available with version>=4.
+  */
+  unsigned (*create_reference)(void*);
+  /**
+    Pointer to a function that decrements the internal reference counter.
+
+    Available with version>=4.
+  */
+  unsigned (*delete_reference)(void*);
+  /**
+    Pointer to a function that returns the internal reference counter.
+
+    Available with version>=4.
+  */
+  unsigned (*use_count)(void*);
+} plumed_symbol_table_type;
+
+/* Utility to convert function pointers to pointers, just for the sake of printing them */
+#define __PLUMED_CONVERT_FPTR(ptr,fptr) { ptr=__PLUMED_WRAPPER_CXX_NULLPTR; __PLUMED_WRAPPER_STD memcpy(&ptr,&fptr,(sizeof(fptr)>sizeof(ptr)?sizeof(ptr):sizeof(fptr))); }
+
+#define __PLUMED_GETENV __PLUMED_WRAPPER_STD getenv
+#define __PLUMED_FPRINTF __PLUMED_WRAPPER_STD fprintf
+
+/**
+  Historically (PLUMED<=2.4) register for plumedmain function pointers.
+  As of PLUMED>=2.5, this function does not do anything except for reporting the attempt to register
+  something. It always returns NULL. The function should be here anyway to allow an incomplete
+  libplumedKernel (<=2.4), expecting this function to be present, to be loaded correctly.
+*/
+#if __PLUMED_WRAPPER_KERNEL_REGISTER
+/* Since it is only called from outside, it must be hardcoded to be extern */
+__PLUMED_WRAPPER_EXTERN_C_BEGIN /*{*/
+extern plumed_plumedmain_function_holder* plumed_kernel_register(const plumed_plumedmain_function_holder*);
+plumed_plumedmain_function_holder* plumed_kernel_register(const plumed_plumedmain_function_holder* f) {
+  void* tmpptr;
+  if(f) {
+    if(__PLUMED_GETENV("PLUMED_LOAD_DEBUG")) {
+      __PLUMED_FPRINTF(stderr,"+++ Ignoring registration at %p (",__PLUMED_WRAPPER_STATIC_CAST(const void*,f));
+      __PLUMED_CONVERT_FPTR(tmpptr,f->create);
+      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
+      __PLUMED_CONVERT_FPTR(tmpptr,f->cmd);
+      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
+      __PLUMED_CONVERT_FPTR(tmpptr,f->finalize);
+      __PLUMED_FPRINTF(stderr,"%p) +++\n",tmpptr);
+    }
+  }
+  return __PLUMED_WRAPPER_CXX_NULLPTR;
+}
+__PLUMED_WRAPPER_EXTERN_C_END /*}*/
+#endif
+
+#if defined( __PLUMED_HAS_DLOPEN) /*{*/
+/**
+Try to dlopen a path with a given mode.
+If the dlopen command fails, it tries to strip the `Kernel` part of the name.
+
+This function is declared static (internal linkage) so that it is not visible from outside.
+It is first declared then defined to make sure it is a regular C static function.
+*/
+
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+void* plumed_attempt_dlopen(const char*path,int mode) {
+  char* pathcopy;
+  void* p;
+  char* pc;
+  __PLUMED_WRAPPER_STD size_t strlenpath;
+  __PLUMED_WRAPPER_STD size_t pos;
+  int found;
+  pathcopy=__PLUMED_WRAPPER_CXX_NULLPTR;
+  p=__PLUMED_WRAPPER_CXX_NULLPTR;
+  pc=__PLUMED_WRAPPER_CXX_NULLPTR;
+  strlenpath=0;
+  pos=0;
+  found=0;
+  dlerror();
+  p=dlopen(path,mode);
+  if(!p) {
+    /*
+      Something went wrong. We try to remove "Kernel" string from the PLUMED_KERNEL variable
+      and load directly the shared library. Notice that this particular path is only expected
+      to be necessary when using PLUMED<=2.4 and the symbols in the main executable are
+      not visible. All the other cases (either PLUMED>=2.5 or symbols in the main executable visible)
+      should work correctly without entering here.
+    */
+    __PLUMED_FPRINTF(stderr,"+++ An error occurred. Message from dlopen(): %s +++\n",dlerror());
+    strlenpath=__PLUMED_WRAPPER_STD strlen(path);
+    pathcopy=__PLUMED_WRAPPER_STATIC_CAST(char*, plumed_malloc(strlenpath+1));
+    if(!pathcopy) {
+      __PLUMED_FPRINTF(stderr,"+++ Allocation error +++\n");
+      __PLUMED_WRAPPER_STD abort();
+    }
+    __PLUMED_WRAPPER_STD memcpy(pathcopy,path,strlenpath+1);
+    /* search the last occurrence of "Kernel" using indexes, so that no pointer outside the buffer is ever formed */
+    if(strlenpath>=6) {
+      pos=strlenpath-5;
+      while(pos>0) {
+        pos--;
+        if(!__PLUMED_WRAPPER_STD memcmp(pathcopy+pos,"Kernel",6)) {
+          found=1;
+          break;
+        }
+      }
+    }
+    if(found) {
+      pc=pathcopy+pos;
+      __PLUMED_WRAPPER_STD memmove(pc, pc+6, __PLUMED_WRAPPER_STD strlen(pc)-5);
+      __PLUMED_FPRINTF(stderr,"+++ This error is expected if you are trying to load a kernel <=2.4\n");
+      __PLUMED_FPRINTF(stderr,"+++ Trying %s +++\n",pathcopy);
+      dlerror();
+      p=dlopen(pathcopy,mode);
+      if(!p) {
+        __PLUMED_FPRINTF(stderr,"+++ An error occurred. Message from dlopen(): %s +++\n",dlerror());
+      }
+    }
+    plumed_free(pathcopy);
+  }
+  return p;
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+/**
+  Utility to search for a function.
+*/
+#ifdef __cplusplus
+#define __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr) func=reinterpret_cast<functype>(tmpptr)
+#else
+#define __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr)  *(void **)&func=tmpptr
+#endif
+#define __PLUMED_SEARCH_FUNCTION(functype,tmpptr,handle,func,name,debug) \
+  if(!func) { \
+    tmpptr=dlsym(handle,name); \
+    if(tmpptr) { \
+      __PLUMED_WRAPPER_SEARCHF_CAST(functype,func,tmpptr); \
+      if(debug) __PLUMED_FPRINTF(stderr,"+++ %s found at %p +++\n",name,tmpptr); \
+    } else { \
+      if(debug) __PLUMED_FPRINTF(stderr,"+++ Function %s not found\n",name); \
+    } \
+  }
+
+/**
+Search symbols in a dlopened library.
+
+This function is declared static (internal linkage) so that it is not visible from outside.
+*/
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+void plumed_search_symbols(void* handle, plumed_plumedmain_function_holder* f,plumed_symbol_table_type** table) {
+  plumed_plumedmain_function_holder functions;
+  plumed_symbol_table_type* table_ptr;
+  void* tmpptr;
+  char* debug;
+  functions.create=__PLUMED_WRAPPER_CXX_NULLPTR;
+  functions.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
+  functions.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
+  table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+  tmpptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /*
+    Notice that as of PLUMED 2.5 we ignore self registrations.
+    Pointers are searched in the form of a single pointer to a structure, which
+    is the standard way in PLUMED 2.5, as well as using alternative names used in
+    PLUMED 2.0 to 2.4 (e.g. plumedmain_create) and in some intermediate versions between
+    PLUMED 2.4 and 2.5 (e.g. plumed_plumedmain_create). The last chance is probably
+    unnecessary and might be removed at some point.
+  */
+  debug=__PLUMED_GETENV("PLUMED_LOAD_DEBUG");
+  table_ptr=__PLUMED_WRAPPER_STATIC_CAST(plumed_symbol_table_type*, dlsym(handle,"plumed_symbol_table"));
+  if(table_ptr) {
+    functions=table_ptr->functions;
+  }
+  if(debug) {
+    if(table_ptr) {
+      __PLUMED_FPRINTF(stderr,"+++ plumed_symbol_table version %i found at %p +++\n",table_ptr->version,__PLUMED_WRAPPER_STATIC_CAST(void*,table_ptr));
+      __PLUMED_FPRINTF(stderr,"+++ plumed_function_pointers found at %p (",__PLUMED_WRAPPER_STATIC_CAST(void*,&table_ptr->functions));
+      __PLUMED_CONVERT_FPTR(tmpptr,functions.create);
+      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
+      __PLUMED_CONVERT_FPTR(tmpptr,functions.cmd);
+      __PLUMED_FPRINTF(stderr,"%p,",tmpptr);
+      __PLUMED_CONVERT_FPTR(tmpptr,functions.finalize);
+      __PLUMED_FPRINTF(stderr,"%p) +++\n",tmpptr);
+    } else {
+      __PLUMED_FPRINTF(stderr,"+++ plumed_symbol_table (available in PLUMED>=2.5) not found, perhaps kernel is older +++\n");
+    }
+  }
+  /* only searches if they were not found already */
+  __PLUMED_SEARCH_FUNCTION(plumed_create_pointer,tmpptr,handle,functions.create,"plumedmain_create",debug);
+  __PLUMED_SEARCH_FUNCTION(plumed_create_pointer,tmpptr,handle,functions.create,"plumed_plumedmain_create",debug);
+  __PLUMED_SEARCH_FUNCTION(plumed_cmd_pointer,tmpptr,handle,functions.cmd,"plumedmain_cmd",debug);
+  __PLUMED_SEARCH_FUNCTION(plumed_cmd_pointer,tmpptr,handle,functions.cmd,"plumed_plumedmain_cmd",debug);
+  __PLUMED_SEARCH_FUNCTION(plumed_finalize_pointer,tmpptr,handle,functions.finalize,"plumedmain_finalize",debug);
+  __PLUMED_SEARCH_FUNCTION(plumed_finalize_pointer,tmpptr,handle,functions.finalize,"plumed_plumedmain_finalize",debug);
+  if(functions.create && functions.cmd && functions.finalize) {
+    if(debug) {
+      __PLUMED_FPRINTF(stderr,"+++ PLUMED was loaded correctly +++\n");
+    }
+    *f=functions;
+    if(table) {
+      *table=table_ptr;
+    }
+  } else {
+    if(!functions.create) {
+      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_create not found +++\n");
+    }
+    if(!functions.cmd) {
+      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_cmd not found +++\n");
+    }
+    if(!functions.finalize) {
+      __PLUMED_FPRINTF(stderr,"+++ Pointer to (plumed_)plumedmain_finalize not found +++\n");
+    }
+    f->create=__PLUMED_WRAPPER_CXX_NULLPTR;
+    f->cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
+    f->finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
+    if(table) {
+      *table=__PLUMED_WRAPPER_CXX_NULLPTR;
+    }
+  }
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+#endif /*}*/
+
+
+#if __PLUMED_WRAPPER_REEXPORT_SYMBOL_TABLE
+
+/*
+  Here is the case where plumed_symbol_table is
+  visible as extern. We first declare it (together with plumed_symbol_table_init) ...
+*/
+
+__PLUMED_WRAPPER_EXTERN_C_BEGIN
+extern
+plumed_symbol_table_type plumed_symbol_table;
+__PLUMED_WRAPPER_EXTERN_C_END
+__PLUMED_WRAPPER_EXTERN_C_BEGIN
+extern
+void plumed_symbol_table_init(void);
+__PLUMED_WRAPPER_EXTERN_C_END
+
+/*
+  ... and then make available a function that returns the address
+  of the symbol table.
+*/
+__PLUMED_WRAPPER_C_BEGIN
+plumed_symbol_table_type* plumed_symbol_table_reexport() {
+  /* make sure the table is initialized */
+  plumed_symbol_table_init();
+  return &plumed_symbol_table;
+}
+__PLUMED_WRAPPER_C_END
+
+#else
+
+/*
+  Here is the case where plumed_symbol_table is not
+  visible as extern. We thus assume that plumed_symbol_table_reexport is
+  available.
+*/
+
+__PLUMED_WRAPPER_EXTERN_C_BEGIN
+extern plumed_symbol_table_type* plumed_symbol_table_reexport();
+__PLUMED_WRAPPER_EXTERN_C_END
+#endif
+
+
+/*
+  Returns the global pointers, either those available at link time or those
+  found in the library loaded at PLUMED_KERNEL env var.
+  If plumed_symbol_table_ptr is not NULL, it is used to return a pointer to the symbol table
+  (if available).
+  Notice that problems can be detected checking if the functions have a NULL ptr.
+  On the other hand, the symbol table pointer might be NULL just because the plumed version is <=2.4.
+  If handle is not NULL, it is used to return a dlopen handle that could be subsequently dlclosed.
+*/
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+void plumed_retrieve_functions(plumed_plumedmain_function_holder* functions, plumed_symbol_table_type** plumed_symbol_table_ptr,void** handle) {
+#if ! __PLUMED_WRAPPER_LINK_RUNTIME
+  /*
+    Real interface, constructed using the symbol table obtained with plumed_symbol_table_reexport.
+    This makes the symbols hardcoded and independent of a mis-set PLUMED_KERNEL variable.
+  */
+  plumed_symbol_table_type* ptr=plumed_symbol_table_reexport();
+  if(plumed_symbol_table_ptr) {
+    *plumed_symbol_table_ptr=ptr;
+  }
+  if(handle) {
+    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
+  }
+  if(functions) {
+    *functions=ptr->functions;
+  }
+#elif ! defined(__PLUMED_HAS_DLOPEN)
+  /*
+    When dlopen is not available, we hard code them to NULL
+  */
+  __PLUMED_FPRINTF(stderr,"+++ PLUMED has been compiled without dlopen and without a static kernel +++\n");
+  plumed_plumedmain_function_holder g= {__PLUMED_WRAPPER_CXX_NULLPTR,__PLUMED_WRAPPER_CXX_NULLPTR,__PLUMED_WRAPPER_CXX_NULLPTR};
+  if(plumed_symbol_table_ptr) {
+    *plumed_symbol_table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+  }
+  if(handle) {
+    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
+  }
+  if(functions) {
+    *functions=g;
+  }
+#else
+  /*
+    On the other hand, for runtime binding, we use dlsym to find the relevant functions.
+  */
+  plumed_plumedmain_function_holder g;
+  /* search is done once and only once */
+  const char* path;
+  void* p;
+  char* debug;
+  int dlopenmode;
+  /* possible value of PLUMED_LOAD_NAMESPACE environment variable */
+  char *load_namespace;
+  g.create=__PLUMED_WRAPPER_CXX_NULLPTR;
+  g.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
+  g.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
+  path=__PLUMED_GETENV("PLUMED_KERNEL");
+  p=__PLUMED_WRAPPER_CXX_NULLPTR;
+  debug=__PLUMED_GETENV("PLUMED_LOAD_DEBUG");
+  dlopenmode=0;
+  if(plumed_symbol_table_ptr) {
+    *plumed_symbol_table_ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
+  }
+  if(handle) {
+    *handle=__PLUMED_WRAPPER_CXX_NULLPTR;
+  }
+#ifdef __PLUMED_DEFAULT_KERNEL
+  /*
+    This variable allows a default path for the kernel to be hardcoded.
+    Can be useful for hardcoding the predefined plumed location
+    still allowing the user to override this choice setting PLUMED_KERNEL.
+    The path should be chosen at compile time adding e.g.
+    -D__PLUMED_DEFAULT_KERNEL=/opt/local/lib/libplumed.dylib
+  */
+  /* This is required to add quotes */
+#define PLUMED_QUOTE_DIRECT(name) #name
+#define PLUMED_QUOTE(macro) PLUMED_QUOTE_DIRECT(macro)
+  if(! (path && (*path) )) {
+    path=PLUMED_QUOTE(__PLUMED_DEFAULT_KERNEL);
+  }
+#endif
+#if defined(__PLUMED_PROGRAM_NAME) && defined(__PLUMED_SOEXT)
+  if(! (path && (*path) )) {
+    path="lib" __PLUMED_PROGRAM_NAME "Kernel." __PLUMED_SOEXT;
+  }
+#endif
+  if(path && (*path)) {
+    __PLUMED_FPRINTF(stderr,"+++ Loading the PLUMED kernel runtime +++\n");
+    __PLUMED_FPRINTF(stderr,"+++ PLUMED_KERNEL=\"%s\" +++\n",path);
+    if(debug) {
+      __PLUMED_FPRINTF(stderr,"+++ Loading with mode RTLD_NOW");
+    }
+    dlopenmode=RTLD_NOW;
+    load_namespace = __PLUMED_GETENV("PLUMED_LOAD_NAMESPACE");
+    if(load_namespace && !__PLUMED_WRAPPER_STD strcmp(load_namespace,"GLOBAL")) {
+      dlopenmode=dlopenmode|RTLD_GLOBAL;
+      if(debug) {
+        __PLUMED_FPRINTF(stderr,"|RTLD_GLOBAL");
+      }
+    } else {
+      dlopenmode=dlopenmode|RTLD_LOCAL;
+      if(debug) {
+        __PLUMED_FPRINTF(stderr,"|RTLD_LOCAL");
+      }
+    }
+#ifdef RTLD_DEEPBIND
+#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
+    if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
+      dlopenmode=dlopenmode|RTLD_DEEPBIND;
+      if(debug) {
+        __PLUMED_FPRINTF(stderr,"|RTLD_DEEPBIND");
+      }
+    }
+#endif
+#endif
+    if(debug) {
+      __PLUMED_FPRINTF(stderr," +++\n");
+    }
+    p=plumed_attempt_dlopen(path,dlopenmode);
+    if(p) {
+      plumed_search_symbols(p,&g,plumed_symbol_table_ptr);
+    }
+  }
+  if(handle) {
+    *handle=p;
+  }
+  if(functions) {
+    *functions=g;
+  }
+#endif
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+/**
+  Implementation.
+  Small object used to store pointers directly into the plumed object defined in Plumed.h.
+  This allows avoiding the extra function call to plumed_retrieve_functions at every cmd,
+  at the cost of an extra indirection.
+*/
+typedef struct {
+  /* allows errors with pointers to be found when debugging */
+  char magic[6];
+  /* reference count. this is only used with PLUMED<=2.8. Later versions have an internal thread-safe reference counter. */
+  int refcount;
+  /* handler to dlopened library. NULL if there was no library opened */
+  void* dlhandle;
+  /* non zero if, upon destruction, the library should be dlclosed */
+  int dlclose;
+  /* 1 if path to kernel was taken from PLUMED_KERNEL var, 0 otherwise */
+  int used_plumed_kernel;
+  /* function pointers */
+  plumed_plumedmain_function_holder functions;
+  /* pointer to the symbol table. NULL if kernel <=2.4 */
+  plumed_symbol_table_type* table;
+  /* pointer to plumed object */
+  void* p;
+} plumed_implementation;
+
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+plumed_implementation* plumed_malloc_pimpl() {
+  plumed_implementation* pimpl;
+  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
+  pimpl=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*, plumed_malloc(sizeof(plumed_implementation)));
+  if(!pimpl) {
+    __PLUMED_FPRINTF(stderr,"+++ Allocation error +++\n");
+    __PLUMED_WRAPPER_STD abort();
+  }
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  __PLUMED_WRAPPER_STD memcpy(pimpl->magic,"pLuMEd",6);
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->refcount=1;
+#if __PLUMED_WRAPPER_DEBUG_REFCOUNT
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  __PLUMED_FPRINTF(stderr,"refcount: new at %p\n",__PLUMED_WRAPPER_STATIC_CAST(void*,pimpl));
+#endif
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->dlhandle=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->dlclose=0;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->used_plumed_kernel=0;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->functions.create=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->functions.cmd=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->functions.finalize=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->table=__PLUMED_WRAPPER_CXX_NULLPTR;
+  /* cppcheck-suppress nullPointerRedundantCheck */
+  pimpl->p=__PLUMED_WRAPPER_CXX_NULLPTR;
+  return pimpl;
+}
+__PLUMED_WRAPPER_INTERNALS_END
+
+#ifndef NDEBUG
+
+__PLUMED_WRAPPER_INTERNALS_BEGIN
+int plumed_check_pimpl(plumed_implementation*pimpl) {
+  if(!pimpl) {
+    return 0;
+  }
+  if(__PLUMED_WRAPPER_STD memcmp(pimpl->magic,"pLuMEd",6)) {
+    return 0;
+  }
+  return 1;
+}
+__PLUMED_WRAPPER_INTERNALS_END
+#endif
+
+/* C wrappers: */
+
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create(void) {
+  /* returned object */
+  plumed p;
+  /* pointer to implementation */
+  plumed_implementation* pimpl;
+  /* possible value of PLUMED_LOAD_DLCLOSE environment variable */
+  char *load_dlclose;
+  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
+  pimpl=plumed_malloc_pimpl();
+  /* store pointers in pimpl */
+  plumed_retrieve_functions(&pimpl->functions,&pimpl->table,&pimpl->dlhandle);
+#if __PLUMED_WRAPPER_LINK_RUNTIME
+  /* note if PLUMED_KERNEL variable was used */
+  pimpl->used_plumed_kernel=1;
+#endif
+  /* note if handle should not be dlclosed */
+  pimpl->dlclose=1;
+  load_dlclose = __PLUMED_GETENV("PLUMED_LOAD_DLCLOSE");
+  if(load_dlclose && !__PLUMED_WRAPPER_STD strcmp(load_dlclose,"no")) {
+    pimpl->dlclose=0;
+  }
+  /* in case of failure, return */
+  /* the resulting object should be plumed_finalized, though you cannot use plumed_cmd */
+  if(!pimpl->functions.create) {
+    /* store pimpl in returned object */
+    p.p=pimpl;
+    return p;
+  }
+  assert(pimpl->functions.cmd);
+  assert(pimpl->functions.finalize);
+  /* obtain object */
+  pimpl->p=(*(pimpl->functions.create))();
+  /* notice: we do not assert pimpl->p since in principle it might be nullptr */
+  /* user might identify this using plumed_valid() */
+  /* store pimpl in returned object */
+  p.p=pimpl;
+  return p;
+}
+__PLUMED_WRAPPER_C_END
+
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_dlopen(const char*path) {
+  int dlopenmode;
+  /* plumed_create_dlopen always uses RTLD_LOCAL and, when possible, RTLD_DEEPBIND to allow multiple versions */
+#ifdef __PLUMED_HAS_DLOPEN
+  dlopenmode=RTLD_NOW|RTLD_LOCAL;
+#ifdef RTLD_DEEPBIND
+#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
+  if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
+    dlopenmode=dlopenmode|RTLD_DEEPBIND;
+  }
+#endif
+#endif
+#else
+  dlopenmode=0;
+#endif
+  return plumed_create_dlopen2(path,dlopenmode);
+}
+__PLUMED_WRAPPER_C_END
+
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_dlsym(void* dlhandle) {
+  /* returned object */
+  plumed p;
+  /* pointer to implementation */
+  plumed_implementation* pimpl;
+  /* allocate space for implementation object. this is free-ed in plumed_finalize(). */
+  pimpl=plumed_malloc_pimpl();
+#ifdef __PLUMED_HAS_DLOPEN
+  pimpl->dlhandle=dlhandle;
+  plumed_search_symbols(pimpl->dlhandle,&pimpl->functions,&pimpl->table);
+#endif
+  if(!pimpl->functions.create) {
+    p.p=pimpl;
+    return p;
+  }
+  assert(pimpl->functions.cmd);
+  assert(pimpl->functions.finalize);
+  /* obtain object */
+  pimpl->p=(*(pimpl->functions.create))();
+  /* notice: we do not assert pimpl->p since in principle it might be nullptr */
+  /* user might identify this using plumed_valid() */
+  /* store pimpl in returned object */
+  p.p=pimpl;
+  return p;
+}
+__PLUMED_WRAPPER_C_END
+
+
 
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen2(const char*path,int mode) {

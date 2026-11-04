@@ -52,13 +52,20 @@ if [[ -z "$output" ]]; then
   exit 1
 fi
 plumed_mpi_root=${PLUMED_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-adapter_dir="$plumed_mpi_root/src/mpiwrap"
-for source in mpiwrap_implementation.cpp mpiwrap_implementation.cpp.inc provider-abi.h; do
-  if [[ ! -r "$adapter_dir/$source" ]]; then
-    echo "mkmpi: missing installed adapter source $adapter_dir/$source" >&2
-    exit 1
-  fi
+header=
+header_candidates=()
+if [[ -n "${PLUMED_INCLUDEDIR:-}" ]]; then
+  header_candidates+=("$PLUMED_INCLUDEDIR/${PLUMED_PROGRAM_NAME:-plumed}/Plumed.h")
+fi
+header_candidates+=("$plumed_mpi_root/src/wrapper/Plumed.h"
+  "$plumed_mpi_root/src/include/${PLUMED_PROGRAM_NAME:-plumed}/Plumed.h")
+for candidate in "${header_candidates[@]}"; do
+  if [[ -r "$candidate" ]]; then header=$candidate; break; fi
 done
+if [[ -z "$header" ]]; then
+  echo 'mkmpi: cannot find the public Plumed.h header; check PLUMED_INCLUDEDIR and PLUMED_PROGRAM_NAME' >&2
+  exit 1
+fi
 # Reuse only flags checked by configure, as the mklib command does. The
 # selected MPI driver replaces the configured compiler, not its MPI runtime.
 options_file="$plumed_mpi_root/src/config/compile_options.sh"
@@ -78,8 +85,15 @@ read -r -a configured_link_flags <<< "$mpi_provider_link_flags"
 build_dir=$(mktemp -d "$(dirname "$output")/.plumed-mkmpi.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
 temporary_output="$build_dir/$(basename "$output")"
-"$compiler" ${configured_compile_flags[@]+"${configured_compile_flags[@]}"} -DPLUMED_MPIW_NATIVE_ADAPTER \
-  ${cflags[@]+"${cflags[@]}"} "$adapter_dir/mpiwrap_implementation.cpp" \
+adapter_source="$build_dir/mpiwrap_implementation.cpp"
+cat > "$adapter_source" <<'ADAPTER'
+#define PLUMED_MPIW_NATIVE_ADAPTER 1
+#define __PLUMED_WRAPPER_IMPLEMENTATION 0
+#define __PLUMED_WRAPPER_CXX 0
+#include <Plumed.h>
+ADAPTER
+"$compiler" ${configured_compile_flags[@]+"${configured_compile_flags[@]}"} \
+  -I"$(dirname "$header")" ${cflags[@]+"${cflags[@]}"} "$adapter_source" \
   "${configured_link_flags[@]}" ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
     echo "mkmpi: MPI adapter compilation/link failed with $compiler" >&2
     exit 1

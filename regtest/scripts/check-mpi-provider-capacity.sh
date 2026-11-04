@@ -10,7 +10,7 @@ TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-provider-capacity.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 compiler=$1
 arguments=(-x c++ -std=c++98 -DPLUMED_MPIW_NATIVE_ADAPTER \
-  -I"$ROOT/src/mpiwrap" -c "$ROOT/src/mpiwrap/mpiwrap_implementation.cpp")
+  -I"$ROOT/src/wrapper" -c "$ROOT/src/mpiwrap/mpiwrap_implementation.cpp")
 "$compiler" "${arguments[@]}" -o "$TASK_DIR/valid.o"
 "$compiler" "${arguments[@]}" -DPLUMED_MPIW_HANDLE_CAPACITY=16 \
   -o "$TASK_DIR/capacity16.o"

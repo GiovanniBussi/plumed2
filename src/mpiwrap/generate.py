@@ -1564,7 +1564,7 @@ def render_host_adapter_wrapper(abi, callbacks, body):
     wrapper = ROOT / "src/wrapper/Plumed.h"
     source = wrapper.read_text()
     prelude = "\n".join([
-        "#if defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_ && !defined(__PLUMED_wrapper_Plumed_implementation)",
+        "#if (defined(PLUMED_MPIW_NATIVE_ADAPTER) || (defined(PLUMED_MPIW_HOST_ADAPTER) && __PLUMED_WRAPPER_IMPLEMENTATION_)) && !defined(__PLUMED_wrapper_Plumed_implementation)",
         "#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)",
         "#include <mpi.h>",
         "#endif",
@@ -1578,7 +1578,7 @@ def render_host_adapter_wrapper(abi, callbacks, body):
         "",
     ])
     implementation = "\n".join([
-        "#if defined(PLUMED_MPIW_HOST_ADAPTER)",
+        "#if defined(PLUMED_MPIW_HOST_ADAPTER) || defined(PLUMED_MPIW_NATIVE_ADAPTER)",
         "#ifdef __cplusplus",
         "namespace PLMD {",
         "extern \"C\" {",
@@ -1591,9 +1591,16 @@ def render_host_adapter_wrapper(abi, callbacks, body):
         "using PLMD::plumed_mpi_implementation;",
         "#else",
         body.rstrip(),
+        "#if defined(PLUMED_MPIW_HOST_ADAPTER)",
         "const void *plumed_mpi_implementation(void) {",
         "  return plumed_mpiw_get_descriptor();",
         "}",
+        "#endif",
+        "#if defined(PLUMED_MPIW_NATIVE_ADAPTER)",
+        "const plumed_mpiw_provider_descriptor *plumed_mpiw_provider_factory(void) {",
+        "  return plumed_mpiw_get_descriptor();",
+        "}",
+        "#endif",
         "#endif",
         "#endif",
         "",
