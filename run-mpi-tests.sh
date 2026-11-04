@@ -27,10 +27,13 @@ tMPI injection, and provider-registry checks (CMake/CTest required). Use --threa
 or an installed real MPI. No network clone, source reset, installation, or
 push is performed.
 
-The script tests committed HEAD. Commit intended changes before running it.
-All clones and logs are retained in the printed results directory.
-Use --injection-only with an existing serial build directory to rerun just
-the injection/provider-loading checks without rebuilding or repeating the full suites.
+The build stages clone committed HEAD. --injection-only reuses the specified
+build's PLUMED library and kernel with the current host and checker sources.
+Commit intended PLUMED changes before starting a fresh build. All clones and
+logs are retained in the printed results directory.
+Use --injection-only with an existing serial build directory to run the full
+regression suite through a linked MPI host, plus focused injection and
+provider-loading checks, without rebuilding PLUMED.
 
 Environment overrides:
   CONDA_BASE    Conda installation (default: $HOME/miniconda3)
@@ -167,16 +170,43 @@ run_provider() (
 
 run_injection() (
   set -e
-  local provider=$1 extension kernel adapter
+  local provider=$1 extension kernel adapter host library cli
   activate_provider "$provider"
   extension=$(sed -n 's/^SOEXT=//p' "$SERIAL_BUILD/Makefile.conf")
   kernel=$SERIAL_BUILD/src/lib/libplumedKernel.$extension
   adapter=$RESULTS/provider-$provider.$extension
+  library=$SERIAL_BUILD/src/lib/libplumed.$extension
+  host=$RESULTS/plumed-$provider-host
+  cli=$SERIAL_BUILD/src/lib/plumed
+  if [[ ! -f $library || ! -f $kernel ]]; then
+    echo "Missing serial shared library or kernel in $SERIAL_BUILD/src/lib" >&2
+    return 1
+  fi
+  # Link the ordinary host adapter against this serial build as the CI job does.
+  "$CONDA_PREFIX/bin/mpicxx" -std=c++98 "$ROOT/regtest/scripts/mpi-cli.cpp" \
+    -L"$SERIAL_BUILD/src/lib" -Wl,-rpath,"$SERIAL_BUILD/src/lib" -lplumed \
+    -o "$host"
+  export PLUMED_CLI_PROGRAM_NAME=$host
+  export PLUMED_KERNEL=$kernel
+  export PLUMED_LIB=$library
+  export PLUMED_MPIRUN=$CONDA_PREFIX/bin/mpiexec
+  export PLUMED_PYTHON_SELECT="$(python3 -c 'import sys; print(sys.executable)')"
+  unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
+  if [[ $provider == openmpi ]]; then export OMPI_MCA_rmaps_base_oversubscribe=1; fi
+  make --no-print-directory -j"$JOBS" -C "$SERIAL_BUILD/regtest" testclean \
+    > "$RESULTS/$provider-injected-clean.log" 2>&1
+  make -C "$SERIAL_BUILD/regtest" checkfail \
+    > "$RESULTS/$provider-injected-check.log" 2>&1
+
   PLUMED_ROOT="$SERIAL_BUILD" bash "$SERIAL_BUILD/scripts/mkmpi.sh" \
     --compiler "$CONDA_PREFIX/bin/mpicc" --out "$adapter"
   # Use the current checker, including fixes made after the kernel was built.
   "$ROOT/regtest/mpiwrap/check-mpi-host-injection.sh" \
     "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel" "$adapter"
+  "$ROOT/regtest/mpiwrap/check-mpi-provider-selection.sh" \
+    "$cli" "$adapter" "$CONDA_PREFIX/bin/mpicc"
+  PLUMED_MPI_WRAPPER="$adapter" \
+    "$ROOT/regtest/mpiwrap/check-mpi-provider-chdir.sh" "$host"
 )
 
 failed=0

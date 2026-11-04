@@ -6,10 +6,17 @@ They are run explicitly; this directory is not an automatically discovered
 regtest suite. Shared MPI helper sources used by hosts remain in
 `regtest/scripts/`.
 
+`run-mpi-tests.sh --injection-only SERIAL_BUILD` runs the full regression suite
+through a C++98 MPI host linked to the existing serial build, then runs the
+focused injection, provider-selection, and nested-CHDIR checks. This uses the
+same linked-host setup as the serial MPI injection CI job and supports local
+macOS or Linux MPI installations exposed through the MPICH/Open MPI Conda
+environment settings. It retains all logs in its results directory.
+
 `check-mpi-host-injection.sh MPI_CXX MPIEXEC SERIAL_KERNEL [PROVIDER_LIBRARY]`
-is the end-to-end check. It is run by `run-mpi-tests.sh` and CI for Open MPI and
-MPICH. It tests MPI host injection through both PLUMED creation paths and an
-optional provider DSO. The remaining scripts are focused manual checks:
+is the focused injection check used by `run-mpi-tests.sh` and CI for Open MPI
+and MPICH. It tests MPI host injection through both PLUMED creation paths and
+an optional provider DSO. The remaining scripts are focused manual checks:
 
 ```sh
 bash regtest/mpiwrap/check-mpi-host-injection.sh MPI_CXX MPIEXEC SERIAL_KERNEL [PROVIDER_LIBRARY]
