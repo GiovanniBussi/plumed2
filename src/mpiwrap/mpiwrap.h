@@ -69,7 +69,7 @@ inline MPI_Request mpiwrap_export_Request(MPI_Request value) {
 #include <string>
 #include <type_traits>
 #include <vector>
-#include "provider-fallbacks.hpp"
+#include "provider-fallbacks.h"
 static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");
 static_assert(std::is_same<int, std::int32_t>::value, "MPI integer arrays require int32_t to be native int");
 using MPI_Fint = std::int32_t;
