@@ -54,7 +54,7 @@ void get_self(void *output) {
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_COMM_SELF = &get_self;
 void get_MPI_COMM_NULL(void *output) {
-  const thread_mpi::tMPI_Comm value = TMPI_COMM_NULL;
+  const thread_mpi::tMPI_Comm value = (thread_mpi::tMPI_Comm)0;
   std::memcpy(output, &value, sizeof(value));
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_COMM_NULL = &get_MPI_COMM_NULL;
@@ -94,7 +94,7 @@ void get_MPI_STATUSES_IGNORE(void *output) {
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_STATUSES_IGNORE = &get_MPI_STATUSES_IGNORE;
 void get_MPI_GROUP_NULL(void *output) {
-  const thread_mpi::tMPI_Group value = TMPI_GROUP_NULL;
+  const thread_mpi::tMPI_Group value = (thread_mpi::tMPI_Group)0;
   std::memcpy(output, &value, sizeof(value));
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_GROUP_NULL = &get_MPI_GROUP_NULL;
@@ -108,6 +108,11 @@ void get_MPI_REQUEST_NULL(void *output) {
   std::memcpy(output, &value, sizeof(value));
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_REQUEST_NULL = &get_MPI_REQUEST_NULL;
+void get_MPI_DATATYPE_NULL(void *output) {
+  const thread_mpi::tMPI_Datatype value = (thread_mpi::tMPI_Datatype)0;
+  std::memcpy(output, &value, sizeof(value));
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_DATATYPE_NULL = &get_MPI_DATATYPE_NULL;
 void get_MPI_ERRORS_ARE_FATAL(void *output) {
   const thread_mpi::tMPI_Errhandler value = TMPI_ERRORS_ARE_FATAL;
   std::memcpy(output, &value, sizeof(value));

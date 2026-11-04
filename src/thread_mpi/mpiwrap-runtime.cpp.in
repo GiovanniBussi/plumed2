@@ -29,18 +29,6 @@ void record_failure(int rank, int line) {
   std::cerr << "rank " << rank << " runtime assertion failed at line " << line << '\n';
 }
 
-std::int32_t mock_test_incomplete(plumed_mpiw_handle_storage *,
-                                  std::int32_t *flag,
-                                  plumed_mpiw_status *status) {
-  *flag = 0;
-  status->source = 99;
-  status->tag = 98;
-  status->error = 97;
-  status->raw_size = 1;
-  status->raw[0] = 0x5a;
-  return 0;
-}
-
 void rank_work(const void *) {
   const MPI_Comm world = mpiwrap_COMM_WORLD();
   const MPI_Datatype integer = mpiwrap_INT();
@@ -489,10 +477,12 @@ int run(int ranks) {
     std::cerr << "provider install failed: " << error << '\n';
     return 1;
   }
-  // The stable tMPI surface lacks MPI_Test. Supply an exact-signature mock to
-  // exercise the frontend's false-flag status-preservation rule.
-  const auto provider_test = pointers::Test;
-  pointers::Test = &mock_test_incomplete;
+  // The stable tMPI surface lacks MPI_Test; ensure no provider entry leaked
+  // into the shared pointer table before starting concurrent rank callbacks.
+  if (pointers::Test != nullptr) {
+    std::cerr << "tMPI provider unexpectedly published MPI_Test\n";
+    return 1;
+  }
   if (!mpiwrap_has_Comm_rank() || !mpiwrap_has_Comm_size() ||
       !mpiwrap_has_Bcast() || !mpiwrap_has_Allreduce() ||
       !mpiwrap_has_Barrier() || !mpiwrap_has_Irecv() ||
@@ -623,7 +613,6 @@ int run(int ranks) {
                                rank_work, nullptr) != thread_mpi::TMPI_SUCCESS) {
     return 1;
   }
-  pointers::Test = provider_test;
   int finalized = 0;
   if (thread_mpi::tMPI_Finalized(&finalized) != thread_mpi::TMPI_SUCCESS ||
       !finalized || ranks_seen.load() != ranks || failures.load() != 0) {

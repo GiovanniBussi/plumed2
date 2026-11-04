@@ -4595,7 +4595,7 @@ extern "C" {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Initialized((int *)argument_0);
+  int native_result = tMPI_Initialized((int *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4609,9 +4609,9 @@ static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_dup(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_dup(native_argument_0, (thread_mpi::tMPI_Comm *)argument_1);
+  int native_result = tMPI_Comm_dup(native_argument_0, (tMPI_Comm *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4627,7 +4627,7 @@ static void plumed_mpiw_MPI_Comm_dup(void *argument_0, void *argument_1, void *r
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Comm_free((thread_mpi::tMPI_Comm *)argument_0);
+  int native_result = tMPI_Comm_free((tMPI_Comm *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4641,9 +4641,9 @@ static void plumed_mpiw_MPI_Comm_free(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_rank(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_rank(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Comm_rank(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4659,9 +4659,9 @@ static void plumed_mpiw_MPI_Comm_rank(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_size(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_size(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Comm_size(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4677,13 +4677,13 @@ static void plumed_mpiw_MPI_Comm_size(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_split(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  int native_result = thread_mpi::tMPI_Comm_split(native_argument_0, native_argument_1, native_argument_2, (thread_mpi::tMPI_Comm *)argument_3);
+  int native_result = tMPI_Comm_split(native_argument_0, native_argument_1, native_argument_2, (tMPI_Comm *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4703,11 +4703,11 @@ static void plumed_mpiw_MPI_Comm_split(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Abort(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Abort(native_argument_0, native_argument_1);
+  int native_result = tMPI_Abort(native_argument_0, native_argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4727,13 +4727,13 @@ static void plumed_mpiw_MPI_Abort(void *argument_0, void *argument_1, void *resu
 static void plumed_mpiw_MPI_Bcast(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Comm native_argument_4;
+  tMPI_Comm native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  int native_result = thread_mpi::tMPI_Bcast((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4);
+  int native_result = tMPI_Bcast((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4757,17 +4757,17 @@ static void plumed_mpiw_MPI_Bcast(void *argument_0, void *argument_1, void *argu
 static void plumed_mpiw_MPI_Scatter(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Comm native_argument_7;
+  tMPI_Comm native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  int native_result = thread_mpi::tMPI_Scatter((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  int native_result = tMPI_Scatter((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4795,17 +4795,17 @@ static void plumed_mpiw_MPI_Scatter(void *argument_0, void *argument_1, void *ar
 static void plumed_mpiw_MPI_Gather(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Comm native_argument_7;
+  tMPI_Comm native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  int native_result = thread_mpi::tMPI_Gather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  int native_result = tMPI_Gather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4833,13 +4833,13 @@ static void plumed_mpiw_MPI_Gather(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Allreduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Allreduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Allreduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4863,15 +4863,15 @@ static void plumed_mpiw_MPI_Allreduce(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Isend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4936,15 +4936,15 @@ static void plumed_mpiw_MPI_Allgatherv(void *argument_0, void *argument_1, void 
 static void plumed_mpiw_MPI_Recv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Recv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Status *)argument_6);
+  int native_result = tMPI_Recv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Status *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4968,9 +4968,9 @@ static void plumed_mpiw_MPI_Recv(void *argument_0, void *argument_1, void *argum
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Barrier(void *argument_0, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Barrier(native_argument_0);
+  int native_result = tMPI_Barrier(native_argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -4986,9 +4986,9 @@ static void plumed_mpiw_MPI_Barrier(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Get_count(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_1;
+  tMPI_Datatype native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Get_count((thread_mpi::tMPI_Status *)argument_0, native_argument_1, (int *)argument_2);
+  int native_result = tMPI_Get_count((tMPI_Status *)argument_0, native_argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5006,7 +5006,7 @@ static void plumed_mpiw_MPI_Get_count(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *argument_9, void *argument_10, void *argument_11, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
@@ -5014,15 +5014,15 @@ static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *a
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Datatype native_argument_7;
+  tMPI_Datatype native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
   int native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
   int native_argument_9;
   memcpy(&native_argument_9, argument_9, sizeof(native_argument_9));
-  thread_mpi::tMPI_Comm native_argument_10;
+  tMPI_Comm native_argument_10;
   memcpy(&native_argument_10, argument_10, sizeof(native_argument_10));
-  int native_result = thread_mpi::tMPI_Sendrecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (void *)argument_5, native_argument_6, native_argument_7, native_argument_8, native_argument_9, native_argument_10, (thread_mpi::tMPI_Status *)argument_11);
+  int native_result = tMPI_Sendrecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (void *)argument_5, native_argument_6, native_argument_7, native_argument_8, native_argument_9, native_argument_10, (tMPI_Status *)argument_11);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5056,7 +5056,7 @@ static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *a
 static void plumed_mpiw_MPI_Error_string(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Error_string(native_argument_0, (char *)argument_1, (int *)argument_2);
+  int native_result = tMPI_Error_string(native_argument_0, (char *)argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5083,15 +5083,15 @@ static void plumed_mpiw_MPI_Comm_f2c(void *argument_0, void *result) {
 static void plumed_mpiw_MPI_Send(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5151,15 +5151,15 @@ static void plumed_mpiw_MPI_Ssend(void *argument_0, void *argument_1, void *argu
 static void plumed_mpiw_MPI_Rsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5235,15 +5235,15 @@ static void plumed_mpiw_MPI_Issend(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Irsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5269,15 +5269,15 @@ static void plumed_mpiw_MPI_Irsend(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Irecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Irecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Irecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5317,7 +5317,7 @@ static void plumed_mpiw_MPI_Request_free(void *argument_0, void *result) {
 static void plumed_mpiw_MPI_Waitany(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Waitany(native_argument_0, (thread_mpi::tMPI_Request *)argument_1, (int *)argument_2, (thread_mpi::tMPI_Status *)argument_3);
+  int native_result = tMPI_Waitany(native_argument_0, (tMPI_Request *)argument_1, (int *)argument_2, (tMPI_Status *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5344,7 +5344,7 @@ static void plumed_mpiw_MPI_Testany(void *argument_0, void *argument_1, void *ar
 static void plumed_mpiw_MPI_Waitall(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Waitall(native_argument_0, (thread_mpi::tMPI_Request *)argument_1, (thread_mpi::tMPI_Status *)argument_2);
+  int native_result = tMPI_Waitall(native_argument_0, (tMPI_Request *)argument_1, (tMPI_Status *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5551,9 +5551,9 @@ static void plumed_mpiw_MPI_Sendrecv_replace(void *argument_0, void *argument_1,
 static void plumed_mpiw_MPI_Type_contiguous(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Datatype native_argument_1;
+  tMPI_Datatype native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Type_contiguous(native_argument_0, native_argument_1, (thread_mpi::tMPI_Datatype *)argument_2);
+  int native_result = tMPI_Type_contiguous(native_argument_0, native_argument_1, (tMPI_Datatype *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5597,7 +5597,7 @@ static void plumed_mpiw_MPI_Type_indexed(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Type_commit(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Type_commit((thread_mpi::tMPI_Datatype *)argument_0);
+  int native_result = tMPI_Type_commit((tMPI_Datatype *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5611,7 +5611,7 @@ static void plumed_mpiw_MPI_Type_commit(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Type_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Type_free((thread_mpi::tMPI_Datatype *)argument_0);
+  int native_result = tMPI_Type_free((tMPI_Datatype *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5688,15 +5688,15 @@ static void plumed_mpiw_MPI_Pack_size(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Gatherv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_6;
+  tMPI_Datatype native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
   int native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Gatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Gatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5720,17 +5720,17 @@ static void plumed_mpiw_MPI_Gatherv(void *argument_0, void *argument_1, void *ar
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Scatterv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Datatype native_argument_6;
+  tMPI_Datatype native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
   int native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Scatterv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, native_argument_5, native_argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Scatterv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, native_argument_5, native_argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5756,15 +5756,15 @@ static void plumed_mpiw_MPI_Scatterv(void *argument_0, void *argument_1, void *a
 static void plumed_mpiw_MPI_Alltoall(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Comm native_argument_6;
+  tMPI_Comm native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  int native_result = thread_mpi::tMPI_Alltoall((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
+  int native_result = tMPI_Alltoall((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5788,13 +5788,13 @@ static void plumed_mpiw_MPI_Alltoall(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Alltoallv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Datatype native_argument_7;
+  tMPI_Datatype native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Alltoallv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, (int *)argument_5, (int *)argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Alltoallv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, (int *)argument_5, (int *)argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5816,15 +5816,15 @@ static void plumed_mpiw_MPI_Alltoallv(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Reduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
   int native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Comm native_argument_6;
+  tMPI_Comm native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  int native_result = thread_mpi::tMPI_Reduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6);
+  int native_result = tMPI_Reduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5870,13 +5870,13 @@ static void plumed_mpiw_MPI_Reduce_scatter(void *argument_0, void *argument_1, v
 static void plumed_mpiw_MPI_Scan(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Scan((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Scan((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5898,9 +5898,9 @@ static void plumed_mpiw_MPI_Scan(void *argument_0, void *argument_1, void *argum
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_size(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Group_size(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Group_size(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5916,9 +5916,9 @@ static void plumed_mpiw_MPI_Group_size(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_rank(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Group_rank(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Group_rank(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -5958,9 +5958,9 @@ static void plumed_mpiw_MPI_Group_compare(void *argument_0, void *argument_1, vo
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_group(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_group(native_argument_0, (thread_mpi::tMPI_Group *)argument_1);
+  int native_result = tMPI_Comm_group(native_argument_0, (tMPI_Group *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6009,11 +6009,11 @@ static void plumed_mpiw_MPI_Group_difference(void *argument_0, void *argument_1,
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_incl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Group_incl(native_argument_0, native_argument_1, (int *)argument_2, (thread_mpi::tMPI_Group *)argument_3);
+  int native_result = tMPI_Group_incl(native_argument_0, native_argument_1, (int *)argument_2, (tMPI_Group *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6064,7 +6064,7 @@ static void plumed_mpiw_MPI_Group_range_excl(void *argument_0, void *argument_1,
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Group_free((thread_mpi::tMPI_Group *)argument_0);
+  int native_result = tMPI_Group_free((tMPI_Group *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6078,11 +6078,11 @@ static void plumed_mpiw_MPI_Group_free(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_compare(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Comm native_argument_1;
+  tMPI_Comm native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_compare(native_argument_0, native_argument_1, (int *)argument_2);
+  int native_result = tMPI_Comm_compare(native_argument_0, native_argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6100,11 +6100,11 @@ static void plumed_mpiw_MPI_Comm_compare(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_create(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Group native_argument_1;
+  tMPI_Group native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_create(native_argument_0, native_argument_1, (thread_mpi::tMPI_Comm *)argument_2);
+  int native_result = tMPI_Comm_create(native_argument_0, native_argument_1, (tMPI_Comm *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6177,13 +6177,13 @@ static void plumed_mpiw_MPI_Intercomm_merge(void *argument_0, void *argument_1, 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_create(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  int native_result = thread_mpi::tMPI_Cart_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (thread_mpi::tMPI_Comm *)argument_5);
+  int native_result = tMPI_Cart_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (tMPI_Comm *)argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6227,9 +6227,9 @@ static void plumed_mpiw_MPI_Graph_create(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Topo_test(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Topo_test(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Topo_test(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6267,9 +6267,9 @@ static void plumed_mpiw_MPI_Graph_get(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cartdim_get(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cartdim_get(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Cartdim_get(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6285,11 +6285,11 @@ static void plumed_mpiw_MPI_Cartdim_get(void *argument_0, void *argument_1, void
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_get(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Cart_get(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  int native_result = tMPI_Cart_get(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6307,9 +6307,9 @@ static void plumed_mpiw_MPI_Cart_get(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_rank(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cart_rank(native_argument_0, (int *)argument_1, (int *)argument_2);
+  int native_result = tMPI_Cart_rank(native_argument_0, (int *)argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6325,13 +6325,13 @@ static void plumed_mpiw_MPI_Cart_rank(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_coords(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  int native_result = thread_mpi::tMPI_Cart_coords(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
+  int native_result = tMPI_Cart_coords(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6388,9 +6388,9 @@ static void plumed_mpiw_MPI_Cart_shift(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_sub(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cart_sub(native_argument_0, (int *)argument_1, (thread_mpi::tMPI_Comm *)argument_2);
+  int native_result = tMPI_Cart_sub(native_argument_0, (int *)argument_1, (tMPI_Comm *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6406,11 +6406,11 @@ static void plumed_mpiw_MPI_Cart_sub(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_map(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Cart_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  int native_result = tMPI_Cart_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6439,7 +6439,7 @@ static void plumed_mpiw_MPI_Graph_map(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Get_processor_name(void *argument_0, void *argument_1, void *result) {
-  int native_result = thread_mpi::tMPI_Get_processor_name((char *)argument_0, (int *)argument_1);
+  int native_result = tMPI_Get_processor_name((char *)argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6469,7 +6469,7 @@ static void plumed_mpiw_MPI_Error_class(void *argument_0, void *argument_1, void
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Wtime(void *result) {
-  double native_result = thread_mpi::tMPI_Wtime();
+  double native_result = tMPI_Wtime();
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6483,7 +6483,7 @@ static void plumed_mpiw_MPI_Wtime(void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Wtick(void *result) {
-  double native_result = thread_mpi::tMPI_Wtick();
+  double native_result = tMPI_Wtick();
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6497,7 +6497,7 @@ static void plumed_mpiw_MPI_Wtick(void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Finalized(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Finalized((int *)argument_0);
+  int native_result = tMPI_Finalized((int *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6511,9 +6511,9 @@ static void plumed_mpiw_MPI_Finalized(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_get_errhandler(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_get_errhandler(native_argument_0, (thread_mpi::tMPI_Errhandler *)argument_1);
+  int native_result = tMPI_Comm_get_errhandler(native_argument_0, (tMPI_Errhandler *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6529,11 +6529,11 @@ static void plumed_mpiw_MPI_Comm_get_errhandler(void *argument_0, void *argument
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_set_errhandler(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Errhandler native_argument_1;
+  tMPI_Errhandler native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_set_errhandler(native_argument_0, native_argument_1);
+  int native_result = tMPI_Comm_set_errhandler(native_argument_0, native_argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -6910,7 +6910,7 @@ static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_FLOAT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_FLOAT;
+  const tMPI_Datatype value = TMPI_FLOAT;
 #else
   const MPI_Datatype value = MPI_FLOAT;
 #endif
@@ -6920,7 +6920,7 @@ static void plumed_mpiw_value_MPI_FLOAT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_DOUBLE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_DOUBLE;
+  const tMPI_Datatype value = TMPI_DOUBLE;
 #else
   const MPI_Datatype value = MPI_DOUBLE;
 #endif
@@ -6930,7 +6930,7 @@ static void plumed_mpiw_value_MPI_DOUBLE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_INT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT;
+  const tMPI_Datatype value = TMPI_INT;
 #else
   const MPI_Datatype value = MPI_INT;
 #endif
@@ -6940,7 +6940,7 @@ static void plumed_mpiw_value_MPI_INT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_CHAR;
+  const tMPI_Datatype value = TMPI_CHAR;
 #else
   const MPI_Datatype value = MPI_CHAR;
 #endif
@@ -6950,7 +6950,7 @@ static void plumed_mpiw_value_MPI_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED;
+  const tMPI_Datatype value = TMPI_UNSIGNED;
 #else
   const MPI_Datatype value = MPI_UNSIGNED;
 #endif
@@ -6960,7 +6960,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_LONG;
+  const tMPI_Datatype value = TMPI_UNSIGNED_LONG;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_LONG;
 #endif
@@ -6970,7 +6970,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_LONG_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_LONG_LONG;
+  const tMPI_Datatype value = TMPI_UNSIGNED_LONG_LONG;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_LONG_LONG;
 #endif
@@ -6980,7 +6980,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_LONG_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_DOUBLE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_DOUBLE;
+  const tMPI_Datatype value = TMPI_LONG_DOUBLE;
 #else
   const MPI_Datatype value = MPI_LONG_DOUBLE;
 #endif
@@ -6990,7 +6990,7 @@ static void plumed_mpiw_value_MPI_LONG_DOUBLE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_WORLD(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = thread_mpi::TMPI_COMM_WORLD;
+  const tMPI_Comm value = TMPI_COMM_WORLD;
 #else
   const MPI_Comm value = MPI_COMM_WORLD;
 #endif
@@ -7000,7 +7000,7 @@ static void plumed_mpiw_value_MPI_COMM_WORLD(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_SELF(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = thread_mpi::tMPI_Get_comm_self();
+  const tMPI_Comm value = tMPI_Get_comm_self();
 #else
   const MPI_Comm value = MPI_COMM_SELF;
 #endif
@@ -7010,7 +7010,7 @@ static void plumed_mpiw_value_MPI_COMM_SELF(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = TMPI_COMM_NULL;
+  const tMPI_Comm value = (tMPI_Comm)0;
 #else
   const MPI_Comm value = MPI_COMM_NULL;
 #endif
@@ -7030,7 +7030,7 @@ static void plumed_mpiw_value_MPI_IN_PLACE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SUM(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_SUM;
+  const tMPI_Op value = TMPI_SUM;
 #else
   const MPI_Op value = MPI_SUM;
 #endif
@@ -7040,7 +7040,7 @@ static void plumed_mpiw_value_MPI_SUM(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_PROD(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_PROD;
+  const tMPI_Op value = TMPI_PROD;
 #else
   const MPI_Op value = MPI_PROD;
 #endif
@@ -7050,7 +7050,7 @@ static void plumed_mpiw_value_MPI_PROD(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_MAX(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_MAX;
+  const tMPI_Op value = TMPI_MAX;
 #else
   const MPI_Op value = MPI_MAX;
 #endif
@@ -7060,7 +7060,7 @@ static void plumed_mpiw_value_MPI_MAX(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_MIN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_MIN;
+  const tMPI_Op value = TMPI_MIN;
 #else
   const MPI_Op value = MPI_MIN;
 #endif
@@ -7070,7 +7070,7 @@ static void plumed_mpiw_value_MPI_MIN(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_STATUS_IGNORE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Status * value = TMPI_STATUS_IGNORE;
+  const tMPI_Status * value = TMPI_STATUS_IGNORE;
 #else
   const MPI_Status * value = MPI_STATUS_IGNORE;
 #endif
@@ -7080,7 +7080,7 @@ static void plumed_mpiw_value_MPI_STATUS_IGNORE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_STATUSES_IGNORE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Status * value = TMPI_STATUSES_IGNORE;
+  const tMPI_Status * value = TMPI_STATUSES_IGNORE;
 #else
   const MPI_Status * value = MPI_STATUSES_IGNORE;
 #endif
@@ -7090,7 +7090,7 @@ static void plumed_mpiw_value_MPI_STATUSES_IGNORE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_GROUP_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Group value = TMPI_GROUP_NULL;
+  const tMPI_Group value = (tMPI_Group)0;
 #else
   const MPI_Group value = MPI_GROUP_NULL;
 #endif
@@ -7100,7 +7100,7 @@ static void plumed_mpiw_value_MPI_GROUP_NULL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_GROUP_EMPTY(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Group value = thread_mpi::TMPI_GROUP_EMPTY;
+  const tMPI_Group value = TMPI_GROUP_EMPTY;
 #else
   const MPI_Group value = MPI_GROUP_EMPTY;
 #endif
@@ -7110,7 +7110,7 @@ static void plumed_mpiw_value_MPI_GROUP_EMPTY(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_REQUEST_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Request value = TMPI_REQUEST_NULL;
+  const tMPI_Request value = TMPI_REQUEST_NULL;
 #else
   const MPI_Request value = MPI_REQUEST_NULL;
 #endif
@@ -7129,7 +7129,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_ERRHANDLER_NULL, MPI_Errhandler)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERRORS_ARE_FATAL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Errhandler value = thread_mpi::TMPI_ERRORS_ARE_FATAL;
+  const tMPI_Errhandler value = TMPI_ERRORS_ARE_FATAL;
 #else
   const MPI_Errhandler value = MPI_ERRORS_ARE_FATAL;
 #endif
@@ -7139,7 +7139,7 @@ static void plumed_mpiw_value_MPI_ERRORS_ARE_FATAL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERRORS_RETURN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Errhandler value = thread_mpi::TMPI_ERRORS_RETURN;
+  const tMPI_Errhandler value = TMPI_ERRORS_RETURN;
 #else
   const MPI_Errhandler value = MPI_ERRORS_RETURN;
 #endif
@@ -7149,7 +7149,7 @@ static void plumed_mpiw_value_MPI_ERRORS_RETURN(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BYTE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_BYTE;
+  const tMPI_Datatype value = TMPI_BYTE;
 #else
   const MPI_Datatype value = MPI_BYTE;
 #endif
@@ -7162,7 +7162,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_PACKED, MPI_Datatype)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SHORT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_SHORT;
+  const tMPI_Datatype value = TMPI_SHORT;
 #else
   const MPI_Datatype value = MPI_SHORT;
 #endif
@@ -7172,7 +7172,7 @@ static void plumed_mpiw_value_MPI_SHORT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG;
+  const tMPI_Datatype value = TMPI_LONG;
 #else
   const MPI_Datatype value = MPI_LONG;
 #endif
@@ -7182,7 +7182,7 @@ static void plumed_mpiw_value_MPI_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_CHAR;
+  const tMPI_Datatype value = TMPI_UNSIGNED_CHAR;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_CHAR;
 #endif
@@ -7192,7 +7192,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_SHORT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_SHORT;
+  const tMPI_Datatype value = TMPI_UNSIGNED_SHORT;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_SHORT;
 #endif
@@ -7202,7 +7202,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_SHORT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_LONG_INT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_LONG_INT;
+  const tMPI_Datatype value = TMPI_LONG_LONG_INT;
 #else
   const MPI_Datatype value = MPI_LONG_LONG_INT;
 #endif
@@ -7212,7 +7212,7 @@ static void plumed_mpiw_value_MPI_LONG_LONG_INT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_LONG;
+  const tMPI_Datatype value = TMPI_LONG_LONG;
 #else
   const MPI_Datatype value = MPI_LONG_LONG;
 #endif
@@ -7246,7 +7246,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_MINLOC, MPI_Op)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LAND(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LAND;
+  const tMPI_Op value = TMPI_LAND;
 #else
   const MPI_Op value = MPI_LAND;
 #endif
@@ -7256,7 +7256,7 @@ static void plumed_mpiw_value_MPI_LAND(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BAND(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BAND;
+  const tMPI_Op value = TMPI_BAND;
 #else
   const MPI_Op value = MPI_BAND;
 #endif
@@ -7266,7 +7266,7 @@ static void plumed_mpiw_value_MPI_BAND(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LOR;
+  const tMPI_Op value = TMPI_LOR;
 #else
   const MPI_Op value = MPI_LOR;
 #endif
@@ -7276,7 +7276,7 @@ static void plumed_mpiw_value_MPI_LOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BOR;
+  const tMPI_Op value = TMPI_BOR;
 #else
   const MPI_Op value = MPI_BOR;
 #endif
@@ -7286,7 +7286,7 @@ static void plumed_mpiw_value_MPI_BOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LXOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LXOR;
+  const tMPI_Op value = TMPI_LXOR;
 #else
   const MPI_Op value = MPI_LXOR;
 #endif
@@ -7296,7 +7296,7 @@ static void plumed_mpiw_value_MPI_LXOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BXOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BXOR;
+  const tMPI_Op value = TMPI_BXOR;
 #else
   const MPI_Op value = MPI_BXOR;
 #endif
@@ -7422,7 +7422,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_BSEND_OVERHEAD)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SUCCESS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_SUCCESS;
+  const int value = TMPI_SUCCESS;
 #else
   const int32_t value = MPI_SUCCESS;
 #endif
@@ -7438,7 +7438,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_COUNT)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_TYPE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_TYPE;
+  const int value = TMPI_ERR_TYPE;
 #else
   const int32_t value = MPI_ERR_TYPE;
 #endif
@@ -7451,7 +7451,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TAG)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_COMM(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_COMM;
+  const int value = TMPI_ERR_COMM;
 #else
   const int32_t value = MPI_ERR_COMM;
 #endif
@@ -7470,7 +7470,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ROOT)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_GROUP(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_GROUP;
+  const int value = TMPI_ERR_GROUP;
 #else
   const int32_t value = MPI_ERR_GROUP;
 #endif
@@ -7486,7 +7486,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TOPOLOGY)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_DIMS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_DIMS;
+  const int value = TMPI_ERR_DIMS;
 #else
   const int32_t value = MPI_ERR_DIMS;
 #endif
@@ -7499,7 +7499,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ARG)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_UNKNOWN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_UNKNOWN;
+  const int value = TMPI_ERR_UNKNOWN;
 #else
   const int32_t value = MPI_ERR_UNKNOWN;
 #endif
@@ -7524,7 +7524,7 @@ PLUMED_MPIW_POINTER_CONSTANT(MPI_BOTTOM)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_IN_STATUS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_IN_STATUS;
+  const int value = TMPI_ERR_IN_STATUS;
 #else
   const int32_t value = MPI_ERR_IN_STATUS;
 #endif
@@ -7534,7 +7534,7 @@ static void plumed_mpiw_value_MPI_ERR_IN_STATUS(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SIGNED_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_SIGNED_CHAR;
+  const tMPI_Datatype value = TMPI_SIGNED_CHAR;
 #else
   const MPI_Datatype value = MPI_SIGNED_CHAR;
 #endif
@@ -7544,7 +7544,7 @@ static void plumed_mpiw_value_MPI_SIGNED_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_C_BOOL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_C_BOOL;
+  const tMPI_Datatype value = TMPI_C_BOOL;
 #else
   const MPI_Datatype value = MPI_C_BOOL;
 #endif
@@ -7554,7 +7554,7 @@ static void plumed_mpiw_value_MPI_C_BOOL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_INT64_T(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT64_T;
+  const tMPI_Datatype value = TMPI_INT64_T;
 #else
   const MPI_Datatype value = MPI_INT64_T;
 #endif
@@ -7562,7 +7562,7 @@ static void plumed_mpiw_value_MPI_INT64_T(void *out) {
 }
 #endif
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&thread_mpi::tMPI_Initialized;
+static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&tMPI_Initialized;
 #else
 static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&MPI_Initialized;
 #endif
@@ -7832,77 +7832,77 @@ static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_INT64_T =
 static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_FLOAT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_FLOAT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_FLOAT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_DOUBLE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_DOUBLE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_DOUBLE, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_INT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_INT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_INT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_WORLD, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_WORLD, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_WORLD, MPI_Comm),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_SELF, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_SELF, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_SELF, MPI_Comm),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_NULL, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_NULL, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_NULL, MPI_Comm),
 #endif
@@ -7916,63 +7916,63 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SUM, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_SUM, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_SUM, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_PROD, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_PROD, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_PROD, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_MAX, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_MAX, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_MAX, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_MIN, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_MIN, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_MIN, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, thread_mpi::tMPI_Status *),
+  PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, tMPI_Status *),
 #else
   PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, MPI_Status *),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, thread_mpi::tMPI_Status *),
+  PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, tMPI_Status *),
 #else
   PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, MPI_Status *),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_GROUP_NULL, thread_mpi::tMPI_Group),
+  PLUMED_MPIW_VALUE(MPI_GROUP_NULL, tMPI_Group),
 #else
   PLUMED_MPIW_VALUE(MPI_GROUP_NULL, MPI_Group),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, thread_mpi::tMPI_Group),
+  PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, tMPI_Group),
 #else
   PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, MPI_Group),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, thread_mpi::tMPI_Request),
+  PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, tMPI_Request),
 #else
   PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, MPI_Request),
 #endif
@@ -7988,21 +7988,21 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, thread_mpi::tMPI_Errhandler),
+  PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, tMPI_Errhandler),
 #else
   PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, MPI_Errhandler),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, thread_mpi::tMPI_Errhandler),
+  PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, tMPI_Errhandler),
 #else
   PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, MPI_Errhandler),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BYTE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_BYTE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_BYTE, MPI_Datatype),
 #endif
@@ -8012,42 +8012,42 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SHORT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_SHORT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_SHORT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_LONG, MPI_Datatype),
 #endif
@@ -8078,42 +8078,42 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LAND, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LAND, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LAND, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BAND, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BAND, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BAND, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LXOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LXOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LXOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BXOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BXOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BXOR, MPI_Op),
 #endif
@@ -8294,21 +8294,21 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_C_BOOL, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_C_BOOL, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_C_BOOL, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_INT64_T, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_INT64_T, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_INT64_T, MPI_Datatype),
 #endif
@@ -8335,13 +8335,13 @@ typedef struct {
                             offsetof(plumed_mpiw_scratch_alignment_offset, value), \
                             "native MPI type over-aligns provider scratch")
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, thread_mpi::tMPI_Comm);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, thread_mpi::tMPI_Group);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, thread_mpi::tMPI_Datatype);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, thread_mpi::tMPI_Request);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, thread_mpi::tMPI_Op);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, thread_mpi::tMPI_Errhandler);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, thread_mpi::tMPI_Status);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, tMPI_Comm);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, tMPI_Group);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, tMPI_Datatype);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, tMPI_Request);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, tMPI_Op);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, tMPI_Errhandler);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, tMPI_Status);
 #else
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, MPI_Comm);
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, MPI_Group);
@@ -8365,13 +8365,13 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
   ),
   "PLUMED native MPI adapter",
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  (uint32_t)sizeof(thread_mpi::tMPI_Comm), (uint32_t)sizeof(thread_mpi::tMPI_Group),
-  (uint32_t)sizeof(thread_mpi::tMPI_Datatype), (uint32_t)sizeof(thread_mpi::tMPI_Request),
-  (uint32_t)sizeof(thread_mpi::tMPI_Op), (uint32_t)sizeof(thread_mpi::tMPI_Errhandler),
-  (uint32_t)sizeof(thread_mpi::tMPI_Status),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_SOURCE),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_TAG),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_ERROR),
+  (uint32_t)sizeof(tMPI_Comm), (uint32_t)sizeof(tMPI_Group),
+  (uint32_t)sizeof(tMPI_Datatype), (uint32_t)sizeof(tMPI_Request),
+  (uint32_t)sizeof(tMPI_Op), (uint32_t)sizeof(tMPI_Errhandler),
+  (uint32_t)sizeof(tMPI_Status),
+  (uint32_t)offsetof(tMPI_Status, TMPI_SOURCE),
+  (uint32_t)offsetof(tMPI_Status, TMPI_TAG),
+  (uint32_t)offsetof(tMPI_Status, TMPI_ERROR),
   0u, 0u,
 #else
   (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),
@@ -8428,7 +8428,7 @@ using PLMD::plumed_mpi_implementation;
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
-int native_result = thread_mpi::tMPI_Initialized((int *)argument_0);
+int native_result = tMPI_Initialized((int *)argument_0);
 memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8442,9 +8442,9 @@ static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_dup(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_dup(native_argument_0, (thread_mpi::tMPI_Comm *)argument_1);
+  int native_result = tMPI_Comm_dup(native_argument_0, (tMPI_Comm *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8460,7 +8460,7 @@ static void plumed_mpiw_MPI_Comm_dup(void *argument_0, void *argument_1, void *r
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Comm_free((thread_mpi::tMPI_Comm *)argument_0);
+  int native_result = tMPI_Comm_free((tMPI_Comm *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8474,9 +8474,9 @@ static void plumed_mpiw_MPI_Comm_free(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_rank(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_rank(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Comm_rank(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8492,9 +8492,9 @@ static void plumed_mpiw_MPI_Comm_rank(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_size(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_size(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Comm_size(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8510,13 +8510,13 @@ static void plumed_mpiw_MPI_Comm_size(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_split(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  int native_result = thread_mpi::tMPI_Comm_split(native_argument_0, native_argument_1, native_argument_2, (thread_mpi::tMPI_Comm *)argument_3);
+  int native_result = tMPI_Comm_split(native_argument_0, native_argument_1, native_argument_2, (tMPI_Comm *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8536,11 +8536,11 @@ static void plumed_mpiw_MPI_Comm_split(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Abort(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Abort(native_argument_0, native_argument_1);
+  int native_result = tMPI_Abort(native_argument_0, native_argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8560,13 +8560,13 @@ static void plumed_mpiw_MPI_Abort(void *argument_0, void *argument_1, void *resu
 static void plumed_mpiw_MPI_Bcast(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Comm native_argument_4;
+  tMPI_Comm native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  int native_result = thread_mpi::tMPI_Bcast((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4);
+  int native_result = tMPI_Bcast((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8590,17 +8590,17 @@ static void plumed_mpiw_MPI_Bcast(void *argument_0, void *argument_1, void *argu
 static void plumed_mpiw_MPI_Scatter(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Comm native_argument_7;
+  tMPI_Comm native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  int native_result = thread_mpi::tMPI_Scatter((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  int native_result = tMPI_Scatter((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8628,17 +8628,17 @@ static void plumed_mpiw_MPI_Scatter(void *argument_0, void *argument_1, void *ar
 static void plumed_mpiw_MPI_Gather(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Comm native_argument_7;
+  tMPI_Comm native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  int native_result = thread_mpi::tMPI_Gather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
+  int native_result = tMPI_Gather((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6, native_argument_7);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8666,13 +8666,13 @@ static void plumed_mpiw_MPI_Gather(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Allreduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Allreduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Allreduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8696,15 +8696,15 @@ static void plumed_mpiw_MPI_Allreduce(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Isend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8769,15 +8769,15 @@ static void plumed_mpiw_MPI_Allgatherv(void *argument_0, void *argument_1, void 
 static void plumed_mpiw_MPI_Recv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Recv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Status *)argument_6);
+  int native_result = tMPI_Recv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Status *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8801,9 +8801,9 @@ static void plumed_mpiw_MPI_Recv(void *argument_0, void *argument_1, void *argum
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Barrier(void *argument_0, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Barrier(native_argument_0);
+  int native_result = tMPI_Barrier(native_argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8819,9 +8819,9 @@ static void plumed_mpiw_MPI_Barrier(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Get_count(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_1;
+  tMPI_Datatype native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Get_count((thread_mpi::tMPI_Status *)argument_0, native_argument_1, (int *)argument_2);
+  int native_result = tMPI_Get_count((tMPI_Status *)argument_0, native_argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8839,7 +8839,7 @@ static void plumed_mpiw_MPI_Get_count(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *argument_9, void *argument_10, void *argument_11, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
@@ -8847,15 +8847,15 @@ static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *a
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
   int native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  thread_mpi::tMPI_Datatype native_argument_7;
+  tMPI_Datatype native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
   int native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
   int native_argument_9;
   memcpy(&native_argument_9, argument_9, sizeof(native_argument_9));
-  thread_mpi::tMPI_Comm native_argument_10;
+  tMPI_Comm native_argument_10;
   memcpy(&native_argument_10, argument_10, sizeof(native_argument_10));
-  int native_result = thread_mpi::tMPI_Sendrecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (void *)argument_5, native_argument_6, native_argument_7, native_argument_8, native_argument_9, native_argument_10, (thread_mpi::tMPI_Status *)argument_11);
+  int native_result = tMPI_Sendrecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, (void *)argument_5, native_argument_6, native_argument_7, native_argument_8, native_argument_9, native_argument_10, (tMPI_Status *)argument_11);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8889,7 +8889,7 @@ static void plumed_mpiw_MPI_Sendrecv(void *argument_0, void *argument_1, void *a
 static void plumed_mpiw_MPI_Error_string(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Error_string(native_argument_0, (char *)argument_1, (int *)argument_2);
+  int native_result = tMPI_Error_string(native_argument_0, (char *)argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8916,15 +8916,15 @@ static void plumed_mpiw_MPI_Comm_f2c(void *argument_0, void *result) {
 static void plumed_mpiw_MPI_Send(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -8984,15 +8984,15 @@ static void plumed_mpiw_MPI_Ssend(void *argument_0, void *argument_1, void *argu
 static void plumed_mpiw_MPI_Rsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Send((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9068,15 +9068,15 @@ static void plumed_mpiw_MPI_Issend(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Irsend(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Isend((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9102,15 +9102,15 @@ static void plumed_mpiw_MPI_Irsend(void *argument_0, void *argument_1, void *arg
 static void plumed_mpiw_MPI_Irecv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Irecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (thread_mpi::tMPI_Request *)argument_6);
+  int native_result = tMPI_Irecv((void *)argument_0, native_argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, (tMPI_Request *)argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9150,7 +9150,7 @@ static void plumed_mpiw_MPI_Request_free(void *argument_0, void *result) {
 static void plumed_mpiw_MPI_Waitany(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Waitany(native_argument_0, (thread_mpi::tMPI_Request *)argument_1, (int *)argument_2, (thread_mpi::tMPI_Status *)argument_3);
+  int native_result = tMPI_Waitany(native_argument_0, (tMPI_Request *)argument_1, (int *)argument_2, (tMPI_Status *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9177,7 +9177,7 @@ static void plumed_mpiw_MPI_Testany(void *argument_0, void *argument_1, void *ar
 static void plumed_mpiw_MPI_Waitall(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Waitall(native_argument_0, (thread_mpi::tMPI_Request *)argument_1, (thread_mpi::tMPI_Status *)argument_2);
+  int native_result = tMPI_Waitall(native_argument_0, (tMPI_Request *)argument_1, (tMPI_Status *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9384,9 +9384,9 @@ static void plumed_mpiw_MPI_Sendrecv_replace(void *argument_0, void *argument_1,
 static void plumed_mpiw_MPI_Type_contiguous(void *argument_0, void *argument_1, void *argument_2, void *result) {
   int native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Datatype native_argument_1;
+  tMPI_Datatype native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Type_contiguous(native_argument_0, native_argument_1, (thread_mpi::tMPI_Datatype *)argument_2);
+  int native_result = tMPI_Type_contiguous(native_argument_0, native_argument_1, (tMPI_Datatype *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9430,7 +9430,7 @@ static void plumed_mpiw_MPI_Type_indexed(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Type_commit(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Type_commit((thread_mpi::tMPI_Datatype *)argument_0);
+  int native_result = tMPI_Type_commit((tMPI_Datatype *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9444,7 +9444,7 @@ static void plumed_mpiw_MPI_Type_commit(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Type_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Type_free((thread_mpi::tMPI_Datatype *)argument_0);
+  int native_result = tMPI_Type_free((tMPI_Datatype *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9521,15 +9521,15 @@ static void plumed_mpiw_MPI_Pack_size(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Gatherv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_6;
+  tMPI_Datatype native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
   int native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Gatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Gatherv((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, (int *)argument_4, (int *)argument_5, native_argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9553,17 +9553,17 @@ static void plumed_mpiw_MPI_Gatherv(void *argument_0, void *argument_1, void *ar
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Scatterv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
   int native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Datatype native_argument_6;
+  tMPI_Datatype native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
   int native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Scatterv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, native_argument_5, native_argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Scatterv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, native_argument_5, native_argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9589,15 +9589,15 @@ static void plumed_mpiw_MPI_Scatterv(void *argument_0, void *argument_1, void *a
 static void plumed_mpiw_MPI_Alltoall(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  thread_mpi::tMPI_Datatype native_argument_2;
+  tMPI_Datatype native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Datatype native_argument_5;
+  tMPI_Datatype native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Comm native_argument_6;
+  tMPI_Comm native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  int native_result = thread_mpi::tMPI_Alltoall((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
+  int native_result = tMPI_Alltoall((void *)argument_0, native_argument_1, native_argument_2, (void *)argument_3, native_argument_4, native_argument_5, native_argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9621,13 +9621,13 @@ static void plumed_mpiw_MPI_Alltoall(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Alltoallv(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *argument_7, void *argument_8, void *result) {
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Datatype native_argument_7;
+  tMPI_Datatype native_argument_7;
   memcpy(&native_argument_7, argument_7, sizeof(native_argument_7));
-  thread_mpi::tMPI_Comm native_argument_8;
+  tMPI_Comm native_argument_8;
   memcpy(&native_argument_8, argument_8, sizeof(native_argument_8));
-  int native_result = thread_mpi::tMPI_Alltoallv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, (int *)argument_5, (int *)argument_6, native_argument_7, native_argument_8);
+  int native_result = tMPI_Alltoallv((void *)argument_0, (int *)argument_1, (int *)argument_2, native_argument_3, (void *)argument_4, (int *)argument_5, (int *)argument_6, native_argument_7, native_argument_8);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9649,15 +9649,15 @@ static void plumed_mpiw_MPI_Alltoallv(void *argument_0, void *argument_1, void *
 static void plumed_mpiw_MPI_Reduce(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *argument_6, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
   int native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  thread_mpi::tMPI_Comm native_argument_6;
+  tMPI_Comm native_argument_6;
   memcpy(&native_argument_6, argument_6, sizeof(native_argument_6));
-  int native_result = thread_mpi::tMPI_Reduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6);
+  int native_result = tMPI_Reduce((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5, native_argument_6);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9703,13 +9703,13 @@ static void plumed_mpiw_MPI_Reduce_scatter(void *argument_0, void *argument_1, v
 static void plumed_mpiw_MPI_Scan(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  thread_mpi::tMPI_Datatype native_argument_3;
+  tMPI_Datatype native_argument_3;
   memcpy(&native_argument_3, argument_3, sizeof(native_argument_3));
-  thread_mpi::tMPI_Op native_argument_4;
+  tMPI_Op native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  thread_mpi::tMPI_Comm native_argument_5;
+  tMPI_Comm native_argument_5;
   memcpy(&native_argument_5, argument_5, sizeof(native_argument_5));
-  int native_result = thread_mpi::tMPI_Scan((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
+  int native_result = tMPI_Scan((void *)argument_0, (void *)argument_1, native_argument_2, native_argument_3, native_argument_4, native_argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9731,9 +9731,9 @@ static void plumed_mpiw_MPI_Scan(void *argument_0, void *argument_1, void *argum
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_size(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Group_size(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Group_size(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9749,9 +9749,9 @@ static void plumed_mpiw_MPI_Group_size(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_rank(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Group_rank(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Group_rank(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9791,9 +9791,9 @@ static void plumed_mpiw_MPI_Group_compare(void *argument_0, void *argument_1, vo
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_group(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_group(native_argument_0, (thread_mpi::tMPI_Group *)argument_1);
+  int native_result = tMPI_Comm_group(native_argument_0, (tMPI_Group *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9842,11 +9842,11 @@ static void plumed_mpiw_MPI_Group_difference(void *argument_0, void *argument_1,
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_incl(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Group native_argument_0;
+  tMPI_Group native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Group_incl(native_argument_0, native_argument_1, (int *)argument_2, (thread_mpi::tMPI_Group *)argument_3);
+  int native_result = tMPI_Group_incl(native_argument_0, native_argument_1, (int *)argument_2, (tMPI_Group *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9897,7 +9897,7 @@ static void plumed_mpiw_MPI_Group_range_excl(void *argument_0, void *argument_1,
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Group_free(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Group_free((thread_mpi::tMPI_Group *)argument_0);
+  int native_result = tMPI_Group_free((tMPI_Group *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9911,11 +9911,11 @@ static void plumed_mpiw_MPI_Group_free(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_compare(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Comm native_argument_1;
+  tMPI_Comm native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_compare(native_argument_0, native_argument_1, (int *)argument_2);
+  int native_result = tMPI_Comm_compare(native_argument_0, native_argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -9933,11 +9933,11 @@ static void plumed_mpiw_MPI_Comm_compare(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_create(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Group native_argument_1;
+  tMPI_Group native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_create(native_argument_0, native_argument_1, (thread_mpi::tMPI_Comm *)argument_2);
+  int native_result = tMPI_Comm_create(native_argument_0, native_argument_1, (tMPI_Comm *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10010,13 +10010,13 @@ static void plumed_mpiw_MPI_Intercomm_merge(void *argument_0, void *argument_1, 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_create(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *argument_5, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_4;
   memcpy(&native_argument_4, argument_4, sizeof(native_argument_4));
-  int native_result = thread_mpi::tMPI_Cart_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (thread_mpi::tMPI_Comm *)argument_5);
+  int native_result = tMPI_Cart_create(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, native_argument_4, (tMPI_Comm *)argument_5);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10060,9 +10060,9 @@ static void plumed_mpiw_MPI_Graph_create(void *argument_0, void *argument_1, voi
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Topo_test(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Topo_test(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Topo_test(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10100,9 +10100,9 @@ static void plumed_mpiw_MPI_Graph_get(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cartdim_get(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cartdim_get(native_argument_0, (int *)argument_1);
+  int native_result = tMPI_Cartdim_get(native_argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10118,11 +10118,11 @@ static void plumed_mpiw_MPI_Cartdim_get(void *argument_0, void *argument_1, void
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_get(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Cart_get(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  int native_result = tMPI_Cart_get(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10140,9 +10140,9 @@ static void plumed_mpiw_MPI_Cart_get(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_rank(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cart_rank(native_argument_0, (int *)argument_1, (int *)argument_2);
+  int native_result = tMPI_Cart_rank(native_argument_0, (int *)argument_1, (int *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10158,13 +10158,13 @@ static void plumed_mpiw_MPI_Cart_rank(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_coords(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
   int native_argument_2;
   memcpy(&native_argument_2, argument_2, sizeof(native_argument_2));
-  int native_result = thread_mpi::tMPI_Cart_coords(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
+  int native_result = tMPI_Cart_coords(native_argument_0, native_argument_1, native_argument_2, (int *)argument_3);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10221,9 +10221,9 @@ static void plumed_mpiw_MPI_Cart_shift(void *argument_0, void *argument_1, void 
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_sub(void *argument_0, void *argument_1, void *argument_2, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Cart_sub(native_argument_0, (int *)argument_1, (thread_mpi::tMPI_Comm *)argument_2);
+  int native_result = tMPI_Cart_sub(native_argument_0, (int *)argument_1, (tMPI_Comm *)argument_2);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10239,11 +10239,11 @@ static void plumed_mpiw_MPI_Cart_sub(void *argument_0, void *argument_1, void *a
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Cart_map(void *argument_0, void *argument_1, void *argument_2, void *argument_3, void *argument_4, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
   int native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Cart_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
+  int native_result = tMPI_Cart_map(native_argument_0, native_argument_1, (int *)argument_2, (int *)argument_3, (int *)argument_4);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10272,7 +10272,7 @@ static void plumed_mpiw_MPI_Graph_map(void *argument_0, void *argument_1, void *
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Get_processor_name(void *argument_0, void *argument_1, void *result) {
-  int native_result = thread_mpi::tMPI_Get_processor_name((char *)argument_0, (int *)argument_1);
+  int native_result = tMPI_Get_processor_name((char *)argument_0, (int *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10302,7 +10302,7 @@ static void plumed_mpiw_MPI_Error_class(void *argument_0, void *argument_1, void
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Wtime(void *result) {
-  double native_result = thread_mpi::tMPI_Wtime();
+  double native_result = tMPI_Wtime();
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10316,7 +10316,7 @@ static void plumed_mpiw_MPI_Wtime(void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Wtick(void *result) {
-  double native_result = thread_mpi::tMPI_Wtick();
+  double native_result = tMPI_Wtick();
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10330,7 +10330,7 @@ static void plumed_mpiw_MPI_Wtick(void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Finalized(void *argument_0, void *result) {
-  int native_result = thread_mpi::tMPI_Finalized((int *)argument_0);
+  int native_result = tMPI_Finalized((int *)argument_0);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10344,9 +10344,9 @@ static void plumed_mpiw_MPI_Finalized(void *argument_0, void *result) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_get_errhandler(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  int native_result = thread_mpi::tMPI_Comm_get_errhandler(native_argument_0, (thread_mpi::tMPI_Errhandler *)argument_1);
+  int native_result = tMPI_Comm_get_errhandler(native_argument_0, (tMPI_Errhandler *)argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10362,11 +10362,11 @@ static void plumed_mpiw_MPI_Comm_get_errhandler(void *argument_0, void *argument
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 0)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_MPI_Comm_set_errhandler(void *argument_0, void *argument_1, void *result) {
-  thread_mpi::tMPI_Comm native_argument_0;
+  tMPI_Comm native_argument_0;
   memcpy(&native_argument_0, argument_0, sizeof(native_argument_0));
-  thread_mpi::tMPI_Errhandler native_argument_1;
+  tMPI_Errhandler native_argument_1;
   memcpy(&native_argument_1, argument_1, sizeof(native_argument_1));
-  int native_result = thread_mpi::tMPI_Comm_set_errhandler(native_argument_0, native_argument_1);
+  int native_result = tMPI_Comm_set_errhandler(native_argument_0, native_argument_1);
   memcpy(result, &native_result, sizeof(native_result));
 }
 #endif
@@ -10743,7 +10743,7 @@ static const plumed_mpiw_function_entry plumed_mpiw_functions[] = {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_FLOAT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_FLOAT;
+  const tMPI_Datatype value = TMPI_FLOAT;
 #else
   const MPI_Datatype value = MPI_FLOAT;
 #endif
@@ -10753,7 +10753,7 @@ static void plumed_mpiw_value_MPI_FLOAT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_DOUBLE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_DOUBLE;
+  const tMPI_Datatype value = TMPI_DOUBLE;
 #else
   const MPI_Datatype value = MPI_DOUBLE;
 #endif
@@ -10763,7 +10763,7 @@ static void plumed_mpiw_value_MPI_DOUBLE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_INT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT;
+  const tMPI_Datatype value = TMPI_INT;
 #else
   const MPI_Datatype value = MPI_INT;
 #endif
@@ -10773,7 +10773,7 @@ static void plumed_mpiw_value_MPI_INT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_CHAR;
+  const tMPI_Datatype value = TMPI_CHAR;
 #else
   const MPI_Datatype value = MPI_CHAR;
 #endif
@@ -10783,7 +10783,7 @@ static void plumed_mpiw_value_MPI_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED;
+  const tMPI_Datatype value = TMPI_UNSIGNED;
 #else
   const MPI_Datatype value = MPI_UNSIGNED;
 #endif
@@ -10793,7 +10793,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_LONG;
+  const tMPI_Datatype value = TMPI_UNSIGNED_LONG;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_LONG;
 #endif
@@ -10803,7 +10803,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_LONG_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_LONG_LONG;
+  const tMPI_Datatype value = TMPI_UNSIGNED_LONG_LONG;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_LONG_LONG;
 #endif
@@ -10813,7 +10813,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_LONG_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_DOUBLE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_DOUBLE;
+  const tMPI_Datatype value = TMPI_LONG_DOUBLE;
 #else
   const MPI_Datatype value = MPI_LONG_DOUBLE;
 #endif
@@ -10823,7 +10823,7 @@ static void plumed_mpiw_value_MPI_LONG_DOUBLE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_WORLD(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = thread_mpi::TMPI_COMM_WORLD;
+  const tMPI_Comm value = TMPI_COMM_WORLD;
 #else
   const MPI_Comm value = MPI_COMM_WORLD;
 #endif
@@ -10833,7 +10833,7 @@ static void plumed_mpiw_value_MPI_COMM_WORLD(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_SELF(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = thread_mpi::tMPI_Get_comm_self();
+  const tMPI_Comm value = tMPI_Get_comm_self();
 #else
   const MPI_Comm value = MPI_COMM_SELF;
 #endif
@@ -10843,7 +10843,7 @@ static void plumed_mpiw_value_MPI_COMM_SELF(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_COMM_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Comm value = TMPI_COMM_NULL;
+  const tMPI_Comm value = (tMPI_Comm)0;
 #else
   const MPI_Comm value = MPI_COMM_NULL;
 #endif
@@ -10863,7 +10863,7 @@ static void plumed_mpiw_value_MPI_IN_PLACE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SUM(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_SUM;
+  const tMPI_Op value = TMPI_SUM;
 #else
   const MPI_Op value = MPI_SUM;
 #endif
@@ -10873,7 +10873,7 @@ static void plumed_mpiw_value_MPI_SUM(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_PROD(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_PROD;
+  const tMPI_Op value = TMPI_PROD;
 #else
   const MPI_Op value = MPI_PROD;
 #endif
@@ -10883,7 +10883,7 @@ static void plumed_mpiw_value_MPI_PROD(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_MAX(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_MAX;
+  const tMPI_Op value = TMPI_MAX;
 #else
   const MPI_Op value = MPI_MAX;
 #endif
@@ -10893,7 +10893,7 @@ static void plumed_mpiw_value_MPI_MAX(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_MIN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_MIN;
+  const tMPI_Op value = TMPI_MIN;
 #else
   const MPI_Op value = MPI_MIN;
 #endif
@@ -10903,7 +10903,7 @@ static void plumed_mpiw_value_MPI_MIN(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_STATUS_IGNORE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Status * value = TMPI_STATUS_IGNORE;
+  const tMPI_Status * value = TMPI_STATUS_IGNORE;
 #else
   const MPI_Status * value = MPI_STATUS_IGNORE;
 #endif
@@ -10913,7 +10913,7 @@ static void plumed_mpiw_value_MPI_STATUS_IGNORE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_STATUSES_IGNORE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Status * value = TMPI_STATUSES_IGNORE;
+  const tMPI_Status * value = TMPI_STATUSES_IGNORE;
 #else
   const MPI_Status * value = MPI_STATUSES_IGNORE;
 #endif
@@ -10923,7 +10923,7 @@ static void plumed_mpiw_value_MPI_STATUSES_IGNORE(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_GROUP_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Group value = TMPI_GROUP_NULL;
+  const tMPI_Group value = (tMPI_Group)0;
 #else
   const MPI_Group value = MPI_GROUP_NULL;
 #endif
@@ -10933,7 +10933,7 @@ static void plumed_mpiw_value_MPI_GROUP_NULL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_GROUP_EMPTY(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Group value = thread_mpi::TMPI_GROUP_EMPTY;
+  const tMPI_Group value = TMPI_GROUP_EMPTY;
 #else
   const MPI_Group value = MPI_GROUP_EMPTY;
 #endif
@@ -10943,7 +10943,7 @@ static void plumed_mpiw_value_MPI_GROUP_EMPTY(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_REQUEST_NULL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Request value = TMPI_REQUEST_NULL;
+  const tMPI_Request value = TMPI_REQUEST_NULL;
 #else
   const MPI_Request value = MPI_REQUEST_NULL;
 #endif
@@ -10962,7 +10962,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_ERRHANDLER_NULL, MPI_Errhandler)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERRORS_ARE_FATAL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Errhandler value = thread_mpi::TMPI_ERRORS_ARE_FATAL;
+  const tMPI_Errhandler value = TMPI_ERRORS_ARE_FATAL;
 #else
   const MPI_Errhandler value = MPI_ERRORS_ARE_FATAL;
 #endif
@@ -10972,7 +10972,7 @@ static void plumed_mpiw_value_MPI_ERRORS_ARE_FATAL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERRORS_RETURN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Errhandler value = thread_mpi::TMPI_ERRORS_RETURN;
+  const tMPI_Errhandler value = TMPI_ERRORS_RETURN;
 #else
   const MPI_Errhandler value = MPI_ERRORS_RETURN;
 #endif
@@ -10982,7 +10982,7 @@ static void plumed_mpiw_value_MPI_ERRORS_RETURN(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BYTE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_BYTE;
+  const tMPI_Datatype value = TMPI_BYTE;
 #else
   const MPI_Datatype value = MPI_BYTE;
 #endif
@@ -10995,7 +10995,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_PACKED, MPI_Datatype)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SHORT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_SHORT;
+  const tMPI_Datatype value = TMPI_SHORT;
 #else
   const MPI_Datatype value = MPI_SHORT;
 #endif
@@ -11005,7 +11005,7 @@ static void plumed_mpiw_value_MPI_SHORT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG;
+  const tMPI_Datatype value = TMPI_LONG;
 #else
   const MPI_Datatype value = MPI_LONG;
 #endif
@@ -11015,7 +11015,7 @@ static void plumed_mpiw_value_MPI_LONG(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_CHAR;
+  const tMPI_Datatype value = TMPI_UNSIGNED_CHAR;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_CHAR;
 #endif
@@ -11025,7 +11025,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_UNSIGNED_SHORT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_UNSIGNED_SHORT;
+  const tMPI_Datatype value = TMPI_UNSIGNED_SHORT;
 #else
   const MPI_Datatype value = MPI_UNSIGNED_SHORT;
 #endif
@@ -11035,7 +11035,7 @@ static void plumed_mpiw_value_MPI_UNSIGNED_SHORT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_LONG_INT(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_LONG_INT;
+  const tMPI_Datatype value = TMPI_LONG_LONG_INT;
 #else
   const MPI_Datatype value = MPI_LONG_LONG_INT;
 #endif
@@ -11045,7 +11045,7 @@ static void plumed_mpiw_value_MPI_LONG_LONG_INT(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LONG_LONG(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_LONG_LONG;
+  const tMPI_Datatype value = TMPI_LONG_LONG;
 #else
   const MPI_Datatype value = MPI_LONG_LONG;
 #endif
@@ -11079,7 +11079,7 @@ PLUMED_MPIW_HANDLE_CONSTANT(MPI_MINLOC, MPI_Op)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LAND(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LAND;
+  const tMPI_Op value = TMPI_LAND;
 #else
   const MPI_Op value = MPI_LAND;
 #endif
@@ -11089,7 +11089,7 @@ static void plumed_mpiw_value_MPI_LAND(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BAND(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BAND;
+  const tMPI_Op value = TMPI_BAND;
 #else
   const MPI_Op value = MPI_BAND;
 #endif
@@ -11099,7 +11099,7 @@ static void plumed_mpiw_value_MPI_BAND(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LOR;
+  const tMPI_Op value = TMPI_LOR;
 #else
   const MPI_Op value = MPI_LOR;
 #endif
@@ -11109,7 +11109,7 @@ static void plumed_mpiw_value_MPI_LOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BOR;
+  const tMPI_Op value = TMPI_BOR;
 #else
   const MPI_Op value = MPI_BOR;
 #endif
@@ -11119,7 +11119,7 @@ static void plumed_mpiw_value_MPI_BOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_LXOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_LXOR;
+  const tMPI_Op value = TMPI_LXOR;
 #else
   const MPI_Op value = MPI_LXOR;
 #endif
@@ -11129,7 +11129,7 @@ static void plumed_mpiw_value_MPI_LXOR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_BXOR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Op value = thread_mpi::TMPI_BXOR;
+  const tMPI_Op value = TMPI_BXOR;
 #else
   const MPI_Op value = MPI_BXOR;
 #endif
@@ -11255,7 +11255,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_BSEND_OVERHEAD)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SUCCESS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_SUCCESS;
+  const int value = TMPI_SUCCESS;
 #else
   const int32_t value = MPI_SUCCESS;
 #endif
@@ -11271,7 +11271,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_COUNT)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_TYPE(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_TYPE;
+  const int value = TMPI_ERR_TYPE;
 #else
   const int32_t value = MPI_ERR_TYPE;
 #endif
@@ -11284,7 +11284,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TAG)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_COMM(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_COMM;
+  const int value = TMPI_ERR_COMM;
 #else
   const int32_t value = MPI_ERR_COMM;
 #endif
@@ -11303,7 +11303,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ROOT)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_GROUP(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_GROUP;
+  const int value = TMPI_ERR_GROUP;
 #else
   const int32_t value = MPI_ERR_GROUP;
 #endif
@@ -11319,7 +11319,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_TOPOLOGY)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_DIMS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_DIMS;
+  const int value = TMPI_ERR_DIMS;
 #else
   const int32_t value = MPI_ERR_DIMS;
 #endif
@@ -11332,7 +11332,7 @@ PLUMED_MPIW_INTEGER_CONSTANT(MPI_ERR_ARG)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_UNKNOWN(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_UNKNOWN;
+  const int value = TMPI_ERR_UNKNOWN;
 #else
   const int32_t value = MPI_ERR_UNKNOWN;
 #endif
@@ -11357,7 +11357,7 @@ PLUMED_MPIW_POINTER_CONSTANT(MPI_BOTTOM)
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_ERR_IN_STATUS(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const int value = thread_mpi::TMPI_ERR_IN_STATUS;
+  const int value = TMPI_ERR_IN_STATUS;
 #else
   const int32_t value = MPI_ERR_IN_STATUS;
 #endif
@@ -11367,7 +11367,7 @@ static void plumed_mpiw_value_MPI_ERR_IN_STATUS(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_SIGNED_CHAR(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_SIGNED_CHAR;
+  const tMPI_Datatype value = TMPI_SIGNED_CHAR;
 #else
   const MPI_Datatype value = MPI_SIGNED_CHAR;
 #endif
@@ -11377,7 +11377,7 @@ static void plumed_mpiw_value_MPI_SIGNED_CHAR(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_C_BOOL(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_C_BOOL;
+  const tMPI_Datatype value = TMPI_C_BOOL;
 #else
   const MPI_Datatype value = MPI_C_BOOL;
 #endif
@@ -11387,7 +11387,7 @@ static void plumed_mpiw_value_MPI_C_BOOL(void *out) {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 static void plumed_mpiw_value_MPI_INT64_T(void *out) {
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  const thread_mpi::tMPI_Datatype value = thread_mpi::TMPI_INT64_T;
+  const tMPI_Datatype value = TMPI_INT64_T;
 #else
   const MPI_Datatype value = MPI_INT64_T;
 #endif
@@ -11395,7 +11395,7 @@ static void plumed_mpiw_value_MPI_INT64_T(void *out) {
 }
 #endif
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&thread_mpi::tMPI_Initialized;
+static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&tMPI_Initialized;
 #else
 static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&MPI_Initialized;
 #endif
@@ -11665,77 +11665,77 @@ static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_MPI_INT64_T =
 static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_FLOAT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_FLOAT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_FLOAT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_DOUBLE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_DOUBLE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_DOUBLE, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_INT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_INT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_INT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_LONG_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_DOUBLE, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_WORLD, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_WORLD, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_WORLD, MPI_Comm),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_SELF, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_SELF, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_SELF, MPI_Comm),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_COMM_NULL, thread_mpi::tMPI_Comm),
+  PLUMED_MPIW_VALUE(MPI_COMM_NULL, tMPI_Comm),
 #else
   PLUMED_MPIW_VALUE(MPI_COMM_NULL, MPI_Comm),
 #endif
@@ -11749,63 +11749,63 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SUM, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_SUM, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_SUM, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_PROD, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_PROD, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_PROD, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_MAX, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_MAX, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_MAX, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_MIN, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_MIN, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_MIN, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, thread_mpi::tMPI_Status *),
+  PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, tMPI_Status *),
 #else
   PLUMED_MPIW_VALUE(MPI_STATUS_IGNORE, MPI_Status *),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, thread_mpi::tMPI_Status *),
+  PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, tMPI_Status *),
 #else
   PLUMED_MPIW_VALUE(MPI_STATUSES_IGNORE, MPI_Status *),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_GROUP_NULL, thread_mpi::tMPI_Group),
+  PLUMED_MPIW_VALUE(MPI_GROUP_NULL, tMPI_Group),
 #else
   PLUMED_MPIW_VALUE(MPI_GROUP_NULL, MPI_Group),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, thread_mpi::tMPI_Group),
+  PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, tMPI_Group),
 #else
   PLUMED_MPIW_VALUE(MPI_GROUP_EMPTY, MPI_Group),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, thread_mpi::tMPI_Request),
+  PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, tMPI_Request),
 #else
   PLUMED_MPIW_VALUE(MPI_REQUEST_NULL, MPI_Request),
 #endif
@@ -11821,21 +11821,21 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, thread_mpi::tMPI_Errhandler),
+  PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, tMPI_Errhandler),
 #else
   PLUMED_MPIW_VALUE(MPI_ERRORS_ARE_FATAL, MPI_Errhandler),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, thread_mpi::tMPI_Errhandler),
+  PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, tMPI_Errhandler),
 #else
   PLUMED_MPIW_VALUE(MPI_ERRORS_RETURN, MPI_Errhandler),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BYTE, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_BYTE, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_BYTE, MPI_Datatype),
 #endif
@@ -11845,42 +11845,42 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SHORT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_SHORT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_SHORT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_UNSIGNED_SHORT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_LONG_INT, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LONG_LONG, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_LONG_LONG, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_LONG_LONG, MPI_Datatype),
 #endif
@@ -11911,42 +11911,42 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LAND, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LAND, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LAND, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BAND, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BAND, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BAND, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_LXOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_LXOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_LXOR, MPI_Op),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_BXOR, thread_mpi::tMPI_Op),
+  PLUMED_MPIW_VALUE(MPI_BXOR, tMPI_Op),
 #else
   PLUMED_MPIW_VALUE(MPI_BXOR, MPI_Op),
 #endif
@@ -12127,21 +12127,21 @@ static const plumed_mpiw_metadata_entry plumed_mpiw_metadata[] = {
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_SIGNED_CHAR, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_C_BOOL, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_C_BOOL, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_C_BOOL, MPI_Datatype),
 #endif
 #endif
 #if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION >= 2)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  PLUMED_MPIW_VALUE(MPI_INT64_T, thread_mpi::tMPI_Datatype),
+  PLUMED_MPIW_VALUE(MPI_INT64_T, tMPI_Datatype),
 #else
   PLUMED_MPIW_VALUE(MPI_INT64_T, MPI_Datatype),
 #endif
@@ -12168,13 +12168,13 @@ typedef struct {
                             offsetof(plumed_mpiw_scratch_alignment_offset, value), \
                             "native MPI type over-aligns provider scratch")
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, thread_mpi::tMPI_Comm);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, thread_mpi::tMPI_Group);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, thread_mpi::tMPI_Datatype);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, thread_mpi::tMPI_Request);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, thread_mpi::tMPI_Op);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, thread_mpi::tMPI_Errhandler);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, thread_mpi::tMPI_Status);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, tMPI_Comm);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, tMPI_Group);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, tMPI_Datatype);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, tMPI_Request);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, tMPI_Op);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, tMPI_Errhandler);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, tMPI_Status);
 #else
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, MPI_Comm);
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, MPI_Group);
@@ -12198,13 +12198,13 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
   ),
   "PLUMED native MPI adapter",
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  (uint32_t)sizeof(thread_mpi::tMPI_Comm), (uint32_t)sizeof(thread_mpi::tMPI_Group),
-  (uint32_t)sizeof(thread_mpi::tMPI_Datatype), (uint32_t)sizeof(thread_mpi::tMPI_Request),
-  (uint32_t)sizeof(thread_mpi::tMPI_Op), (uint32_t)sizeof(thread_mpi::tMPI_Errhandler),
-  (uint32_t)sizeof(thread_mpi::tMPI_Status),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_SOURCE),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_TAG),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_ERROR),
+  (uint32_t)sizeof(tMPI_Comm), (uint32_t)sizeof(tMPI_Group),
+  (uint32_t)sizeof(tMPI_Datatype), (uint32_t)sizeof(tMPI_Request),
+  (uint32_t)sizeof(tMPI_Op), (uint32_t)sizeof(tMPI_Errhandler),
+  (uint32_t)sizeof(tMPI_Status),
+  (uint32_t)offsetof(tMPI_Status, TMPI_SOURCE),
+  (uint32_t)offsetof(tMPI_Status, TMPI_TAG),
+  (uint32_t)offsetof(tMPI_Status, TMPI_ERROR),
   0u, 0u,
 #else
   (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),

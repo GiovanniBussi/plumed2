@@ -37,10 +37,16 @@ grep -q 'requires GROMACS 2026.0 or newer' "$tmp/old-gromacs-version.log"
   -fsyntax-only -x c++ "$generated/callback-bridges.h"
 "${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I"$generated" \
   -fsyntax-only -x c "$generated/provider-callbacks.h"
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$generated" \
-  -I"$tmpi_include" -fsyntax-only -x c++ "$generated/thread-mpi-symbol-check.cpp.in"
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$generated" \
-  -I"$tmpi_include" -fsyntax-only -x c++ "$generated/thread-mpi-entry-check.cpp.in"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$tmpi_include" -I"$generated" \
+  -fsyntax-only -x c++ "$generated/thread-mpi-symbol-check.cpp.in"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$tmpi_include" -I"$generated" \
+  -fsyntax-only -x c++ "$generated/thread-mpi-entry-check.cpp.in"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_MPIW_BUNDLED_THREAD_MPI=1 \
+  -I"$repo_root/src/thread_mpi" -I"$generated" \
+  -fsyntax-only -x c++ "$generated/thread-mpi-symbol-check.cpp.in"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_MPIW_BUNDLED_THREAD_MPI=1 \
+  -I"$repo_root/src/thread_mpi" -I"$generated" \
+  -fsyntax-only -x c++ "$generated/thread-mpi-entry-check.cpp.in"
 
 MPICH_CXX="${MPICH_CXX:-c++}" "$mpich_mpicxx" -std=c++17 -D__PLUMED_HAS_MPI \
   -fsyntax-only -x c++ "$generated/native-header-check.cpp.in"

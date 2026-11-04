@@ -55,13 +55,13 @@ typedef struct {
                             offsetof(plumed_mpiw_scratch_alignment_offset, value), \
                             "native MPI type over-aligns provider scratch")
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, thread_mpi::tMPI_Comm);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, thread_mpi::tMPI_Group);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, thread_mpi::tMPI_Datatype);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, thread_mpi::tMPI_Request);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, thread_mpi::tMPI_Op);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, thread_mpi::tMPI_Errhandler);
-PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, thread_mpi::tMPI_Status);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, tMPI_Comm);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, tMPI_Group);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(datatype, tMPI_Datatype);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(request, tMPI_Request);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(op, tMPI_Op);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(errhandler, tMPI_Errhandler);
+PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(status, tMPI_Status);
 #else
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(comm, MPI_Comm);
 PLUMED_MPIW_CHECK_NATIVE_ALIGNMENT(group, MPI_Group);
@@ -85,13 +85,13 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
   ),
   "PLUMED native MPI adapter",
 #if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI
-  (uint32_t)sizeof(thread_mpi::tMPI_Comm), (uint32_t)sizeof(thread_mpi::tMPI_Group),
-  (uint32_t)sizeof(thread_mpi::tMPI_Datatype), (uint32_t)sizeof(thread_mpi::tMPI_Request),
-  (uint32_t)sizeof(thread_mpi::tMPI_Op), (uint32_t)sizeof(thread_mpi::tMPI_Errhandler),
-  (uint32_t)sizeof(thread_mpi::tMPI_Status),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_SOURCE),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_TAG),
-  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_ERROR),
+  (uint32_t)sizeof(tMPI_Comm), (uint32_t)sizeof(tMPI_Group),
+  (uint32_t)sizeof(tMPI_Datatype), (uint32_t)sizeof(tMPI_Request),
+  (uint32_t)sizeof(tMPI_Op), (uint32_t)sizeof(tMPI_Errhandler),
+  (uint32_t)sizeof(tMPI_Status),
+  (uint32_t)offsetof(tMPI_Status, TMPI_SOURCE),
+  (uint32_t)offsetof(tMPI_Status, TMPI_TAG),
+  (uint32_t)offsetof(tMPI_Status, TMPI_ERROR),
   0u, 0u,
 #else
   (uint32_t)sizeof(MPI_Comm), (uint32_t)sizeof(MPI_Group),

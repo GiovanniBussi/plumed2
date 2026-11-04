@@ -20,6 +20,7 @@
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_GROUP_NULL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Group), &constant_accessor_MPI_GROUP_NULL },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_GROUP_EMPTY", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Group), &constant_accessor_MPI_GROUP_EMPTY },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_REQUEST_NULL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Request), &constant_accessor_MPI_REQUEST_NULL },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_DATATYPE_NULL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Datatype), &constant_accessor_MPI_DATATYPE_NULL },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_ERRORS_ARE_FATAL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Errhandler), &constant_accessor_MPI_ERRORS_ARE_FATAL },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_ERRORS_RETURN", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Errhandler), &constant_accessor_MPI_ERRORS_RETURN },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_BYTE", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Datatype), &constant_accessor_MPI_BYTE },
