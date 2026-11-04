@@ -2,7 +2,7 @@
 #include "plumed/function/Function.h"
 #include "plumed/core/ActionRegister.h"
 #include "plumed/tools/Communicator.h"
-#include "mpi.h"
+#include <mpi.h>
 #include <limits>
 #include <array>
 #include <cstdlib>
