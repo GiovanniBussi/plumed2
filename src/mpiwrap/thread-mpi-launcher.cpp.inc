@@ -156,9 +156,6 @@ int launchInternalThreadMPI(int ranks, Callback callback,
     throw ExceptionTypeError("rank count, callback, and result output are required");
   }
 
-#if defined(__PLUMED_HAS_MPI)
-  throw ExceptionError("internal thread-MPI launch is unavailable in a native-MPI kernel");
-#else
   forceEnvironmentProvider();
   const plumed_mpiw_provider_descriptor *descriptor =
     plumed_mpiw_thread_mpi_provider();
@@ -183,7 +180,18 @@ int launchInternalThreadMPI(int ranks, Callback callback,
   registry.finishInternalLaunch();
   *result = launch_context.process_result;
   return 0;
-#endif
+}
+
+int launchRanks(int ranks, Callback callback, void *callback_context,
+                int *result, MPILifecyclePolicy lifecycle) {
+  if (lifecycle == MPILifecyclePolicy::internal_thread_mpi) {
+    return launchInternalThreadMPI(ranks, callback, callback_context, result);
+  }
+  (void)ranks;
+  (void)callback;
+  (void)callback_context;
+  (void)result;
+  throw ExceptionError("real-MPI lifecycle policy is unavailable in an internal tMPI build");
 }
 
 }  // namespace mpiwrap_provider

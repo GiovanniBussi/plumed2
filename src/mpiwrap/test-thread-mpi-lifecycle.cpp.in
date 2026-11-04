@@ -67,8 +67,8 @@ int main() {
   }
 
   int launch_result=-1;
-  PLMD::mpiwrap_provider::launchInternalThreadMPI(2,checkRank,&context,
-      &launch_result);
+  PLMD::mpiwrap_provider::launchRanks(2,checkRank,&context,&launch_result,
+                                      PLMD::mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
   if(launch_result!=0 || context.valid_self!=2 || context.rejected_stale!=2) {
     return 2;
   }

@@ -30,13 +30,15 @@ int rank_callback(int rank, const void *native_comm, std::size_t native_size,
 int run(int ranks, int throw_rank) {
   if (throw_rank >= 0) {
     int result = 0;
-    (void)mpiwrap_provider::launchInternalThreadMPI(
-      ranks, rank_callback, &throw_rank, &result);
+    (void)mpiwrap_provider::launchRanks(
+      ranks, rank_callback, &throw_rank, &result,
+      mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
     return 1;
   }
   int result = -1;
-  const int status = mpiwrap_provider::launchInternalThreadMPI(
-                       ranks, rank_callback, nullptr, &result);
+  const int status = mpiwrap_provider::launchRanks(
+                       ranks, rank_callback, nullptr, &result,
+                       mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
   if (status != 0 || result != ranks) {
     std::cerr << "internal launch result mismatch: status=" << status
               << " result=" << result << " expected=" << ranks << '\n';
@@ -51,9 +53,10 @@ int run(int ranks, int throw_rank) {
 
   const int second_ranks = ranks == 4 ? 2 : ranks + 1;
   int second_result = -1;
-  const int second_status = mpiwrap_provider::launchInternalThreadMPI(
+  const int second_status = mpiwrap_provider::launchRanks(
                               second_ranks, rank_callback, nullptr,
-                              &second_result);
+                              &second_result,
+                              mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
   if (second_status != 0 || second_result != second_ranks) {
     std::cerr << "sequential internal launch result mismatch: status="
               << second_status << " result=" << second_result

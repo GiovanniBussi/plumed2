@@ -258,8 +258,9 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
 #if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI) && !defined(__PLUMED_HAS_MPI)
     ThreadMPICommand context {filtered_arguments,in,out};
     int result=0;
-    mpiwrap_provider::launchInternalThreadMPI(thread_mpi_ranks,
-        &runThreadMPICommand,&context,&result);
+    mpiwrap_provider::launchRanks(thread_mpi_ranks,
+                                  &runThreadMPICommand,&context,&result,
+                                  mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
     return result;
 #else
     std::fprintf(stderr,"ERROR: --tmpi-threads requires an embedded thread-MPI build (requested %d ranks)\n",thread_mpi_ranks);
