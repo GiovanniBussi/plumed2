@@ -52,6 +52,7 @@ int run(int argc,char **argv) {
   }
   const auto install=reinterpret_cast<Install>(dlsym(kernel,"mpiw_test_install"));
   check=reinterpret_cast<Check>(dlsym(kernel,"mpiw_test_check"));
+  const auto preinit=reinterpret_cast<int (*)()>(dlsym(kernel,"mpiw_test_preinit"));
   const auto descriptor=static_cast<const plumed_mpiw_provider_descriptor *>(
                           plumed_mpi_implementation());
   // Missing native entries must select the kernel algorithms, not private
@@ -67,7 +68,7 @@ int run(int argc,char **argv) {
       return 2;
     }
   }
-  if(!install || !check || install(descriptor)!=0) {
+  if(!install || !check || !preinit || install(descriptor)!=0 || preinit()!=0) {
     return 2;
   }
   const int status=thread_mpi::tMPI_Init_fn(0,4,thread_mpi::TMPI_AFFINITY_NONE,

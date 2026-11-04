@@ -3,6 +3,7 @@
 #include "provider-registry.hpp"
 
 #include <cstdlib>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -72,6 +73,15 @@ void mpiwrap_ensure_provider_selected() {
     registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
+    /* Native tMPI SELF getters require an initialized rank thread. */ \
+    if (std::strcmp(#name, "MPI_COMM_SELF") == 0 && registry.ranksAreThreads() && \
+        !mpiwrap_is_thread_mpi_active()) { \
+      if (!pointers::constant_COMM_NULL || \
+          pointers::constant_COMM_NULL(&value.storage, sizeof(value.storage)) != 0) { \
+        PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
+      } \
+      return value; \
+    } \
     if (!pointers::constant_##suffix || \
         pointers::constant_##suffix(&value.storage, sizeof(value.storage)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \

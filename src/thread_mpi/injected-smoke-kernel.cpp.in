@@ -16,6 +16,20 @@ extern "C" int mpiw_test_install(const void *opaque) {
   return 0;
 }
 
+extern "C" int mpiw_test_preinit() {
+  try {
+    const MPI_Comm self=MPI_COMM_SELF;
+    if(self!=MPI_COMM_NULL) {
+      return 1;
+    }
+    int rank=-1;
+    MPI_Comm_rank(self,&rank);
+  } catch(const std::exception &error) {
+    return std::string(error.what()).find("MPI_COMM_NULL")!=std::string::npos ? 0 : 1;
+  }
+  return 1;
+}
+
 extern "C" int mpiw_test_check(const void *native_world,int rank,int size) {
   try {
     const MPI_Comm world=mpiwrap_Comm_from_native(native_world);
