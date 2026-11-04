@@ -645,7 +645,7 @@ void inquiries(MPI_Comm world) {
     CALL(Error_class,MPI_SUCCESS,&error);
     CHECK(error==MPI_SUCCESS);
   }
-  MPI_Errhandler handler=MPI_ERRHANDLER_NULL;
+  MPI_Errhandler handler{};
   CALL(Comm_get_errhandler,world,&handler);
   CALL(Comm_set_errhandler,world,handler);
   // Free releases the reference returned by get; the communicator retains its own.
