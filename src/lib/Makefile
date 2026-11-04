@@ -687,7 +687,6 @@ install-headers:
 	bash ../maketools/install.headers "$(DESTDIR)$(includedir)/$(program_name)/" $(subst ../,,$(DIRS))
 
 
-
 # generic makefile rules
 include ../maketools/make.rules
 

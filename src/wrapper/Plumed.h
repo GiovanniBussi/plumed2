@@ -1199,6 +1199,7 @@ __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen(const char*path);
 __PLUMED_WRAPPER_C_END
 
+
 /**
   \brief Constructor from path. Available as of PLUMED 2.5
 
@@ -4420,8 +4421,6 @@ typedef struct {
   /* pointer to plumed object */
   void* p;
 } plumed_implementation;
-
-
 
 __PLUMED_WRAPPER_INTERNALS_BEGIN
 plumed_implementation* plumed_malloc_pimpl() {

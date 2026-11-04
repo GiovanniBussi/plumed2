@@ -51,28 +51,19 @@ int main(int argc,char **argv) {
 
   int result=1;
   try {
-    {
-      // Test both creation paths without exposing another public handle type.
-      // The host, rather than the PLUMED kernel, owns MPI initialization.
-      const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
-      // Environment-provider mode exercises the same serial kernel without
-      // injection; the external host still owns MPI initialization/finalization.
-      plumed raw=path && path[0] ? plumed_create_dlopen(path) : plumed_create();
-      if(!plumed_valid(raw)) {
-        plumed_finalize(raw);
-        throw std::runtime_error("could not create PLUMED with the host MPI implementation");
-      }
-      PLMD::Plumed command(raw);
-      plumed_finalize(raw);
-      if(inject) {
-        command.cmd("injectMPIImplementation",PLMD::plumed_mpi_implementation());
-      }
-      MPI_Comm world=MPI_COMM_WORLD;
-      command.cmd("CLTool setMPIComm",&world);
-      command.cmd("CLTool setArgc",&argc);
-      command.cmd("CLTool setArgv",argv);
-      command.cmd("CLTool run",&result);
+    const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
+    PLMD::Plumed command=path && path[0] ? PLMD::Plumed::dlopen(path) : PLMD::Plumed();
+    if(!command.valid()) {
+      throw std::runtime_error("could not load PLUMED kernel");
     }
+    if(inject) {
+      command.cmd("injectMPIImplementation",PLMD::plumed_mpi_implementation());
+    }
+    MPI_Comm world=MPI_COMM_WORLD;
+    command.cmd("CLTool setMPIComm",&world);
+    command.cmd("CLTool setArgc",&argc);
+    command.cmd("CLTool setArgv",argv);
+    command.cmd("CLTool run",&result);
   } catch(const std::exception &error) {
     std::fprintf(stderr,"MPI CLI launcher: %s\n",error.what());
     MPI_Abort(MPI_COMM_WORLD,1);

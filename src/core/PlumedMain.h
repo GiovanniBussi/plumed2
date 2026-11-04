@@ -51,6 +51,8 @@ typedef struct {
 
 namespace PLMD {
 
+
+
 class ActionAtomistic;
 class ActionPilot;
 class ActionForInterface;

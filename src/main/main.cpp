@@ -18,27 +18,32 @@
 
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "../wrapper/Plumed.h"
-
-#include <cstdio>
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#include "wrapper/Plumed.h"
 #include <cstring>
-#include <exception>
 
 #ifdef __PLUMED_HAS_MPI
 #include <mpi.h>
 #endif
 
-int main(int argc,char **argv) {
+/**
+  This main uses only the interface published in
+  Plumed.h. The object file generated from this .cpp
+  is the only part of the plumed library that should
+  not be linked with external MD codes, so as
+  to avoid linker error.
+*/
+int main(int argc,char**argv) {
 #ifdef __PLUMED_HAS_MPI
   bool nompi=false;
-  for(int iarg=1; iarg<argc; ++iarg) {
+  for(int iarg=1; iarg<argc; iarg++) {
     if(!std::strcmp(argv[iarg],"--no-mpi")) {
       nompi=true;
     }
     if(!std::strcmp(argv[iarg],"--mpi")) {
       nompi=false;
     }
+// stop at first non-option
     if(argv[iarg] && argv[iarg][0]!='-') {
       break;
     }
@@ -47,26 +52,24 @@ int main(int argc,char **argv) {
     MPI_Init(&argc,&argv);
   }
 #endif
+  int ret=0;
 
-  int result=0;
   try {
-    PLMD::Plumed command;
-    command.cmd("CLTool setArgc",&argc);
-    command.cmd("CLTool setArgv",argv, {static_cast<std::size_t>(argc)});
+    PLMD::Plumed p;
+    p.cmd("CLTool setArgc",&argc);
+    p.cmd("CLTool setArgv",argv, {static_cast<std::size_t>(argc)});
 #ifdef __PLUMED_HAS_MPI
     if(!nompi) {
       MPI_Comm comm;
       MPI_Comm_dup(MPI_COMM_WORLD,&comm);
-      command.cmd("CLTool setMPIComm",&comm);
+      p.cmd("CLTool setMPIComm",&comm);
     }
 #endif
-    command.cmd("CLTool run",&result);
-  } catch(const std::exception &error) {
-    std::fprintf(stderr,"ERROR: %s\n",error.what());
-    result=1;
+    p.cmd("CLTool run",&ret);
+// end block deletes p also in case an exception occurs
   } catch(...) {
-    std::fprintf(stderr,"ERROR: unknown exception while running PLUMED\n");
-    result=1;
+// exception is rethrown and results in a call to terminate
+    throw;
   }
 
 #ifdef __PLUMED_HAS_MPI
@@ -74,5 +77,5 @@ int main(int argc,char **argv) {
     MPI_Finalize();
   }
 #endif
-  return result;
+  return ret;
 }
