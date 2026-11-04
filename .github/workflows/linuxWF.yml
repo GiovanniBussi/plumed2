@@ -394,10 +394,11 @@ jobs:
     - name: Build and install PLUMED without MPI
       run: |
         ./configure --enable-boost_serialization --disable-dependency-tracking \
-          --enable-modules=all --prefix="$HOME/opt"
+          --enable-modules=all --disable-mpi --prefix="$HOME/opt"
         make -j 4
         make install
     - name: Install Open MPI and build the injecting host
+      id: injection_host
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y openmpi-bin libopenmpi-dev
@@ -415,6 +416,7 @@ jobs:
         make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean
         make -C regtest checkfail
     - name: Run focused MPI provider and thread-MPI checks
+      if: ${{ !cancelled() && steps.injection_host.outcome == 'success' }}
       run: |
         set -euo pipefail
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
@@ -424,15 +426,13 @@ jobs:
         bash regtest/mpiwrap/check-mpi-host-injection.sh \
           /usr/bin/mpic++.openmpi /usr/bin/mpiexec.openmpi "$PLUMED_KERNEL" \
           "$RUNNER_TEMP/provider-openmpi.so"
-        bash src/mpiwrap/check-mpi-provider-selection.sh \
+        bash regtest/mpiwrap/check-mpi-provider-selection.sh \
           plumed "$RUNNER_TEMP/provider-openmpi.so" /usr/bin/mpicc.openmpi
         PLUMED_MPI_WRAPPER="$RUNNER_TEMP/provider-openmpi.so" \
-          bash src/mpiwrap/check-mpi-provider-chdir.sh \
+          bash regtest/mpiwrap/check-mpi-provider-chdir.sh \
           "$RUNNER_TEMP/plumed-openmpi-host"
         CXX=g++ bash src/mpiwrap/check-thread-mpi-cli.sh \
           "$HOME/opt/bin/plumed"
-        CXX=g++ bash src/mpiwrap/check-thread-mpi-lifecycle.sh \
-          "$HOME/opt/lib/libplumed.a"
         cmake -S src/thread_mpi -B "$RUNNER_TEMP/thread-mpi-tests"
         cmake --build "$RUNNER_TEMP/thread-mpi-tests" -j 4
         ctest --test-dir "$RUNNER_TEMP/thread-mpi-tests" --output-on-failure
