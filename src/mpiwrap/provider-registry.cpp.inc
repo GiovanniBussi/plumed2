@@ -341,6 +341,17 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
       runtime_identity.assign(bytes, bytes + entry.value_size);
       continue;
     }
+    const bool intracommunicators_only = std::strcmp(
+                                           entry.name, "capability:intracommunicators-only") == 0;
+    if (intracommunicators_only) {
+      if (entry.value_type != PLUMED_MPIW_VALUE_UTF8 || entry.native_value_size != 0 ||
+          entry.value_size != sizeof("true") ||
+          std::memcmp(entry.value, "true", sizeof("true")) != 0) {
+        return setError(error, "invalid intracommunicator capability metadata");
+      }
+      metadata.emplace(entry.name, "true");
+      continue;
+    }
     const bool user_callback = std::strcmp(
                                  entry.name, PLUMED_MPIW_METADATA_MPI_USER_FUNCTION_ABI) == 0;
     const bool error_callback = std::strcmp(
@@ -689,6 +700,15 @@ std::uint32_t Registry::runtimeKind() const {
 bool Registry::ranksAreThreads() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return installed_ && runtime_kind_ == PLUMED_MPIW_RUNTIME_THREAD_MPI;
+}
+
+bool Registry::hasCapability(const char *name) const {
+  if (!name || !ready_.load(std::memory_order_acquire)) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(mutex_);
+  const auto found = metadata_.find(name);
+  return found != metadata_.end() && found->second == "true";
 }
 
 plumed_mpiw_generic_fn Registry::dispatch(const char *name,

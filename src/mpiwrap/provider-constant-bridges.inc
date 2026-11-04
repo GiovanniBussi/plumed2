@@ -279,6 +279,14 @@ static int32_t plumed_mpiw_bridge_constant_MPI_STATUS_IGNORE(void *output, uint3
   std::memcpy(output, &value, sizeof(value));
   return 0;
 }
+static int32_t plumed_mpiw_bridge_constant_MPI_STATUSES_IGNORE(void *output, uint32_t capacity) {
+  if (!output || capacity < sizeof(MPI_Status *)) {
+    return -1;
+  }
+  MPI_Status * value = nullptr;
+  std::memcpy(output, &value, sizeof(value));
+  return 0;
+}
 static int32_t plumed_mpiw_bridge_constant_MPI_GROUP_NULL(void *output, uint32_t capacity) {
   if (!output || capacity < sizeof(MPI_Group)) {
     return -1;

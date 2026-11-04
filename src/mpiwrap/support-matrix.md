@@ -140,6 +140,7 @@ Provider status is a declaration/mapping classification, not a claim of tested r
 | Constant | `MPI_MAX` | selected | `constant:MPI_MAX` |
 | Constant | `MPI_MIN` | selected | `constant:MPI_MIN` |
 | Constant | `MPI_STATUS_IGNORE` | selected | `constant:MPI_STATUS_IGNORE` |
+| Constant | `MPI_STATUSES_IGNORE` | selected | `constant:MPI_STATUSES_IGNORE` |
 | Constant | `MPI_GROUP_NULL` | selected | `constant:MPI_GROUP_NULL` |
 | Constant | `MPI_GROUP_EMPTY` | selected | `constant:MPI_GROUP_EMPTY` |
 | Constant | `MPI_REQUEST_NULL` | selected | `constant:MPI_REQUEST_NULL` |

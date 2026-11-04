@@ -79,7 +79,7 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "native MPI direct; tMPI returns a borrowed communicator error handler and cannot safely free it; internal and injected tMPI adapters report this entry unavailable",
       "test_id": "initialized-query",
       "provider_routes": {
         "native_real_mpi": {
@@ -759,16 +759,18 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "Native MPI direct. tMPI has stale request-handle behavior; use the shared Waitany-based frontend fallback when available.",
       "test_id": "wait-status",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Wait",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "fallback",
+          "prerequisites": [
+            "MPI_Waitany"
+          ],
+          "evidence": "The common PLUMED frontend implements MPI_Wait through MPI_Waitany(1, ...), preserving provider request semantics."
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -2095,9 +2097,8 @@
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Test",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "unavailable",
+          "reason": "bundled tMPI Test/Testany do not progress incoming messages, violating standard nonblocking progress semantics"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -2256,9 +2257,8 @@
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Testany",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "unavailable",
+          "reason": "bundled tMPI Testany does not progress incoming messages, violating standard nonblocking progress semantics"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
@@ -6411,22 +6411,21 @@
         }
       ],
       "callbacks": [],
-      "provider_behavior": "native MPI direct; stable v2026.4 tMPI declaration verified; direct adapter mapping can use the namespaced tMPI symbol even when standard-name macro is absent; runtime semantics still require stage-2 tests; injected provider optional",
+      "provider_behavior": "Native real MPI direct. Omitted from tMPI adapters because tMPI handlers are borrowed and tMPI_Errhandler_free may free runtime-owned memory.",
       "test_id": "mpi-api:MPI_Errhandler_free",
       "provider_routes": {
         "native_real_mpi": {
           "status": "direct"
         },
         "internal_thread_mpi": {
-          "status": "direct",
-          "symbol": "tMPI_Errhandler_free",
-          "evidence": "public v2026.4 declaration; adapter may call namespaced symbol even if mpi_bindings.h lacks an MPI-name macro; runtime behavior is stage-2 tested"
+          "status": "unavailable",
+          "reason": "tMPI_Comm_get_errhandler returns a borrowed handler that cannot safely be freed"
         },
         "injected_real_mpi": {
           "status": "optional-entry",
-          "missing": "use only manifest-declared valid fallback; otherwise throw unavailable-function exception"
+          "missing": "tMPI borrowed handler references are not safely freeable"
         },
-        "semantic_test": "dedicated MPI-1 API test required if retained"
+        "semantic_test": "tMPI unavailable exception; standard MPI remains direct"
       },
       "native_adapter": "implemented"
     },

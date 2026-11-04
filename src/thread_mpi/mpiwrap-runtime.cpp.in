@@ -104,23 +104,20 @@ void rank_work(const void *) {
     record_failure(rank, __LINE__);
   }
 
-  MPI_Request incomplete_request{};
-  MPI_Status untouched_test_status{};
-  untouched_test_status.MPI_SOURCE = 314;
-  untouched_test_status.MPI_TAG = 271;
-  untouched_test_status.MPI_ERROR = 159;
-  untouched_test_status.raw_size = 7;
-  untouched_test_status.raw[0] = 0x11;
-  int test_flag = -1;
-  if (!mpiwrap_has_Test() ||
-      mpiwrap_Test(&incomplete_request, &test_flag, &untouched_test_status) !=
-      thread_mpi::TMPI_SUCCESS || test_flag != 0 ||
-      untouched_test_status.MPI_SOURCE != 314 ||
-      untouched_test_status.MPI_TAG != 271 ||
-      untouched_test_status.MPI_ERROR != 159 ||
-      untouched_test_status.raw_size != 7 ||
-      untouched_test_status.raw[0] != 0x11) {
+  if (mpiwrap_has_Test()) {
     record_failure(rank, __LINE__);
+  } else {
+    bool unavailable_threw = false;
+    try {
+      MPI_Request incomplete_request{};
+      int test_flag = -1;
+      mpiwrap_Test(&incomplete_request, &test_flag, nullptr);
+    } catch (const std::runtime_error &) {
+      unavailable_threw = true;
+    }
+    if (!unavailable_threw) {
+      record_failure(rank, __LINE__);
+    }
   }
 
   if (mpiwrap_has_Op_create()) {
@@ -482,128 +479,6 @@ void rank_work(const void *) {
     record_failure(rank, __LINE__);
   }
 
-  int some_received0 = -1;
-  int some_received1 = -1;
-  int some_send0 = rank + 101;
-  int some_send1 = rank + 102;
-  MPI_Request some_requests[2] {};
-  MPI_Status some_statuses[2] {};
-  int some_outcount = 0;
-  int some_indices[2] = {-1, -1};
-  if (mpiwrap_Isend(&some_send0, 1, integer, next, 78, world,
-                    &some_requests[0]) != thread_mpi::TMPI_SUCCESS ||
-      mpiwrap_Isend(&some_send1, 1, integer, next, 80, world,
-                    &some_requests[1]) != thread_mpi::TMPI_SUCCESS ||
-      mpiwrap_Recv(&some_received0, 1, integer, previous, 78, world,
-                   MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS ||
-      mpiwrap_Recv(&some_received1, 1, integer, previous, 80, world,
-                   MPI_STATUS_IGNORE) != thread_mpi::TMPI_SUCCESS) {
-    record_failure(rank, __LINE__);
-  } else {
-    bool seen_some_requests[2] = {false, false};
-    bool seen_some_statuses[2] = {false, false};
-    int total_some_completed = 0;
-    int some_attempts = 0;
-    while ((!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
-            !mpiwrap_handle_storage_is_zero(some_requests[1].storage)) &&
-           some_attempts++ < 100000) {
-      if (mpiwrap_Testsome(2, some_requests, &some_outcount, some_indices,
-                           some_statuses) != thread_mpi::TMPI_SUCCESS) {
-        record_failure(rank, __LINE__);
-        break;
-      }
-      if (some_outcount == 0) {
-        std::this_thread::yield();
-        continue;
-      }
-      if (some_outcount < 0 || some_outcount > 2) {
-        record_failure(rank, __LINE__);
-        break;
-      }
-      for (int i = 0; i < some_outcount; ++i) {
-        const int index = some_indices[i];
-        if (index < 0 || index > 1 || seen_some_requests[index] ||
-            some_statuses[i].raw_size == 0) {
-          record_failure(rank, __LINE__);
-          continue;
-        }
-        seen_some_requests[index] = true;
-        seen_some_statuses[index] = some_statuses[i].raw_size != 0;
-        ++total_some_completed;
-      }
-    }
-    if (total_some_completed != 2 || !seen_some_requests[0] ||
-        !seen_some_requests[1]) {
-      record_failure(rank, __LINE__);
-      std::cerr << "rank " << rank << " Testsome did not complete both requests: "
-                << total_some_completed << '\n';
-    }
-    if (some_received0 != previous + 101 || some_received1 != previous + 102) {
-      record_failure(rank, __LINE__);
-    }
-    if (!mpiwrap_handle_storage_is_zero(some_requests[0].storage) ||
-        !mpiwrap_handle_storage_is_zero(some_requests[1].storage) ||
-        !seen_some_statuses[0] || !seen_some_statuses[1]) {
-      record_failure(rank, __LINE__);
-    }
-  }
-
-  int wait_some_recv = -1;
-  int wait_some_send = rank + 111;
-  MPI_Request wait_some_requests[2] {};
-  MPI_Status wait_some_statuses[2] {};
-  int wait_some_outcount = 0;
-  int wait_some_indices[2] = {-1, -1};
-  if (mpiwrap_Irecv(&wait_some_recv, 1, integer, previous, 79, world,
-                    &wait_some_requests[0]) != thread_mpi::TMPI_SUCCESS ||
-      mpiwrap_Isend(&wait_some_send, 1, integer, next, 79, world,
-                    &wait_some_requests[1]) != thread_mpi::TMPI_SUCCESS ||
-      mpiwrap_Waitsome(2, wait_some_requests, &wait_some_outcount,
-                       wait_some_indices, wait_some_statuses) !=
-      thread_mpi::TMPI_SUCCESS || wait_some_outcount < 1 || wait_some_outcount > 2) {
-    record_failure(rank, __LINE__);
-    std::cerr << "rank " << rank << " Waitsome failed: outcount=" << wait_some_outcount
-              << " requests="
-              << static_cast<unsigned>(wait_some_requests[0].storage.bytes[0]) << ','
-              << static_cast<unsigned>(wait_some_requests[1].storage.bytes[0])
-              << '\n';
-  } else {
-    bool receive_completed_by_some = false;
-    bool receive_status_valid = false;
-    for (int i = 0; i < wait_some_outcount; ++i) {
-      if (wait_some_indices[i] == 0) {
-        receive_completed_by_some = true;
-        receive_status_valid = wait_some_statuses[i].MPI_SOURCE == previous &&
-                               wait_some_statuses[i].MPI_TAG == 79;
-      } else if (wait_some_indices[i] != 1) {
-        record_failure(rank, __LINE__);
-      }
-    }
-    if (receive_completed_by_some && !receive_status_valid) {
-      record_failure(rank, __LINE__);
-      std::cerr << "rank " << rank << " Waitsome receive status invalid outcount="
-                << wait_some_outcount << " indices=" << wait_some_indices[0] << ','
-                << wait_some_indices[1] << " statuses="
-                << wait_some_statuses[0].MPI_SOURCE << ':' << wait_some_statuses[0].MPI_TAG
-                << ',' << wait_some_statuses[1].MPI_SOURCE << ':'
-                << wait_some_statuses[1].MPI_TAG << '\n';
-    }
-    if (!mpiwrap_handle_storage_is_zero(wait_some_requests[0].storage) ||
-        !mpiwrap_handle_storage_is_zero(wait_some_requests[1].storage)) {
-      MPI_Status remaining_statuses[2] {};
-      if (mpiwrap_Waitall(2, wait_some_requests, remaining_statuses) !=
-          thread_mpi::TMPI_SUCCESS) {
-        record_failure(rank, __LINE__);
-      } else if (!receive_completed_by_some &&
-                 (remaining_statuses[0].MPI_SOURCE != previous ||
-                  remaining_statuses[0].MPI_TAG != 79)) {
-        record_failure(rank, __LINE__);
-      }
-    }
-    if (wait_some_recv != previous + 111) {
-      record_failure(rank, __LINE__);
-    }
-  }
   ranks_seen.fetch_add(1);
 }
 
@@ -632,9 +507,36 @@ int run(int ranks) {
     std::cerr << "required tMPI provider entries missing\n";
     return 1;
   }
-  if (mpiwrap_has_Waitall() == false || mpiwrap_has_Waitsome() == false ||
-      mpiwrap_has_Testsome() == false || mpiwrap_has_Testall()) {
-    std::cerr << "request-array provider routes are inconsistent\n";
+  if (!mpiwrap_has_Waitall() || mpiwrap_has_Waitsome() ||
+      mpiwrap_has_Testsome() || mpiwrap_has_Testall()) {
+    std::cerr << "tMPI request-array capabilities are inconsistent\n";
+    return 1;
+  }
+  MPI_Request unavailable_request = mpiwrap_REQUEST_NULL();
+  int unavailable_outcount = -1;
+  int unavailable_index = -1;
+  MPI_Status unavailable_status{};
+  const auto expect_request_function_unavailable = [&](const char *name, auto call) {
+    try {
+      call();
+    } catch (const std::runtime_error &error) {
+      if (std::string(error.what()).find(name) != std::string::npos) {
+        return true;
+      }
+      std::cerr << name << " unavailable diagnostic omitted function name: "
+                << error.what() << '\n';
+    }
+    return false;
+  };
+  if (!expect_request_function_unavailable("MPI_Waitsome", [&] {
+  mpiwrap_Waitsome(1, &unavailable_request, &unavailable_outcount,
+                   &unavailable_index, &unavailable_status);
+  }) ||
+  !expect_request_function_unavailable("MPI_Testsome", [&] {
+    mpiwrap_Testsome(1, &unavailable_request, &unavailable_outcount,
+                     &unavailable_index, &unavailable_status);
+  })) {
+    std::cerr << "tMPI exposed an unsupported request-array function\n";
     return 1;
   }
   if (mpiwrap_has_Bsend() || mpiwrap_has_Ssend() || mpiwrap_has_Issend()) {

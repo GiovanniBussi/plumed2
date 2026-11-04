@@ -77,6 +77,7 @@ public:
   std::uint32_t nativeConstantSize(const char *name) const;
   bool copyNativeValue(const char *name, void *output, std::size_t size) const;
   bool ranksAreThreads() const;
+  bool hasCapability(const char *name) const;
   bool copyValue(const char *name, void *output, std::size_t size) const;
 
   std::string providerName() const;

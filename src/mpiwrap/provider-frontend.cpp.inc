@@ -11,6 +11,11 @@ bool mpiwrap_provider_installed() {
   return mpiwrap_provider::currentRegistry().installed();
 }
 
+bool mpiwrap_provider_has_capability(const char *name) {
+  auto &registry = mpiwrap_provider::currentRegistry();
+  return registry.installed() && registry.hasCapability(name);
+}
+
 bool mpiwrap_provider_ranks_are_threads() {
   auto &registry = mpiwrap_provider::currentRegistry();
   return registry.installed() && registry.ranksAreThreads();

@@ -141,6 +141,7 @@ extern plumed_mpiw_provider_constant_fn constant_PROD;
 extern plumed_mpiw_provider_constant_fn constant_MAX;
 extern plumed_mpiw_provider_constant_fn constant_MIN;
 extern plumed_mpiw_provider_constant_fn constant_STATUS_IGNORE;
+extern plumed_mpiw_provider_constant_fn constant_STATUSES_IGNORE;
 extern plumed_mpiw_provider_constant_fn constant_GROUP_NULL;
 extern plumed_mpiw_provider_constant_fn constant_GROUP_EMPTY;
 extern plumed_mpiw_provider_constant_fn constant_REQUEST_NULL;

@@ -136,6 +136,7 @@ plumed_mpiw_provider_constant_fn constant_PROD = nullptr;
 plumed_mpiw_provider_constant_fn constant_MAX = nullptr;
 plumed_mpiw_provider_constant_fn constant_MIN = nullptr;
 plumed_mpiw_provider_constant_fn constant_STATUS_IGNORE = nullptr;
+plumed_mpiw_provider_constant_fn constant_STATUSES_IGNORE = nullptr;
 plumed_mpiw_provider_constant_fn constant_GROUP_NULL = nullptr;
 plumed_mpiw_provider_constant_fn constant_GROUP_EMPTY = nullptr;
 plumed_mpiw_provider_constant_fn constant_REQUEST_NULL = nullptr;

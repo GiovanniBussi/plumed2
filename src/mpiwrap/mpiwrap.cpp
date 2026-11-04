@@ -5,6 +5,7 @@
 #include "provider-registry.cpp.inc"
 #include "provider-pointer-definitions.inc"
 #include "provider-frontend.cpp.inc"
+#include "provider-fallbacks.cpp.inc"
 #if defined(__PLUMED_HAS_THREAD_MPI)
 #include "thread-mpi-adapter.cpp.inc"
 #else

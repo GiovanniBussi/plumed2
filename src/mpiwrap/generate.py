@@ -83,7 +83,7 @@ def constant_return_type(name, category):
         return "std::int32_t"
     if category == "buffer_sentinel":
         return "void *"
-    if category == "status_sentinel":
+    if category in {"status_sentinel", "status_array_sentinel"}:
         return "MPI_Status *"
     raise ValueError(f"unknown constant class: {category}")
 
@@ -122,6 +122,7 @@ def render_header(functions, types, constants):
               "#include <cstddef>", "#include <cstdint>", "#include <cstring>",
               "#include <stdexcept>", "#include <string>", "#include <type_traits>",
               "#include <vector>",
+              '#include "provider-fallbacks.hpp"',
               'static_assert(sizeof(int) == sizeof(std::int32_t), "C int must be 32-bit");',
               'static_assert(std::is_same<int, std::int32_t>::value, "MPI integer arrays require int32_t to be native int");',
               "using MPI_Fint = std::int32_t;",
@@ -164,6 +165,7 @@ def render_header(functions, types, constants):
         "bool mpiwrap_Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);",
         "bool mpiwrap_Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);",
         "void mpiwrap_ensure_provider_selected();",
+        "bool mpiwrap_provider_has_capability(const char *name);",
         "[[noreturn]] void mpiwrap_unavailable(const char *name);",
         "plumed_mpiw_status mpiwrap_status_to_transport(const MPI_Status &status);",
         "void mpiwrap_status_from_transport(const plumed_mpiw_status &value, MPI_Status *status);",
@@ -377,6 +379,14 @@ def render_provider_inline_functions(functions):
                 call_args.append(f"&{native}")
                 guard = "true" if argument["direction"] == "inout" else _frontend_status_guard(function, argument, argument)
                 after.append(f"  if ({guard}) {argname}->storage = {native};")
+                null_constant = {
+                    "MPI_Group_free": "GROUP_NULL",
+                    "MPI_Comm_free": "COMM_NULL",
+                    "MPI_Type_free": "DATATYPE_NULL",
+                    "MPI_Request_free": "REQUEST_NULL",
+                }.get(name)
+                if null_constant:
+                    after.append(f"  if (native_return_value == 0) *{argname} = mpiwrap_{null_constant}();")
             elif conversion == "status":
                 native = f"native_{argname}"
                 before.append(f"  plumed_mpiw_status {native}{{}};")
@@ -388,6 +398,9 @@ def render_provider_inline_functions(functions):
                     call_args.append(f"{argname} ? &{native} : nullptr")
                     guard = _frontend_status_guard(function, argument, argument)
                     after.append(f"  if ({guard} && {argname}) mpiwrap_status_from_transport({native}, {argname});")
+                    if name in {"MPI_Testany", "MPI_Waitany"}:
+                        after.append(
+                            f"  if (native_return_value == 0 && native_indx == mpiwrap_UNDEFINED() && {argname}) mpiwrap_set_empty_status({argname});")
             else:
                 supported = False
         signature = f"inline {wrapper_type(result)} mpiwrap_{suffix}({', '.join(arguments)}) {{"
@@ -409,7 +422,55 @@ def render_provider_inline_functions(functions):
         else:
             lines.append("  mpiwrap_ensure_provider_selected();")
         lines += before
-        lines.append(f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");")
+        if name == "MPI_Test":
+            lines += [f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");",
+                      "  if (*request == mpiwrap_REQUEST_NULL()) {",
+                      "    *flag = 1;",
+                      "    if (status) mpiwrap_set_empty_status(status);",
+                      "    return mpiwrap_SUCCESS();", "  }"]
+        elif name == "MPI_Testany":
+            lines += [f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");",
+                      "  if (count == 0 || mpiwrap_requests_all_null(count, array_of_requests)) {",
+                      "    *indx = mpiwrap_UNDEFINED(); *flag = 1;",
+                      "    if (status) mpiwrap_set_empty_status(status);",
+                      "    return mpiwrap_SUCCESS();", "  }"]
+        elif name == "MPI_Waitany":
+            lines += [f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");",
+                      "  if (count == 0 || mpiwrap_requests_all_null(count, array_of_requests)) {",
+                      "    *indx = mpiwrap_UNDEFINED();",
+                      "    if (status) mpiwrap_set_empty_status(status);",
+                      "    return mpiwrap_SUCCESS();", "  }"]
+        elif name in {"MPI_Get_count", "MPI_Get_elements"}:
+            lines += [f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");",
+                      "  if (mpiwrap_is_empty_status(status)) { *count = 0; return mpiwrap_SUCCESS(); }"]
+        elif name == "MPI_Test_cancelled":
+            lines += [f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");",
+                      "  if (mpiwrap_is_empty_status(status)) { *flag = 0; return mpiwrap_SUCCESS(); }"]
+        elif name in {"MPI_Allreduce", "MPI_Reduce"}:
+            root = "root" if name == "MPI_Reduce" else "-1"
+            lines += [f"  if (pointers::{suffix}) {{",
+                      f"    int singleton_result = 0;",
+                      f"    if (mpiwrap_try_singleton_reduce(sendbuf, recvbuf, count, datatype, {root}, comm, &singleton_result)) return singleton_result;",
+                      "  }"]
+        if name == "MPI_Test":
+            # tMPI_Test leaves flag untouched when an active request is still
+            # pending. MPI requires false in that case.
+            lines.append("  *flag = 0;")
+        fallback = {
+            "MPI_Wait": ("Wait", "request, status"),
+            "MPI_Waitsome": ("Waitsome", "incount, array_of_requests, outcount, array_of_indices, array_of_statuses"),
+            "MPI_Testsome": ("Testsome", "incount, array_of_requests, outcount, array_of_indices, array_of_statuses"),
+            "MPI_Allgather": ("Allgather", "sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm"),
+            "MPI_Allgatherv": ("Allgatherv", "sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm"),
+        }.get(name)
+        if fallback:
+            fallback_name, fallback_args = fallback
+            lines += [f"  if (!pointers::{suffix}) {{",
+                      f"    if (!mpiwrap_can_fallback_{fallback_name}()) mpiwrap_unavailable(\"{name}\");",
+                      f"    return mpiwrap_fallback_{fallback_name}({fallback_args});",
+                      "  }"]
+        else:
+            lines.append(f"  if (!pointers::{suffix}) mpiwrap_unavailable(\"{name}\");")
         call = f"pointers::{suffix}({', '.join(call_args)})"
         if result == "void":
             lines += [f"  {call};", *after, "  return;", "}"]
@@ -420,8 +481,12 @@ def render_provider_inline_functions(functions):
         else:
             lines += [f"  {provider_result(result)} native_return_value = {call};",
                       *after, "  return static_cast<" + wrapper_type(result) + ">(native_return_value);", "}"]
+        availability = f"pointers::{suffix} != nullptr"
+        if fallback:
+            fallback_name = fallback[0]
+            availability = f"({availability} || mpiwrap_can_fallback_{fallback_name}())"
         lines += [has_signature,
-                  f"  return pointers::ready.load(std::memory_order_acquire) && pointers::{suffix} != nullptr;",
+                  f"  return pointers::ready.load(std::memory_order_acquire) && {availability};",
                   "}"]
     return lines
 
@@ -644,7 +709,7 @@ def render_provider_constant_bridges(constants):
         result_type = constant_return_type(name, category)
         lines += [f"static int32_t plumed_mpiw_bridge_constant_{name}(void *output, uint32_t capacity) {{",
                   f"  if (!output || capacity < sizeof({result_type})) return -1;"]
-        if category == "status_sentinel":
+        if category in {"status_sentinel", "status_array_sentinel"}:
             lines += [f"  {result_type} value = nullptr;",
                       "  std::memcpy(output, &value, sizeof(value));",
                       "  return 0;", "}"]
@@ -791,7 +856,7 @@ def render_thread_mpi_availability(functions):
         name = function["name"]
         route = function.get("provider_routes", {}).get("internal_thread_mpi", {})
         symbol = route.get("symbol")
-        direct = route.get("status") == "direct" and bool(symbol)
+        direct = route.get("status") in {"direct", "emulated"} and bool(symbol)
         lines.append(f"#define PLUMED_MPIW_THREAD_MPI_HAS_{name} {1 if direct else 0}")
         if direct:
             lines.append(f"#define PLUMED_MPIW_THREAD_MPI_SYMBOL_{name} {symbol}")
@@ -843,7 +908,7 @@ def render_provider_constants(constants):
         elif category == "compile_time_integer":
             macro = "COMPILE_TIME_INTEGER"
             selection = ""
-        elif category in {"buffer_sentinel", "status_sentinel"}:
+        elif category in {"buffer_sentinel", "status_sentinel", "status_array_sentinel"}:
             macro = "POINTER"
             selection = ""
         else:
@@ -882,8 +947,8 @@ def render_thread_mpi_constants(constants):
                 native_type = f"thread_mpi::tMPI_{suffix}"
             elif category in {"provider_integer", "compile_time_integer"}:
                 native_type = "int"
-            elif category in {"buffer_sentinel", "status_sentinel"}:
-                native_type = "thread_mpi::tMPI_Status *" if category == "status_sentinel" else "void *"
+            elif category in {"buffer_sentinel", "status_sentinel", "status_array_sentinel"}:
+                native_type = "thread_mpi::tMPI_Status *" if category in {"status_sentinel", "status_array_sentinel"} else "void *"
             else:
                 raise ValueError(f"{name}: unsupported tMPI constant class {category}")
             accessors += [
@@ -1069,7 +1134,7 @@ def render_adapter_entries(functions, versions):
         injected = function.get("provider_routes", {}).get("injected_real_mpi", {})
         if injected.get("status") != "unavailable":
             native.append(f"PLUMED_MPIW_NATIVE_FUNCTION({name}, 0x{identifier:08x}, {version}, {argc})")
-        if route.get("status") == "direct" and route.get("symbol"):
+        if route.get("status") in {"direct", "emulated"} and route.get("symbol"):
             thread.append(f"PLUMED_MPIW_THREAD_MPI_FUNCTION({name}, {route['symbol']})")
     return "\n".join(native) + "\n", "\n".join(thread) + "\n"
 
@@ -1126,7 +1191,7 @@ def render_thread_symbol_checks(functions):
         name = function["name"]
         route = function.get("provider_routes", {}).get("internal_thread_mpi", {})
         symbol = route.get("symbol")
-        direct = route.get("status") == "direct" and bool(symbol)
+        direct = route.get("status") in {"direct", "emulated"} and bool(symbol)
         if direct:
             lines += [f"#if !PLUMED_MPIW_THREAD_MPI_HAS_{name}",
                       f'#error "missing direct tMPI availability for {name}"', "#endif",
@@ -1178,8 +1243,9 @@ def native_local_declaration(ctype, name, initializer=None):
     return declaration + ";"
 
 
-def render_native_adapter_function(function):
-    """Emit a native-only canonical dispatcher that directly calls MPI."""
+def render_native_adapter_function(function, *, symbol=None, type_prefix=None,
+                                  internal_tmpi=False):
+    """Emit one pointer-transport dispatcher for a provider's native API."""
     result_type, name, raw_args = parse_signature(function["signature"])
     args = function["arguments"]
     if len(args) != len(raw_args):
@@ -1193,6 +1259,9 @@ def render_native_adapter_function(function):
         if raw == "..." or metadata.get("conversion") in {"callback", "callback_ref"}:
             raise ValueError(f"{name}: variadic/callback native dispatch is not supported")
         ctype = native_argument_type(raw)
+        if type_prefix:
+            ctype = re.sub(r"\bMPI_(Comm|Datatype|Errhandler|Group|Op|Request|Status|Fint)\b",
+                           type_prefix + r"\1", ctype)
         local = f"native_argument_{index}"
         conversion = metadata.get("conversion")
         if conversion in {"scalar_value", "opaque_handle_value"}:
@@ -1206,7 +1275,9 @@ def render_native_adapter_function(function):
             if "const " in call_type and metadata.get("direction") == "in":
                 call_type = call_type.replace("const ", "", 1)
             call_args.append(f"({call_type})argument_{index}")
-    call = f"{name}({', '.join(call_args)})"
+    if internal_tmpi:
+        symbol = "thread_mpi::" + function["provider_routes"]["internal_thread_mpi"]["symbol"]
+    call = f"{symbol or name}({', '.join(call_args)})"
     lines = [lines[0]] + declarations
     if result_type == "void":
         lines += [f"  {call};", "  (void)result;"]
@@ -1215,6 +1286,67 @@ def render_native_adapter_function(function):
                   "  memcpy(result, &native_result, sizeof(native_result));"]
     lines.append("}")
     return "\n".join(lines)
+
+
+def render_native_adapter_function_with_gromacs_binding(function, gromacs_symbol):
+    """Use tMPI spellings for GROMACS-only entries, standard MPI otherwise."""
+    native = render_native_adapter_function(function)
+    tmpi = render_native_adapter_function(
+        function, symbol="thread_mpi::" + gromacs_symbol,
+        type_prefix="thread_mpi::tMPI_")
+    return "\n".join(("#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI", tmpi,
+                      "#else", native, "#endif"))
+
+
+def render_thread_mpi_adapter(functions, constants, versions):
+    """Instantiate the shared pointer-transport bodies for bundled tMPI."""
+    direct = [function for function in functions
+              if function.get("provider_routes", {}).get("internal_thread_mpi", {}).get("status") in {"direct", "emulated"}
+              and function.get("provider_routes", {}).get("internal_thread_mpi", {}).get("symbol")
+              and function["name"] != "MPI_Errhandler_free"
+              and not function.get("callbacks")]
+    generated = [render_native_adapter_function(
+        function, type_prefix="thread_mpi::tMPI_", internal_tmpi=True)
+        for function in direct]
+    entries = []
+    for function in direct:
+        name = function["name"]
+        identifier = int(hashlib.sha256(name.encode("ascii")).hexdigest()[:8], 16)
+        argc = len(parse_signature(function["signature"])[2])
+        entries.append(
+            f'  {{ (uint32_t)sizeof(plumed_mpiw_function_entry), "{name}", '
+            f'0x{identifier:08x}u, {versions[name]}u, {argc}u, '
+            f'(plumed_mpiw_generic_fn)plumed_mpiw_{name} }},')
+    return "\n".join([
+        "// Generated from the canonical native pointer-transport renderer.",
+        '#include "provider-abi.h"', '#include "thread_mpi/thread_mpi_tmpi.h"',
+        '#include <cstddef>', '#include <cstdint>', '#include <cstring>',
+        "namespace PLMD {", "namespace thread_mpi_adapter {",
+        "using namespace thread_mpi;",
+        *generated,
+        '#include "thread-mpi-constant-accessors.inc"',
+        "static const plumed_mpiw_function_entry functions[] = {", *entries, "};",
+        "static plumed_mpiw_generic_fn runtime_identity = (plumed_mpiw_generic_fn)&thread_mpi::tMPI_Initialized;",
+        "static const plumed_mpiw_metadata_entry metadata[] = {",
+        '#include "thread-mpi-constant-metadata.inc"',
+        '  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_OPAQUE, 0, "identity:runtime", sizeof(plumed_mpiw_generic_fn), 0, &runtime_identity },',
+        '  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8, 0, "capability:intracommunicators-only", sizeof("true"), 0, "true" },',
+        "};",
+        "static const plumed_mpiw_provider_descriptor descriptor = {",
+        "  (uint32_t)sizeof(plumed_mpiw_provider_descriptor), PLUMED_MPIW_PROVIDER_ABI_MAJOR, 0, 1,",
+        '  "PLUMED embedded GROMACS thread-MPI",',
+        "  (uint32_t)sizeof(thread_mpi::tMPI_Comm), (uint32_t)sizeof(thread_mpi::tMPI_Group),",
+        "  (uint32_t)sizeof(thread_mpi::tMPI_Datatype), (uint32_t)sizeof(thread_mpi::tMPI_Request),",
+        "  (uint32_t)sizeof(thread_mpi::tMPI_Op), (uint32_t)sizeof(thread_mpi::tMPI_Errhandler),",
+        "  (uint32_t)sizeof(thread_mpi::tMPI_Status),",
+        "  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_SOURCE),",
+        "  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_TAG),",
+        "  (uint32_t)offsetof(thread_mpi::tMPI_Status, TMPI_ERROR), 0, 0,",
+        "  (uint64_t)(sizeof(functions) / sizeof(functions[0])), functions,",
+        "  (uint64_t)(sizeof(metadata) / sizeof(metadata[0])), metadata", "};",
+        "}",
+        'extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_thread_mpi_provider(void) { return &thread_mpi_adapter::descriptor; }',
+        "}", ""])
 
 def render_native_adapter_body(functions, constants, versions, availability):
     template = (DEVELOPMENT / "mpiwrap_implementation.cpp.inc.in").read_text()
@@ -1228,7 +1360,15 @@ def render_native_adapter_body(functions, constants, versions, availability):
         if route.get("status") == "unavailable" or function.get("callbacks"):
             raise ValueError(f"{name}: native adapter cannot publish unavailable/callback function")
         if name not in manual:
-            generated_functions.append(render_native_adapter_function(function))
+            gromacs_names = set(availability["gromacs_thread_mpi_functions"])
+            route_symbol = function.get("provider_routes", {}).get(
+                "internal_thread_mpi", {}).get("symbol")
+            if name in gromacs_names and route_symbol:
+                generated_functions.append(
+                    render_native_adapter_function_with_gromacs_binding(
+                        function, route_symbol))
+            else:
+                generated_functions.append(render_native_adapter_function(function))
 
     def guard(name, kind):
         return _native_availability_guard(name, availability, kind)
@@ -1252,6 +1392,17 @@ def render_native_adapter_body(functions, constants, versions, availability):
 
     implemented_constants = [constant for constant in constants
                              if constant.get("native_adapter") == "implemented"]
+    gromacs_constants = set(availability["gromacs_thread_mpi_constants"])
+    tmpi_header = (DEVELOPMENT.parent / "thread_mpi/thread_mpi_tmpi.h").read_text()
+
+    def tmpi_constant_expression(binding):
+        # tMPI publishes some predefined constants as macros and others as
+        # namespaced variables; a macro cannot be prefixed with its namespace.
+        if re.search(r"(?m)^#\s*define\s+" + re.escape(binding) + r"\b",
+                     tmpi_header):
+            return binding
+        return "thread_mpi::" + binding
+
     constant_impl = []
     constant_accessors = []
     for constant in implemented_constants:
@@ -1262,10 +1413,57 @@ def render_native_adapter_body(functions, constants, versions, availability):
             raise ValueError(f"{name}: implemented native constant lacks native_type")
         constant_impl.append(guard(name, "constant"))
         if category == "provider_handle":
+            if name in gromacs_constants:
+                binding = constant.get("thread_mpi_2026_4", {}).get("binding")
+                if not binding:
+                    raise ValueError(f"{name}: GROMACS tMPI constant lacks a native binding")
+                if name == "MPI_COMM_SELF":
+                    tmpi_type = "thread_mpi::tMPI_Comm"
+                    tmpi_value = "thread_mpi::tMPI_Get_comm_self()"
+                else:
+                    tmpi_type = re.sub(
+                        r"\bMPI_(Comm|Datatype|Errhandler|Group|Op|Request|Status|Fint)\b",
+                        r"thread_mpi::tMPI_\1", native_type)
+                    tmpi_value = tmpi_constant_expression(binding)
+                constant_impl += [
+                    f"static void plumed_mpiw_value_{name}(void *out) {{",
+                    "#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI",
+                    f"  const {tmpi_type} value = {tmpi_value};",
+                    "#else",
+                    f"  const {native_type} value = {name};",
+                    "#endif",
+                    "  memcpy(out, &value, sizeof(value));",
+                    "}",
+                ]
+            else:
+                constant_impl.append(f"PLUMED_MPIW_HANDLE_CONSTANT({name}, {native_type})")
+        elif name in gromacs_constants and category in {
+                "provider_integer", "compile_time_integer",
+                "buffer_sentinel", "status_sentinel", "status_array_sentinel"}:
+            binding = constant.get("thread_mpi_2026_4", {}).get("binding")
+            if not binding:
+                raise ValueError(f"{name}: GROMACS tMPI constant lacks a native binding")
+            if category in {"provider_integer", "compile_time_integer"}:
+                tmpi_type = "int"
+            elif category in {"status_sentinel", "status_array_sentinel"}:
+                tmpi_type = "thread_mpi::tMPI_Status *"
+            else:
+                tmpi_type = "void *"
+            constant_impl += [
+                f"static void plumed_mpiw_value_{name}(void *out) {{",
+                "#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI",
+                f"  const {tmpi_type} value = {tmpi_constant_expression(binding)};",
+                "#else",
+                f"  const {native_type} value = {name};",
+                "#endif",
+                "  memcpy(out, &value, sizeof(value));",
+                "}",
+            ]
+        elif category == "provider_handle":
             constant_impl.append(f"PLUMED_MPIW_HANDLE_CONSTANT({name}, {native_type})")
         elif category in {"provider_integer", "compile_time_integer"}:
             constant_impl.append(f"PLUMED_MPIW_INTEGER_CONSTANT({name})")
-        elif category in {"buffer_sentinel", "status_sentinel"}:
+        elif category in {"buffer_sentinel", "status_sentinel", "status_array_sentinel"}:
             constant_impl.append(f"PLUMED_MPIW_POINTER_CONSTANT({name})")
         else:
             raise ValueError(f"{name}: unsupported native constant class {category}")
@@ -1274,10 +1472,37 @@ def render_native_adapter_body(functions, constants, versions, availability):
         constant_accessors.append(
             f"static const plumed_mpiw_constant_accessor_fn plumed_mpiw_accessor_{name} = &plumed_mpiw_value_{name};")
         constant_accessors.append("#endif")
+    constant_impl += [
+        "#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI",
+        "static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&thread_mpi::tMPI_Initialized;",
+        "#else",
+        "static plumed_mpiw_generic_fn plumed_mpiw_native_runtime_identity = (plumed_mpiw_generic_fn)&MPI_Initialized;",
+        "#endif",
+    ]
     constant_metadata = []
     for constant in implemented_constants:
         name = constant["standard_api_name"]
-        constant_metadata += [guard(name, "constant"), f"  PLUMED_MPIW_VALUE({name}, {constant['native_type']}),", "#endif"]
+        native_type = constant["native_type"]
+        if name in gromacs_constants:
+            tmpi_type = re.sub(
+                r"\bMPI_(Comm|Datatype|Errhandler|Group|Op|Request|Status|Fint)\b",
+                r"thread_mpi::tMPI_\1", native_type)
+            constant_metadata += [
+                guard(name, "constant"),
+                "#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI",
+                f"  PLUMED_MPIW_VALUE({name}, {tmpi_type}),",
+                "#else",
+                f"  PLUMED_MPIW_VALUE({name}, {native_type}),",
+                "#endif", "#endif",
+            ]
+        else:
+            constant_metadata += [guard(name, "constant"), f"  PLUMED_MPIW_VALUE({name}, {native_type}),", "#endif"]
+    constant_metadata += [
+        '  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_OPAQUE, 0u, "identity:runtime", sizeof(plumed_mpiw_generic_fn), 0u, &plumed_mpiw_native_runtime_identity },',
+        "#if defined(GMX_THREAD_MPI) && GMX_THREAD_MPI",
+        '  { (uint32_t)sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_UTF8, 0u, "capability:intracommunicators-only", sizeof("true"), 0u, "true" },',
+        "#endif",
+    ]
     replacements = {
         "/* PLUMED_MPIW_GENERATED_FUNCTIONS */": "\n\n".join(generated_functions),
         "/* PLUMED_MPIW_FUNCTION_ENTRIES */": "\n".join(function_rows),
@@ -1427,6 +1652,8 @@ def generate(output, write=True):
         "provider-constant-bridges.inc": constant_bridges,
         "thread-mpi-constant-accessors.inc": thread_mpi_constant_accessors,
         "thread-mpi-constant-metadata.inc": thread_mpi_constant_metadata,
+        "thread-mpi-adapter.cpp.inc": render_thread_mpi_adapter(
+            functions, constants_doc["constants"], versions),
         "provider-unavailable-functions.inc": render_provider_unavailable(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
         "native-adapter-entries.inc": native_rows,

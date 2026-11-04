@@ -16,6 +16,7 @@
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_MAX", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Op), &constant_accessor_MPI_MAX },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_MIN", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Op), &constant_accessor_MPI_MIN },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_STATUS_IGNORE", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Status *), &constant_accessor_MPI_STATUS_IGNORE },
+{ sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_STATUSES_IGNORE", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Status *), &constant_accessor_MPI_STATUSES_IGNORE },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_GROUP_NULL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Group), &constant_accessor_MPI_GROUP_NULL },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_GROUP_EMPTY", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Group), &constant_accessor_MPI_GROUP_EMPTY },
 { sizeof(plumed_mpiw_metadata_entry), PLUMED_MPIW_VALUE_ACCESSOR, 0, "value:MPI_REQUEST_NULL", sizeof(plumed_mpiw_constant_accessor_fn), sizeof(thread_mpi::tMPI_Request), &constant_accessor_MPI_REQUEST_NULL },

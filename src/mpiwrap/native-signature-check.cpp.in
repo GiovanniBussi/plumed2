@@ -57,7 +57,7 @@ static_assert(std::is_same<decltype(&MPI_Allreduce), expected_MPI_Allreduce>::va
 using expected_MPI_Isend = int (*)(const void *, int, MPI_Datatype, int, int, MPI_Comm, MPI_Request *);
 static_assert(std::is_same<decltype(&MPI_Isend), expected_MPI_Isend>::value, "MPI-5 signature MPI_Isend");
 #endif
-#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
 using expected_MPI_Wait = int (*)(MPI_Request *, MPI_Status *);
 static_assert(std::is_same<decltype(&MPI_Wait), expected_MPI_Wait>::value, "MPI-5 signature MPI_Wait");
 #endif
@@ -108,7 +108,7 @@ static_assert(std::is_same<decltype(&MPI_Bsend), expected_MPI_Bsend>::value, "MP
 using expected_MPI_Ssend = int (*)(const void *, int, MPI_Datatype, int, int, MPI_Comm);
 static_assert(std::is_same<decltype(&MPI_Ssend), expected_MPI_Ssend>::value, "MPI-5 signature MPI_Ssend");
 #endif
-#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 using expected_MPI_Rsend = int (*)(const void *, int, MPI_Datatype, int, int, MPI_Comm);
 static_assert(std::is_same<decltype(&MPI_Rsend), expected_MPI_Rsend>::value, "MPI-5 signature MPI_Rsend");
 #endif
@@ -128,7 +128,7 @@ static_assert(std::is_same<decltype(&MPI_Ibsend), expected_MPI_Ibsend>::value, "
 using expected_MPI_Issend = int (*)(const void *, int, MPI_Datatype, int, int, MPI_Comm, MPI_Request *);
 static_assert(std::is_same<decltype(&MPI_Issend), expected_MPI_Issend>::value, "MPI-5 signature MPI_Issend");
 #endif
-#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 using expected_MPI_Irsend = int (*)(const void *, int, MPI_Datatype, int, int, MPI_Comm, MPI_Request *);
 static_assert(std::is_same<decltype(&MPI_Irsend), expected_MPI_Irsend>::value, "MPI-5 signature MPI_Irsend");
 #endif
@@ -136,7 +136,7 @@ static_assert(std::is_same<decltype(&MPI_Irsend), expected_MPI_Irsend>::value, "
 using expected_MPI_Irecv = int (*)(void *, int, MPI_Datatype, int, int, MPI_Comm, MPI_Request *);
 static_assert(std::is_same<decltype(&MPI_Irecv), expected_MPI_Irecv>::value, "MPI-5 signature MPI_Irecv");
 #endif
-#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
 using expected_MPI_Test = int (*)(MPI_Request *, int *, MPI_Status *);
 static_assert(std::is_same<decltype(&MPI_Test), expected_MPI_Test>::value, "MPI-5 signature MPI_Test");
 #endif
@@ -440,7 +440,7 @@ static_assert(std::is_same<decltype(&MPI_Graph_map), expected_MPI_Graph_map>::va
 using expected_MPI_Get_processor_name = int (*)(char *, int *);
 static_assert(std::is_same<decltype(&MPI_Get_processor_name), expected_MPI_Get_processor_name>::value, "MPI-5 signature MPI_Get_processor_name");
 #endif
-#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
+#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
 using expected_MPI_Errhandler_free = int (*)(MPI_Errhandler *);
 static_assert(std::is_same<decltype(&MPI_Errhandler_free), expected_MPI_Errhandler_free>::value, "MPI-5 signature MPI_Errhandler_free");
 #endif
@@ -452,7 +452,7 @@ static_assert(std::is_same<decltype(&MPI_Error_class), expected_MPI_Error_class>
 using expected_MPI_Wtime = double (*)(void);
 static_assert(std::is_same<decltype(&MPI_Wtime), expected_MPI_Wtime>::value, "MPI-5 signature MPI_Wtime");
 #endif
-#if (!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))
+#if ((!defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)) && (defined(MPI_VERSION) && defined(MPI_SUBVERSION) && ((MPI_VERSION > 1) || (MPI_VERSION == 1 && MPI_SUBVERSION >= 1)))) || (defined(GMX_THREAD_MPI) && (GMX_THREAD_MPI) && PLUMED_MPIW_GROMACS_VERSION >= 20260000)
 using expected_MPI_Wtick = double (*)(void);
 static_assert(std::is_same<decltype(&MPI_Wtick), expected_MPI_Wtick>::value, "MPI-5 signature MPI_Wtick");
 #endif

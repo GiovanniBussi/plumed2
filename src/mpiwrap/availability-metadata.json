@@ -142,7 +142,6 @@
     "MPI_Comm_set_errhandler",
     "MPI_Comm_size",
     "MPI_Comm_split",
-    "MPI_Errhandler_free",
     "MPI_Error_string",
     "MPI_Finalized",
     "MPI_Gather",
@@ -163,15 +162,16 @@
     "MPI_Scatterv",
     "MPI_Send",
     "MPI_Sendrecv",
-    "MPI_Test",
     "MPI_Topo_test",
     "MPI_Type_commit",
     "MPI_Type_contiguous",
     "MPI_Type_free",
-    "MPI_Wait",
     "MPI_Waitall",
     "MPI_Waitany",
-    "MPI_Wtime"
+    "MPI_Wtime",
+    "MPI_Wtick",
+    "MPI_Rsend",
+    "MPI_Irsend"
   ],
   "native_constants": [
     "MPI_2INT",
@@ -246,6 +246,7 @@
     "MPI_SHORT_INT",
     "MPI_SIMILAR",
     "MPI_STATUS_IGNORE",
+    "MPI_STATUSES_IGNORE",
     "MPI_SUCCESS",
     "MPI_SUM",
     "MPI_UNDEFINED",
@@ -303,6 +304,7 @@
     "MPI_SHORT",
     "MPI_SIMILAR",
     "MPI_STATUS_IGNORE",
+    "MPI_STATUSES_IGNORE",
     "MPI_SUCCESS",
     "MPI_SUM",
     "MPI_UNDEFINED",
@@ -313,7 +315,9 @@
     "MPI_UNSIGNED_SHORT",
     "MPI_SIGNED_CHAR",
     "MPI_C_BOOL",
-    "MPI_INT64_T"
+    "MPI_INT64_T",
+    "MPI_COMM_SELF",
+    "MPI_UNSIGNED_LONG"
   ],
   "mpi_standard_functions": {
     "default": "1.1",

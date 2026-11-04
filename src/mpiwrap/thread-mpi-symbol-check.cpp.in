@@ -56,10 +56,9 @@ int main() {
 #error "missing direct tMPI availability for MPI_Isend"
 #endif
   (void)&PLMD::thread_mpi::tMPI_Isend;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Wait
-#error "missing direct tMPI availability for MPI_Wait"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Wait
+#error "unexpected direct tMPI availability for MPI_Wait"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Wait;
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Allgather
 #error "unexpected direct tMPI availability for MPI_Allgather"
 #endif
@@ -102,9 +101,10 @@ int main() {
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Ssend
 #error "unexpected direct tMPI availability for MPI_Ssend"
 #endif
-#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Rsend
-#error "unexpected direct tMPI availability for MPI_Rsend"
+#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Rsend
+#error "missing direct tMPI availability for MPI_Rsend"
 #endif
+  (void)&PLMD::thread_mpi::tMPI_Send;
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Buffer_attach
 #error "unexpected direct tMPI availability for MPI_Buffer_attach"
 #endif
@@ -117,17 +117,17 @@ int main() {
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Issend
 #error "unexpected direct tMPI availability for MPI_Issend"
 #endif
-#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Irsend
-#error "unexpected direct tMPI availability for MPI_Irsend"
+#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Irsend
+#error "missing direct tMPI availability for MPI_Irsend"
 #endif
+  (void)&PLMD::thread_mpi::tMPI_Isend;
 #if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Irecv
 #error "missing direct tMPI availability for MPI_Irecv"
 #endif
   (void)&PLMD::thread_mpi::tMPI_Irecv;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Test
-#error "missing direct tMPI availability for MPI_Test"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Test
+#error "unexpected direct tMPI availability for MPI_Test"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Test;
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Request_free
 #error "unexpected direct tMPI availability for MPI_Request_free"
 #endif
@@ -135,10 +135,9 @@ int main() {
 #error "missing direct tMPI availability for MPI_Waitany"
 #endif
   (void)&PLMD::thread_mpi::tMPI_Waitany;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testany
-#error "missing direct tMPI availability for MPI_Testany"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Testany
+#error "unexpected direct tMPI availability for MPI_Testany"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Testany;
 #if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Waitall
 #error "missing direct tMPI availability for MPI_Waitall"
 #endif
@@ -381,10 +380,9 @@ int main() {
 #error "missing direct tMPI availability for MPI_Get_processor_name"
 #endif
   (void)&PLMD::thread_mpi::tMPI_Get_processor_name;
-#if !PLUMED_MPIW_THREAD_MPI_HAS_MPI_Errhandler_free
-#error "missing direct tMPI availability for MPI_Errhandler_free"
+#if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Errhandler_free
+#error "unexpected direct tMPI availability for MPI_Errhandler_free"
 #endif
-  (void)&PLMD::thread_mpi::tMPI_Errhandler_free;
 #if PLUMED_MPIW_THREAD_MPI_HAS_MPI_Error_class
 #error "unexpected direct tMPI availability for MPI_Error_class"
 #endif

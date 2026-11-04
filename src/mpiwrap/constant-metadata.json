@@ -240,6 +240,20 @@
       "native_type": "MPI_Status *"
     },
     {
+      "class": "status_array_sentinel",
+      "standard_api_name": "MPI_STATUSES_IGNORE",
+      "mpi5_binding": "retained C constant; provider value is never assumed portable",
+      "provider_value": "obtained lazily from selected native adapter; transport as exact typed value/sentinel",
+      "thread_mpi_2026_4": {
+        "status": "stable-tmpi-mapped",
+        "binding": "TMPI_STATUSES_IGNORE"
+      },
+      "semantic_test": "constant:MPI_STATUSES_IGNORE",
+      "translation": "provider-facing MPI_STATUSES_IGNORE is normalized to null; adapter maps null to its native ignore sentinel before the call",
+      "native_adapter": "implemented",
+      "native_type": "MPI_Status *"
+    },
+    {
       "class": "provider_handle",
       "standard_api_name": "MPI_GROUP_NULL",
       "mpi5_binding": "retained C constant; provider value is never assumed portable",

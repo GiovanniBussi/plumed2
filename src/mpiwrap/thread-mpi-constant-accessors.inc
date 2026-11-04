@@ -88,6 +88,11 @@ void get_MPI_STATUS_IGNORE(void *output) {
   std::memcpy(output, &value, sizeof(value));
 }
 static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_STATUS_IGNORE = &get_MPI_STATUS_IGNORE;
+void get_MPI_STATUSES_IGNORE(void *output) {
+  const thread_mpi::tMPI_Status * value = TMPI_STATUSES_IGNORE;
+  std::memcpy(output, &value, sizeof(value));
+}
+static const plumed_mpiw_constant_accessor_fn constant_accessor_MPI_STATUSES_IGNORE = &get_MPI_STATUSES_IGNORE;
 void get_MPI_GROUP_NULL(void *output) {
   const thread_mpi::tMPI_Group value = TMPI_GROUP_NULL;
   std::memcpy(output, &value, sizeof(value));
