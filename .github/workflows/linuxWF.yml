@@ -334,8 +334,6 @@ jobs:
           -L"$HOME/opt/lib" -Wl,-rpath,"$HOME/opt/lib" -lplumed \
           -o "$RUNNER_TEMP/plumed-openmpi-host"
         export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-openmpi-host"
-        export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
-        export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         # An absolute mpiexec path can prepend /usr/bin in rank environments.
         # Keep the Python selected by setup-python, with its installed packages.
@@ -429,8 +427,6 @@ jobs:
       run: |
         set -o pipefail
         export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-openmpi-host"
-        export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
-        export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         # An absolute mpiexec path can prepend /usr/bin in rank environments.
         # Keep the Python selected by setup-python, with its installed packages.
