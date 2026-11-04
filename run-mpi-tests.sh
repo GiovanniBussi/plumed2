@@ -22,7 +22,8 @@ With no provider options, test both MPICH and Open MPI. Each provider gets a
 fresh local clone, a default-module direct-MPI build, and the full make check
 suite. A separate serial/internal-thread-MPI build is tested once, then used
 for host-injection and environment-provider loading checks with each selected
-MPI installation. Use --thread-only to test internal thread-MPI without Conda
+MPI installation. The serial stage also runs standalone launcher, generated
+tMPI injection, and provider-registry checks (CMake/CTest required). Use --thread-only to test internal thread-MPI without Conda
 or an installed real MPI. No network clone, source reset, installation, or
 push is performed.
 
@@ -132,6 +133,14 @@ run_serial() (
   grep -q -- '-D__PLUMED_HAS_THREAD_MPI' Makefile.conf
   make -j"$JOBS" > "$RESULTS/serial-build.log" 2>&1
   make check > "$RESULTS/serial-check.log" 2>&1
+  cmake -S src/thread_mpi -B "$RESULTS/thread-mpi-runtime" \
+    > "$RESULTS/thread-mpi-runtime-configure.log" 2>&1
+  cmake --build "$RESULTS/thread-mpi-runtime" -j"$JOBS" \
+    > "$RESULTS/thread-mpi-runtime-build.log" 2>&1
+  ctest --test-dir "$RESULTS/thread-mpi-runtime" --output-on-failure \
+    > "$RESULTS/thread-mpi-runtime-tests.log" 2>&1
+  CXX=/usr/bin/clang++ bash src/mpiwrap/check-provider-registry.sh \
+    > "$RESULTS/provider-registry.log" 2>&1
   CXX=/usr/bin/clang++ bash src/mpiwrap/check-kernel-lifecycle.sh \
     > "$RESULTS/creation-lifecycle.log" 2>&1
   CXX=/usr/bin/clang++ bash src/mpiwrap/check-regtest-runner.sh \
