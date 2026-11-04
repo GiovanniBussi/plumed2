@@ -4,7 +4,7 @@
 #include "tools/Communicator.h"
 #include "mpiwrap/provider-registry.hpp"
 #include "mpiwrap/mpiwrap.h"
-#include "mpiwrap/thread-mpi-launcher.hpp"
+#include "mpiwrap/thread-mpi-launcher.h"
 
 #include <atomic>
 #include <cstddef>

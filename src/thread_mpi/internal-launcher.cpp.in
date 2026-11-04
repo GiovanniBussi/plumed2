@@ -1,5 +1,5 @@
 #include <thread_mpi_tmpi.h>
-#include "thread-mpi-launcher.hpp"
+#include "thread-mpi-launcher.h"
 #include "provider-registry.hpp"
 #include "mpiwrap.h"
 

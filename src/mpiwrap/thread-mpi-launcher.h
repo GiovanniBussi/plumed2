@@ -1,6 +1,6 @@
 // Internal rank launcher for the embedded, namespaced thread-MPI runtime.
-#ifndef PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_HPP
-#define PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_HPP
+#ifndef PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_H
+#define PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_H
 
 #include <cstddef>
 

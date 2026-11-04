@@ -1,5 +1,5 @@
 #if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_MPI)
-#include "thread-mpi-launcher.hpp"
+#include "thread-mpi-launcher.h"
 #include "../tools/Exception.h"
 
 #include <mpi.h>

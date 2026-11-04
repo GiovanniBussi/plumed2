@@ -1,5 +1,5 @@
 // Explicit launcher for the embedded GROMACS thread-MPI runtime.
-#include "thread-mpi-launcher.hpp"
+#include "thread-mpi-launcher.h"
 #include "provider-registry.hpp"
 
 #include "provider-abi.h"

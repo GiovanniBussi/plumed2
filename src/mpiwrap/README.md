@@ -101,7 +101,7 @@ exception terminates the process rather than unwinding through blocked peers;
 recoverable errors use the existing command exception translation.
 
 Standalone C++ programs can use the internal `mpiwrap_provider::launchRanks`
-entry declared in `thread-mpi-launcher.hpp`. CLTools uses this same entry for
+entry declared in `thread-mpi-launcher.h`. CLTools uses this same entry for
 internal launch. Select `internal_thread_mpi` for embedded workers, or
 `standalone_owned` for a native-MPI program launched by `mpiexec`; the latter
 initializes MPI, checks the requested process count, executes one callback per
