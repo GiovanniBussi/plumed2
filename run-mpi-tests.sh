@@ -175,7 +175,7 @@ run_injection() (
   PLUMED_ROOT="$SERIAL_BUILD" bash "$SERIAL_BUILD/scripts/mkmpi.sh" \
     --compiler "$CONDA_PREFIX/bin/mpicc" --out "$adapter"
   # Use the current checker, including fixes made after the kernel was built.
-  "$ROOT/regtest/scripts/check-mpi-host-injection.sh" \
+  "$ROOT/regtest/mpiwrap/check-mpi-host-injection.sh" \
     "$CONDA_PREFIX/bin/mpicxx" "$CONDA_PREFIX/bin/mpiexec" "$kernel" "$adapter"
 )
 

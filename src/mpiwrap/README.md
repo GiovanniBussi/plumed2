@@ -369,7 +369,7 @@ storage. The build/runtime matrix above remains separate validation.
 A separate MPI host checks injection into an already-built serial kernel:
 
 ```sh
-MPICH_CXX=/usr/bin/clang++ bash regtest/scripts/check-mpi-host-injection.sh \
+MPICH_CXX=/usr/bin/clang++ bash regtest/mpiwrap/check-mpi-host-injection.sh \
   /path/to/mpicxx /path/to/mpiexec /absolute/path/to/libplumedKernel.dylib
 ```
 
@@ -420,7 +420,7 @@ No GROMACS build is required. The standalone embedded tMPI tests also run.
 Run the same host test locally with an already built serial kernel:
 
 ```sh
-bash regtest/scripts/check-mpi-host-injection.sh /absolute/path/to/mpicxx \
+bash regtest/mpiwrap/check-mpi-host-injection.sh /absolute/path/to/mpicxx \
   /absolute/path/to/mpiexec /absolute/path/to/libplumedKernel.so \
   /absolute/path/to/provider.so
 ```
