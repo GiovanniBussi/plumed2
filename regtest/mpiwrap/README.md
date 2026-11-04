@@ -16,7 +16,10 @@ environment settings. It retains all logs in its results directory.
 `check-mpi-host-injection.sh MPI_CXX MPIEXEC SERIAL_KERNEL [PROVIDER_LIBRARY]`
 is the focused injection check used by `run-mpi-tests.sh` and CI for Open MPI
 and MPICH. It tests MPI host injection through both PLUMED creation paths and
-an optional provider DSO. The remaining scripts are focused manual checks:
+an optional provider DSO. It also checks that `--no-mpi` permits injection
+and configuration queries without initialization, finalization, or abort calls,
+including failure paths and leading-option precedence. The remaining scripts
+are focused manual checks:
 
 ```sh
 bash regtest/mpiwrap/check-mpi-host-injection.sh MPI_CXX MPIEXEC SERIAL_KERNEL [PROVIDER_LIBRARY]

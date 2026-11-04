@@ -31,14 +31,27 @@ int main(int argc,char **argv) {
     }
     --argc;
   }
-  if(MPI_Init(&argc,&argv)!=MPI_SUCCESS) {
+  // Match the ordinary executable: the last leading MPI option wins.
+  bool nompi=false;
+  for(int iarg=1; iarg<argc; ++iarg) {
+    if(std::strcmp(argv[iarg],"--no-mpi")==0) {
+      nompi=true;
+    }
+    if(std::strcmp(argv[iarg],"--mpi")==0) {
+      nompi=false;
+    }
+    if(argv[iarg][0]!='-') {
+      break;
+    }
+  }
+  if(!nompi && MPI_Init(&argc,&argv)!=MPI_SUCCESS) {
     return 1;
   }
 
   // The focused checker supplies its requested rank count. Detect launcher
   // singletons before attributing their output filenames to the MPI adapter.
   const char *expectedRanks=std::getenv("PLUMED_MPI_HOST_EXPECTED_RANKS");
-  if(expectedRanks) {
+  if(!nompi && expectedRanks) {
     int rank=-1;
     int size=0;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -62,22 +75,28 @@ int main(int argc,char **argv) {
     if(inject) {
       command.cmd("injectMPIImplementation",PLMD::plumed_mpi_implementation());
     }
-    MPI_Comm world=MPI_COMM_WORLD;
-    command.cmd("CLTool setMPIComm",&world);
+    if(!nompi) {
+      MPI_Comm world=MPI_COMM_WORLD;
+      command.cmd("CLTool setMPIComm",&world);
+    }
     command.cmd("CLTool setArgc",&argc);
     command.cmd("CLTool setArgv",argv);
     command.cmd("CLTool run",&result);
   } catch(const std::exception &error) {
     std::fprintf(stderr,"MPI CLI launcher: %s\n",error.what());
-    MPI_Abort(MPI_COMM_WORLD,1);
+    if(!nompi) {
+      MPI_Abort(MPI_COMM_WORLD,1);
+    }
     return 1;
   } catch(...) {
     std::fprintf(stderr,"MPI CLI launcher: unknown exception\n");
-    MPI_Abort(MPI_COMM_WORLD,1);
+    if(!nompi) {
+      MPI_Abort(MPI_COMM_WORLD,1);
+    }
     return 1;
   }
 
-  if(MPI_Finalize()!=MPI_SUCCESS) {
+  if(!nompi && MPI_Finalize()!=MPI_SUCCESS) {
     return 1;
   }
   return result;

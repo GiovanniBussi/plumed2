@@ -9,6 +9,54 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-host-injection.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 "$1" -std=c++98 -DPLUMED_MPI_HOST_LINK_RUNTIME=1 "$ROOT/regtest/scripts/mpi-cli.cpp" -ldl -o "$TASK_DIR/mpi-host"
+# Fail deterministically if --no-mpi reaches a lifecycle call, including the
+# exception path. These executable definitions interpose the shared MPI library.
+cat > "$TASK_DIR/no-mpi-lifecycle.cpp" <<'SOURCE'
+#include <mpi.h>
+#include <cstdio>
+#include <cstdlib>
+namespace PLMD {
+extern "C" {
+int MPI_Init(int *, char ***) {
+  std::fputs("unexpected MPI_Init\n", stderr);
+  std::exit(91);
+}
+int MPI_Finalize(void) {
+  std::fputs("unexpected MPI_Finalize\n", stderr);
+  std::exit(91);
+}
+int MPI_Abort(MPI_Comm, int) {
+  std::fputs("unexpected MPI_Abort\n", stderr);
+  std::exit(91);
+}
+}
+}
+SOURCE
+"$1" -std=c++98 -DPLUMED_MPI_HOST_LINK_RUNTIME=1 \
+  "$ROOT/regtest/scripts/mpi-cli.cpp" "$TASK_DIR/no-mpi-lifecycle.cpp" \
+  -ldl -o "$TASK_DIR/no-init-host"
+no_init_environment=(env -u PLUMED_MPI_WRAPPER -u PLUMED_MPI_WRAPPER_FORCE "PLUMED_KERNEL=$3")
+"${no_init_environment[@]}" "$TASK_DIR/no-init-host" --no-mpi --has-real-mpi
+"${no_init_environment[@]}" "$TASK_DIR/no-init-host" --mpi --no-mpi info --root
+status=0
+"${no_init_environment[@]}" PLUMED_MPI_HOST_EXPLICIT_PATH="$TASK_DIR/missing-kernel" \
+  "$TASK_DIR/no-init-host" --no-mpi info --root > "$TASK_DIR/no-init-error.log" 2>&1 || status=$?
+if ((status != 1)); then
+  cat "$TASK_DIR/no-init-error.log" >&2
+  echo "uninitialized host did not return a clean error" >&2
+  exit 1
+fi
+# A later --mpi must enable initialization; also verify our interceptor works.
+status=0
+"${no_init_environment[@]}" "$TASK_DIR/no-init-host" --no-mpi --mpi info --root \
+  > "$TASK_DIR/init-control.log" 2>&1 || status=$?
+if ((status != 91)) || ! grep -q 'unexpected MPI_Init' "$TASK_DIR/init-control.log"; then
+  cat "$TASK_DIR/init-control.log" >&2
+  echo 'MPI option precedence or lifecycle interceptor failed' >&2
+  exit 1
+fi
+echo 'MPI host honors --no-mpi without initialization, finalization, or abort'
+
 # Separate launcher/runtime failures from any host-header or kernel behavior.
 "$1" -std=c++98 "$ROOT/regtest/scripts/mpi-native-probe.cpp" -o "$TASK_DIR/native-probe"
 if command -v ldd >/dev/null 2>&1; then
