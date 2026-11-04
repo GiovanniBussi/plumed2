@@ -66,9 +66,6 @@ typedef struct {
   unsigned (*create_reference)(void*plumed);
   unsigned (*delete_reference)(void*plumed);
   unsigned (*use_count)(void*plumed);
-  /* Available with version>=5. Installs one validated MPI provider before object creation. */
-  int (*install_mpi_provider)(const void*descriptor,
-                              plumed_nothrow_handler_x nothrow);
 } plumed_symbol_table_type_x;
 
 
@@ -95,11 +92,6 @@ extern "C" void plumed_plumedmain_cmd(void*plumed,const char*key,const void*val)
   Finalize a void pointer returned by \ref plumed_plumedmain_create
 */
 extern "C" void plumed_plumedmain_finalize(void*plumed);
-
-/** Install a provider into this kernel before constructing PLUMED objects. */
-extern "C" int plumed_plumedmain_install_mpi_provider(
-  const void*descriptor,
-  plumed_nothrow_handler_x nothrow);
 
 /**
   Static symbol table that is accessed by the plumed loader.

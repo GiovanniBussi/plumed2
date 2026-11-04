@@ -38,23 +38,50 @@ bool Communicator::plumedHasMPI() {
 #endif
 }
 
-Communicator::Communicator(): communicator(MPI_COMM_SELF) {}
+Communicator::Communicator() {
+#if defined(__PLUMED_HAS_MPI)
+  communicator=MPI_COMM_SELF;
+  communicatorResolved=true;
+#endif
+}
 
-Communicator::Communicator(const Communicator&pc)
-// communicator must be initialized before calling Set_comm, which frees it if needed
-  : communicator(MPI_COMM_SELF) {
-  Set_comm(pc.communicator);
+Communicator::Communicator(const Communicator&pc): Communicator() {
+  if(pc.communicatorResolved) {
+    Set_comm(pc.communicator);
+  }
   standIn=pc.standIn;
 }
 
 Communicator::Status Communicator::StatusIgnore;
 
 Communicator& Communicator::operator=(const Communicator&pc) {
-  if (this != &pc) {
-    Set_comm(pc.communicator);
+  if(this != &pc) {
+    if(pc.communicatorResolved) {
+      Set_comm(pc.communicator);
+    } else if(communicatorResolved) {
+      // Release the old owned handle, but preserve the source's deferred state.
+      if(initialized() && communicator!=MPI_COMM_SELF &&
+          communicator!=MPI_COMM_WORLD && communicator!=MPI_COMM_NULL) {
+        MPI_Comm_free(&communicator);
+      }
+      communicator=MPI_Comm{};
+      communicatorResolved=false;
+    }
     standIn=pc.standIn;
   }
   return *this;
+}
+
+void Communicator::resolveCommunicator()const {
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+  // Construction must leave time for injection through the ordinary cmd API.
+  // Zero bytes are not a sentinel: zero may itself be a valid native handle.
+  mpiwrap_ensure_provider_selected();
+#endif
+  if(!communicatorResolved && initialized()) {
+    communicator=MPI_COMM_SELF;
+    communicatorResolved=true;
+  }
 }
 
 void Communicator::setStandIn(bool s) {
@@ -66,6 +93,7 @@ bool Communicator::isStandIn()const {
 }
 
 void Communicator::checkNotStandIn()const {
+  resolveCommunicator();
   constexpr const char* msg="this communicator is a stand-in on this process: it was given to other processes but not to this one. "
                             "For multi_sim_comm, this means that only the first process of each replica can use it. "
                             "Use getNumberOfReplicas() and getReplicaIndex(), or use multi_sim_comm on the first process of comm and broadcast the result over comm.";
@@ -100,6 +128,7 @@ int Communicator::Get_size()const {
 
 void Communicator::Set_comm(MPI_Comm c) {
   standIn=false;
+  resolveCommunicator();
   if(initialized()) {
     if(communicator!=MPI_COMM_SELF && communicator!=MPI_COMM_WORLD && communicator!=MPI_COMM_NULL) {
       MPI_Comm_free(&communicator);
@@ -114,12 +143,13 @@ void Communicator::Set_comm(MPI_Comm c) {
 }
 
 Communicator::~Communicator() {
-  if(initialized() && communicator!=MPI_COMM_SELF && communicator!=MPI_COMM_WORLD && communicator!=MPI_COMM_NULL) {
+  if(communicatorResolved && initialized() && communicator!=MPI_COMM_SELF && communicator!=MPI_COMM_WORLD && communicator!=MPI_COMM_NULL) {
     MPI_Comm_free(&communicator);
   }
 }
 
 void Communicator::Set_comm(const TypesafePtr & val) {
+  resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
   if(val) {
     Set_comm(mpiwrap_Comm_from_native(val.get<const void*>()));
@@ -127,6 +157,7 @@ void Communicator::Set_comm(const TypesafePtr & val) {
 }
 
 void Communicator::Set_fcomm(const TypesafePtr & val) {
+  resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
   if(val) {
     MPI_Comm comm=MPI_Comm_f2c(*(const MPI_Fint*)val.get<const void*>());
@@ -135,6 +166,7 @@ void Communicator::Set_fcomm(const TypesafePtr & val) {
 }
 
 void Communicator::Abort(int errorcode) {
+  resolveCommunicator();
   if(initialized()) {
     MPI_Abort(communicator,errorcode);
   }
@@ -275,6 +307,11 @@ void Communicator::Barrier()const {
 }
 
 MPI_Comm & Communicator::Get_comm() {
+  resolveCommunicator();
+  // A fully disabled kernel retains its inert serial surrogate. An installed
+  // provider instead requires an actual handle, even if its native value is zero.
+  plumed_massert(!mpiwrap_provider_installed() || communicatorResolved,
+                 "MPI communicator is unavailable before MPI initialization");
   return communicator;
 }
 
@@ -296,47 +333,64 @@ void Communicator::Request::wait(Status&s) {
   }
 }
 
+namespace {
+void resolveDatatypeProvider() {
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+  mpiwrap_ensure_provider_selected();
+#endif
+}
+}
+
 template<> MPI_Datatype Communicator::getMPIType<float>() {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_FLOAT;
 }
 template<> MPI_Datatype Communicator::getMPIType<double>() {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_DOUBLE;
 }
 template<> MPI_Datatype Communicator::getMPIType<int>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_INT;
 }
 template<> MPI_Datatype Communicator::getMPIType<char>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_CHAR;
 }
 template<> MPI_Datatype Communicator::getMPIType<unsigned>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_UNSIGNED;
 }
 template<> MPI_Datatype Communicator::getMPIType<AtomNumber>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_UNSIGNED;
 }
 template<> MPI_Datatype Communicator::getMPIType<long unsigned>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_UNSIGNED_LONG;
 }
 template<> MPI_Datatype Communicator::getMPIType<long long unsigned>() {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_UNSIGNED_LONG_LONG;
 }
 template<> MPI_Datatype Communicator::getMPIType<long double>()   {
+  resolveDatatypeProvider();
   if(!mpiwrap_provider_installed())
     return MPI_Datatype {};
   return MPI_LONG_DOUBLE;
@@ -347,11 +401,13 @@ void Communicator::Split(int color,int key,Communicator&pc)const {
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
 #endif
   // free the communicator previously held by pc (it was obtained with MPI_Comm_dup or MPI_Comm_split)
+  pc.resolveCommunicator();
   if(pc.communicator!=MPI_COMM_SELF && pc.communicator!=MPI_COMM_WORLD && pc.communicator!=MPI_COMM_NULL) {
     MPI_Comm_free(&pc.communicator);
   }
   pc.standIn=false;
   MPI_Comm_split(communicator,color,key,&pc.communicator);
+  pc.communicatorResolved=true;
 }
 
 int Communicator::Status::Get_count(MPI_Datatype type)const {

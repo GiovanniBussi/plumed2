@@ -57,17 +57,16 @@ int main(int argc,char **argv) {
       const char *path=std::getenv("PLUMED_MPI_HOST_EXPLICIT_PATH");
       // Environment-provider mode exercises the same serial kernel without
       // injection; the external host still owns MPI initialization/finalization.
-      plumed raw=!inject
-                 ? (path && path[0] ? plumed_create_dlopen(path) : plumed_create())
-                 : (path && path[0]
-                    ? plumed_create_dlopen_with_mpi(path,PLMD::plumed_mpi_implementation())
-                    : plumed_create_with_mpi(PLMD::plumed_mpi_implementation()));
+      plumed raw=path && path[0] ? plumed_create_dlopen(path) : plumed_create();
       if(!plumed_valid(raw)) {
         plumed_finalize(raw);
         throw std::runtime_error("could not create PLUMED with the host MPI implementation");
       }
       PLMD::Plumed command(raw);
       plumed_finalize(raw);
+      if(inject) {
+        command.cmd("injectMPIImplementation",PLMD::plumed_mpi_implementation());
+      }
       MPI_Comm world=MPI_COMM_WORLD;
       command.cmd("CLTool setMPIComm",&world);
       command.cmd("CLTool setArgc",&argc);

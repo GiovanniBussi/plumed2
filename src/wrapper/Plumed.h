@@ -1173,11 +1173,6 @@ __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create(void);
 __PLUMED_WRAPPER_C_END
 
-/** Construct a PLUMED object after installing the caller's MPI provider. */
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_with_mpi(const void *descriptor);
-__PLUMED_WRAPPER_C_END
-
 /** \relates plumed
     \brief Constructor from path. Available as of PLUMED 2.5
 
@@ -1203,12 +1198,6 @@ __PLUMED_WRAPPER_C_END
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen(const char*path);
 __PLUMED_WRAPPER_C_END
-
-/** Load a kernel, install the caller's MPI provider, then construct an object. */
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlopen_with_mpi(const char *path,const void *descriptor);
-__PLUMED_WRAPPER_C_END
-
 
 /**
   \brief Constructor from path. Available as of PLUMED 2.5
@@ -2956,22 +2945,6 @@ Plumed(Plumed&&p)__PLUMED_WRAPPER_CXX_NOEXCEPT :
     return pp;
   }
 
-  /** Create an object after installing a host MPI provider in the selected kernel. */
-  static Plumed createWithMPI(const void *descriptor)__PLUMED_WRAPPER_CXX_NOEXCEPT {
-    plumed p=plumed_create_with_mpi(descriptor);
-    Plumed pp(p);
-    plumed_finalize(p);
-    return pp;
-  }
-
-  /** Load a kernel, install a host MPI provider, then create an object. */
-  static Plumed dlopenWithMPI(const char *path,const void *descriptor)__PLUMED_WRAPPER_CXX_NOEXCEPT {
-    plumed p=plumed_create_dlopen_with_mpi(path,descriptor);
-    Plumed pp(p);
-    plumed_finalize(p);
-    return pp;
-  }
-
   /**
     Create a PLUMED object loading a specific kernel. Available as of PLUMED 2.5.
 
@@ -4043,13 +4016,6 @@ typedef struct {
     Available with version>=4.
   */
   unsigned (*use_count)(void*);
-  /**
-    Installs one validated MPI provider before PLUMED object creation.
-
-    Available with version>=5. The descriptor uses the independent MPI provider
-    ABI; this symbol-table version only advertises that the entry is present.
-  */
-  int (*install_mpi_provider)(const void*,plumed_nothrow_handler);
 } plumed_symbol_table_type;
 
 /* Utility to convert function pointers to pointers, just for the sake of printing them */
@@ -4511,23 +4477,8 @@ __PLUMED_WRAPPER_INTERNALS_END
 
 /* C wrappers: */
 
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-int plumed_wrapper_install_mpi_provider(plumed_implementation *pimpl,
-                                        const void *descriptor) {
-  plumed_nothrow_handler nothrow;
-  if(!descriptor) {
-    return 0;
-  }
-  if(!pimpl->table || pimpl->table->version<5 ||
-      !pimpl->table->install_mpi_provider) {
-    return -1;
-  }
-  nothrow.ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-  nothrow.handler=__PLUMED_WRAPPER_CXX_NULLPTR;
-  return pimpl->table->install_mpi_provider(descriptor,nothrow);
-}
-
-plumed plumed_create_internal(const void *descriptor) {
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create(void) {
   /* returned object */
   plumed p;
   /* pointer to implementation */
@@ -4557,10 +4508,6 @@ plumed plumed_create_internal(const void *descriptor) {
   }
   assert(pimpl->functions.cmd);
   assert(pimpl->functions.finalize);
-  if(plumed_wrapper_install_mpi_provider(pimpl,descriptor)!=0) {
-    p.p=pimpl;
-    return p;
-  }
   /* obtain object */
   pimpl->p=(*(pimpl->functions.create))();
   /* notice: we do not assert pimpl->p since in principle it might be nullptr */
@@ -4568,15 +4515,6 @@ plumed plumed_create_internal(const void *descriptor) {
   /* store pimpl in returned object */
   p.p=pimpl;
   return p;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create(void) {
-  return plumed_create_internal(__PLUMED_WRAPPER_CXX_NULLPTR);
-}
-plumed plumed_create_with_mpi(const void *descriptor) {
-  return plumed_create_internal(descriptor);
 }
 __PLUMED_WRAPPER_C_END
 
@@ -4600,9 +4538,8 @@ plumed plumed_create_dlopen(const char*path) {
 }
 __PLUMED_WRAPPER_C_END
 
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-plumed plumed_create_dlsym_internal(void* dlhandle,
-                                    const void *descriptor) {
+__PLUMED_WRAPPER_C_BEGIN
+plumed plumed_create_dlsym(void* dlhandle) {
   /* returned object */
   plumed p;
   /* pointer to implementation */
@@ -4619,26 +4556,6 @@ plumed plumed_create_dlsym_internal(void* dlhandle,
   }
   assert(pimpl->functions.cmd);
   assert(pimpl->functions.finalize);
-  if(plumed_wrapper_install_mpi_provider(pimpl,descriptor)!=0) {
-    p.p=pimpl;
-    return p;
-  }
-#if defined(__PLUMED_WRAPPER_MPI_PROVIDER)
-  /* An inlined wrapper forwards its installed implementation directly. A
-     guest without injection support uses the historical compatibility rule. */
-  if(!descriptor && pimpl->table && pimpl->table->version>=5 &&
-      pimpl->table->install_mpi_provider) {
-    const void *provider=__PLUMED_WRAPPER_MPI_PROVIDER();
-    plumed_nothrow_handler nothrow;
-    nothrow.ptr=__PLUMED_WRAPPER_CXX_NULLPTR;
-    nothrow.handler=__PLUMED_WRAPPER_CXX_NULLPTR;
-    if(provider && pimpl->table->install_mpi_provider(provider,nothrow)!=0) {
-      __PLUMED_FPRINTF(stderr,"+++ Could not install the current MPI provider in the selected PLUMED kernel +++\n");
-      p.p=pimpl;
-      return p;
-    }
-  }
-#endif
   /* obtain object */
   pimpl->p=(*(pimpl->functions.create))();
   /* notice: we do not assert pimpl->p since in principle it might be nullptr */
@@ -4646,12 +4563,6 @@ plumed plumed_create_dlsym_internal(void* dlhandle,
   /* store pimpl in returned object */
   p.p=pimpl;
   return p;
-}
-__PLUMED_WRAPPER_INTERNALS_END
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlsym(void* dlhandle) {
-  return plumed_create_dlsym_internal(dlhandle,
-                                      __PLUMED_WRAPPER_CXX_NULLPTR);
 }
 __PLUMED_WRAPPER_C_END
 
@@ -9752,20 +9663,8 @@ const void *plumed_mpi_implementation(void) {
 #endif
 /* MPIW_HOST_ADAPTER_IMPLEMENTATION_END */
 
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-plumed plumed_create_dlopen2_internal(const char *path,int mode,
-                                      const void *descriptor);
-__PLUMED_WRAPPER_INTERNALS_END
 __PLUMED_WRAPPER_C_BEGIN
 plumed plumed_create_dlopen2(const char*path,int mode) {
-  return plumed_create_dlopen2_internal(path,mode,
-                                        __PLUMED_WRAPPER_CXX_NULLPTR);
-}
-__PLUMED_WRAPPER_C_END
-
-__PLUMED_WRAPPER_INTERNALS_BEGIN
-plumed plumed_create_dlopen2_internal(const char*path,int mode,
-                                      const void *descriptor) {
 #ifdef __PLUMED_HAS_DLOPEN
   /* returned object */
   plumed p;
@@ -9779,7 +9678,7 @@ plumed plumed_create_dlopen2_internal(const char*path,int mode,
   }
   /* a NULL handle implies the file could not be loaded */
   if(dlhandle) {
-    p=plumed_create_dlsym_internal(dlhandle,descriptor);
+    p=plumed_create_dlsym(dlhandle);
     /* obtain pimpl */
     pimpl=__PLUMED_WRAPPER_STATIC_CAST(plumed_implementation*, p.p);
     /* make sure the handler is closed when plumed is finalized */
@@ -9791,23 +9690,6 @@ plumed plumed_create_dlopen2_internal(const char*path,int mode,
   (void) mode;
 #endif
   return plumed_create_invalid();
-}
-__PLUMED_WRAPPER_INTERNALS_END
-
-__PLUMED_WRAPPER_C_BEGIN
-plumed plumed_create_dlopen_with_mpi(const char *path,const void *descriptor) {
-  int mode=0;
-#ifdef __PLUMED_HAS_DLOPEN
-  mode=RTLD_NOW|RTLD_LOCAL;
-#ifdef RTLD_DEEPBIND
-#if __PLUMED_WRAPPER_ENABLE_RTLD_DEEPBIND
-  if(!__PLUMED_GETENV("PLUMED_LOAD_NODEEPBIND")) {
-    mode|=RTLD_DEEPBIND;
-  }
-#endif
-#endif
-#endif
-  return plumed_create_dlopen2_internal(path,mode,descriptor);
 }
 __PLUMED_WRAPPER_C_END
 

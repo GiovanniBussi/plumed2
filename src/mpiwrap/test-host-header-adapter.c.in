@@ -6,11 +6,8 @@
 
 int main(void) {
   const void *(*implementation)(void) = plumed_mpi_implementation;
-  plumed (*create_with_mpi)(const void *) = plumed_create_with_mpi;
-  plumed (*dlopen_with_mpi)(const char *, const void *) =
-    plumed_create_dlopen_with_mpi;
+  plumed (*create)(void) = plumed_create;
   (void)implementation;
-  (void)create_with_mpi;
-  (void)dlopen_with_mpi;
+  (void)create;
   return 0;
 }

@@ -35,12 +35,6 @@
 // implementation of the wrapper in an anonymous namespace.
 // This allows to avoid recoding all the Plumed.h stuff here
 // and at the same time avoids possible conflicts.
-// Forward an already installed provider when the selected guest supports
-// injection. Older guests retain the legacy compatible-MPI assumption.
-#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-#define __PLUMED_WRAPPER_MPI_PROVIDER() \
-  ::PLMD::mpiwrap_provider::currentRegistry().descriptorSnapshot()
-#endif
 #define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #define __PLUMED_WRAPPER_EXTERN 0
 #define __PLUMED_WRAPPER_CXX_ANONYMOUS_NAMESPACE 1
@@ -62,6 +56,24 @@ PlumedHandle::PlumedHandle(const char* kernel)
     plumed_finalize(plumed_v2c(loaded));
     plumed_error() << "You are trying to dynamically load a kernel, but the path " << kernel <<" could not be opened";
   }
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+  try {
+    const auto *provider=mpiwrap_provider::currentRegistry().descriptorSnapshot();
+    if(provider) {
+      int api=0;
+      cmd("getApiVersion",&api);
+      // Older guests retain the historical compatible-native-MPI assumption.
+      // API 11 introduces injection through cmd, without changing the table.
+      if(api>=11) {
+        cmd("injectMPIImplementation",provider);
+      }
+    }
+  } catch(...) {
+    plumed_finalize(plumed_v2c(loaded));
+    loaded=nullptr;
+    throw;
+  }
+#endif
 }
 #else
 {

@@ -27,8 +27,16 @@ int main() {
 
   Communicator comm;
   assert(!PLMD::mpiwrap_provider_installed());
+  {
+    Communicator copy(comm);
+    Communicator assigned;
+    assigned=copy;
+  }
+  assert(!PLMD::mpiwrap_provider_installed());
   assert(comm.Get_rank() == 0);
   assert(comm.Get_size() == 1);
+  // Fully disabled kernels may still forward their inert serial surrogate.
+  (void)comm.Get_comm();
 
   int scalar = 7;
   comm.Sum(scalar);

@@ -1,5 +1,8 @@
 // Focused checks for pre-initialization communicator sentinels and relaunches.
 #include "core/CLToolMain.h"
+#include "core/PlumedMain.h"
+#include "tools/Communicator.h"
+#include "mpiwrap/provider-registry.hpp"
 #include "mpiwrap/mpiwrap.h"
 #include "mpiwrap/thread-mpi-launcher.hpp"
 
@@ -8,15 +11,24 @@
 #include <stdexcept>
 #include <string>
 
+namespace PLMD {
+extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_thread_mpi_provider(void);
+}
+
 namespace {
 struct GuardContext {
   PLMD::MPI_Comm preinit_self;
+  PLMD::Communicator deferred;
   std::atomic<int> valid_self{0};
   std::atomic<int> rejected_stale{0};
 };
 
 int checkRank(int, const void *, std::size_t, void *opaque) {
   GuardContext &context=*static_cast<GuardContext *>(opaque);
+  PLMD::Communicator copied(context.deferred);
+  if(copied.Get_rank()!=0 || copied.Get_size()!=1) {
+    return 13;
+  }
   int rank=-1;
   int size=-1;
   const PLMD::MPI_Comm self=MPI_COMM_SELF;
@@ -60,7 +72,40 @@ bool runThroughDispatcher(PLMD::CLToolMain &dispatcher, int ranks) {
 }  // namespace
 
 int main() {
+  if(PLMD::mpiwrap_provider_installed()) {
+    return 5;
+  }
+  {
+    PLMD::Communicator original;
+    PLMD::Communicator copy(original);
+    copy=original;
+    PLMD::PlumedMain object;
+    int api=0;
+    object.cmd("getApiVersion",&api);
+    if(api!=11 || PLMD::mpiwrap_provider_installed()) {
+      return 6;
+    }
+  }
+  if(PLMD::mpiwrap_provider_installed()) {
+    return 7;
+  }
+  {
+    PLMD::PlumedMain object;
+    object.cmd("injectMPIImplementation",PLMD::plumed_mpiw_thread_mpi_provider());
+    if(!PLMD::mpiwrap_provider_installed() || PLMD::Communicator::initialized()) {
+      return 8;
+    }
+  }
   GuardContext context{};
+  bool rejected_unresolved=false;
+  try {
+    (void)context.deferred.Get_comm();
+  } catch(const std::exception &) {
+    rejected_unresolved=true;
+  }
+  if(!rejected_unresolved) {
+    return 9;
+  }
   context.preinit_self=MPI_COMM_SELF;
   if(!rejectsNullCommunicator(context.preinit_self)) {
     return 1;

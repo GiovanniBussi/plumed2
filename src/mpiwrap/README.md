@@ -33,15 +33,15 @@ serial-built PLUMED kernel. Host injection is tested by a separate MPI program.
 The regression runner preserves old test settings and native launcher overrides;
 older executables without thread-MPI support retain their native MPI launcher.
 
-Communicator construction evaluates MPI_COMM_SELF, as in the original code.
-Its lazy accessor selects the provider before storing the communicator: inject
-the host implementation before the first provider-dependent constant or call.
-Provider selection and initialization are separate; ordinary serial operations
-still use local fallbacks until MPI is initialized. In a fully disabled build,
-MPI_COMM_SELF supplies the serial surrogate when no provider was selected.
-Capability inquiries themselves do not select a provider. Explicit environment
-selection and the troubleshooting override are resolved by provider-dependent
-access; no dummy per-object lifecycle field or notification is needed.
+Provider-mode Communicator construction does not evaluate MPI_COMM_SELF or
+select a provider. Its default handle is explicitly unresolved until an MPI
+operation; then its lazy accessor selects the provider and obtains SELF once
+MPI is initialized. Inject before the first provider-dependent constant or
+call. Provider selection and initialization are separate; serial operations
+still use local fallbacks until MPI is initialized. A fully disabled build
+retains its inert serial surrogate. Capability inquiries do not select a
+provider; environment selection and its troubleshooting override are resolved
+by actual provider-dependent access.
 The separate `mpiwrap/mpi.h` inquiry reports whether an installed, initialized
 provider executes ranks as threads; the PLUMED action uses it for CHDIR safety.
 
@@ -130,29 +130,44 @@ versions earlier than 2026.0 are rejected when building the injected implementat
 same generated adapter body, so it does not need a separate provider source or
 provider library.
 
-The host initializes real MPI, then calls:
+The host initializes real MPI, then creates an ordinary object and injects
+before any command that uses MPI:
 
 ```cpp
-plumed p = plumed_create_with_mpi(PLMD::plumed_mpi_implementation());
-// Or select an explicit kernel path:
-// plumed p = plumed_create_dlopen_with_mpi(path,
-//                            PLMD::plumed_mpi_implementation());
+plumed p = plumed_create();
+// Or: plumed p = plumed_create_dlopen(path);
+plumed_cmd(p, "injectMPIImplementation", PLMD::plumed_mpi_implementation());
 ```
 
-The accessor returns `const void *`; callers need no new descriptor or kernel
-handle type. Creation loads/selects the kernel, injects through the versioned
-symbol table, and only then constructs its first object. Existing creation
-functions retain their behavior. All creation functions return an invalid
-object on failure, including unsupported older kernels and rejected injection;
-check `plumed_valid` before issuing commands. C++ users can use the named
-`Plumed::createWithMPI` and `Plumed::dlopenWithMPI` factories with the same
-failure convention. Objects own their normal loader references independently.
+C++ callers use ordinary `Plumed` constructors and the same `cmd` command.
+The command is available with kernel API version 11 (`getApiVersion`);
+the symbol table remains version 4. Its descriptor argument is the descriptor
+address itself, not the address of a pointer. Errors use the existing command
+exception/nothrow translation machinery. Object creation retains its historical
+invalid-object failure convention.
 
-Injection is per loaded kernel, not per object. Repeated compatible injection
-is allowed; replacing a selected provider is not. The host must keep callback
-code loaded while the kernel can use it, finalize every PLUMED object before
-finalizing MPI, and own all real `MPI_Init`/`MPI_Finalize` calls. PLUMED does
-not initialize real MPI merely because a provider was injected or loaded.
+Injection is **library-wide**, applying to every object in that loaded kernel.
+Inject into each newly created object: destroying the last object may unload
+the kernel, so a later object is not guaranteed to retain an earlier injection.
+Compatible repeated injections are allowed; replacing a selected provider is
+not. Independent copies of the generated header may have different local
+adapter and constant-accessor addresses. Repeated injection accepts those
+copies only when native runtime identity, ABI/layout, function availability and
+signatures, and constant widths/metadata agree. The original callback table
+remains installed. Objects own their normal loader references independently. Applications
+that need explicit lifetime control can retain their own `dlopen` handle and
+use `plumed_create_dlsym`.
+
+Constructing an object does not select a provider. Its default communicators
+remain unresolved until actual MPI use and obtain SELF only after MPI is
+initialized. The unresolved state is independent of native handle bytes, so a
+native zero-valued communicator remains distinguishable from a placeholder.
+
+The host must keep the injected adapter code and MPI runtime loaded while the
+kernel can call them, finalize every PLUMED object before finalizing MPI, and
+own all real `MPI_Init`/`MPI_Finalize` calls. Copying a descriptor does not keep
+its executable code loaded. PLUMED does not initialize real MPI merely because
+a provider was injected or loaded.
 
 Existing `setMPIComm` callers continue passing the address of their native
 communicator. PLUMED imports the provider-sized bytes into zero-filled wrapper

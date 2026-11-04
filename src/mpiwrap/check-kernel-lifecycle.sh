@@ -12,18 +12,18 @@ case "$(uname -s)" in
 esac
 
 "$CXX" -std=c++17 -fPIC "${SHARED_FLAGS[@]}" \
-  -x c++ "$ROOT/src/mpiwrap/fake-kernel.cpp.in" -o "$TMP/libkernel-v5.so"
+  -x c++ "$ROOT/src/mpiwrap/fake-kernel.cpp.in" -o "$TMP/libkernel-api11.so"
 "$CXX" -std=c++17 -fPIC "${SHARED_FLAGS[@]}" \
-  -x c++ "$ROOT/src/mpiwrap/fake-old-kernel.cpp.in" -o "$TMP/libkernel-v4.so"
+  -x c++ "$ROOT/src/mpiwrap/fake-old-kernel.cpp.in" -o "$TMP/libkernel-api10.so"
 "$CXX" -std=c++17 -fPIC -DTEST_REJECT_INSTALL "${SHARED_FLAGS[@]}" \
   -x c++ "$ROOT/src/mpiwrap/fake-kernel.cpp.in" -o "$TMP/libkernel-reject.so"
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-kernel-lifecycle.cpp.in" -ldl -o "$TMP/test-kernel-lifecycle"
-"$TMP/test-kernel-lifecycle" "$TMP/libkernel-v5.so" \
-  "$TMP/libkernel-v4.so" "$TMP/libkernel-reject.so" \
+"$TMP/test-kernel-lifecycle" "$TMP/libkernel-api11.so" \
+  "$TMP/libkernel-api10.so" "$TMP/libkernel-reject.so" \
   "$TMP/kernel-unloaded" "$TMP/object-created"
 "$CXX" -std=c++17 -D__PLUMED_HAS_DLOPEN -I"$ROOT/src" \
   -x c++ "$ROOT/src/mpiwrap/test-forward-provider.cpp.in" -ldl -o "$TMP/test-forward-provider"
-"$TMP/test-forward-provider" "$TMP/libkernel-v5.so" "$TMP/libkernel-v4.so" \
+"$TMP/test-forward-provider" "$TMP/libkernel-api11.so" "$TMP/libkernel-api10.so" \
   "$TMP/libkernel-reject.so"
-echo "kernel open/inject/create/release lifecycle passed"
+echo "kernel create/inject/release lifecycle passed"

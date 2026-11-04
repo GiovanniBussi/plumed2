@@ -23,11 +23,6 @@
 #include "PlumedMain.h"
 #include "tools/Exception.h"
 #include "lepton/Exception.h"
-#if defined(__PLUMED_MPIWRAP)
-#include "../mpiwrap/provider-registry.hpp"
-#include "../mpiwrap/provider-selection.h"
-#include "../mpiwrap/thread-mpi-launcher.hpp"
-#endif
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -453,14 +448,6 @@ static void translate_nested(plumed_nothrow_handler_x nothrow) {
   }
 }
 
-static void translate_lifecycle_error(plumed_nothrow_handler_x nothrow) noexcept {
-  try {
-    translate_nested(nothrow);
-  } catch(...) {
-    // A user-supplied error callback must not unwind through the C lifecycle API.
-  }
-}
-
 extern "C" {
   static void plumed_plumedmain_cmd_safe_nothrow(void*plumed,const char*key,plumed_safeptr_x safe,plumed_nothrow_handler_x nothrow) {
 // This is a workaround for a suboptimal choice in PLUMED <2.8
@@ -516,72 +503,21 @@ extern "C" void plumed_plumedmain_finalize(void*plumed) {
   delete static_cast<PLMD::PlumedMain*>(plumed);
 }
 
-namespace PLMD {
-
-extern "C" int plumed_plumedmain_install_mpi_provider(
-  const void*descriptor,
-  plumed_nothrow_handler_x nothrow) {
-#if defined(__PLUMED_HAS_MPI)
-  (void) descriptor;
-  try {
-    throw PLMD::ExceptionError("MPI provider injection is disabled in native-MPI kernels");
-  } catch(...) {
-    if(nothrow.handler) {
-      translate_lifecycle_error(nothrow);
-    }
-    return 1;
-  }
-#elif !defined(__PLUMED_MPIWRAP)
-  (void) descriptor;
-  try {
-    throw PLMD::ExceptionError("MPI provider injection is unavailable in a fully serial kernel");
-  } catch(...) {
-    if(nothrow.handler) {
-      translate_lifecycle_error(nothrow);
-    }
-    return 1;
-  }
-#else
-  try {
-    if(PLMD::mpiwrap_provider::forceEnvironmentProvider()) {
-      return 0;
-    }
-    if(!descriptor) {
-      throw PLMD::ExceptionTypeError("null MPI provider descriptor");
-    }
-    std::string error;
-    if(!PLMD::mpiwrap_provider::currentRegistry().install(
-          static_cast<const plumed_mpiw_provider_descriptor*>(descriptor),error)) {
-      throw PLMD::ExceptionError(error);
-    }
-    return 0;
-  } catch(...) {
-    if(nothrow.handler) {
-      translate_lifecycle_error(nothrow);
-    }
-    return 1;
-  }
-#endif
-}
-
-} // namespace PLMD
-
 // values here should be consistent with those in plumed_symbol_table_init !!!!
 plumed_symbol_table_type_x plumed_symbol_table= {
-  5,
+  4,
   {plumed_plumedmain_create,plumed_plumedmain_cmd,plumed_plumedmain_finalize},
   plumed_plumedmain_cmd_nothrow,
   plumed_plumedmain_cmd_safe,
   plumed_plumedmain_cmd_safe_nothrow,
   plumed_plumedmain_create_reference,
   plumed_plumedmain_delete_reference,
-  plumed_plumedmain_use_count,
-  plumed_plumedmain_install_mpi_provider
+  plumed_plumedmain_use_count
 };
 
 // values here should be consistent with those above !!!!
 extern "C" void plumed_symbol_table_init() {
-  plumed_symbol_table.version=5;
+  plumed_symbol_table.version=4;
   plumed_symbol_table.functions.create=plumed_plumedmain_create;
   plumed_symbol_table.functions.cmd=plumed_plumedmain_cmd;
   plumed_symbol_table.functions.finalize=plumed_plumedmain_finalize;
@@ -591,7 +527,6 @@ extern "C" void plumed_symbol_table_init() {
   plumed_symbol_table.create_reference=plumed_plumedmain_create_reference;
   plumed_symbol_table.delete_reference=plumed_plumedmain_delete_reference;
   plumed_symbol_table.use_count=plumed_plumedmain_use_count;
-  plumed_symbol_table.install_mpi_provider=plumed_plumedmain_install_mpi_provider;
 }
 
 namespace PLMD {

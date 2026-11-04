@@ -52,7 +52,11 @@ class MPI_Request {};
 /// All the MPI related stuff is relegated here.
 class Communicator {
 /// Communicator
-  MPI_Comm communicator;
+  mutable MPI_Comm communicator{};
+/// Whether communicator contains an actual native handle, rather than deferred SELF.
+  mutable bool communicatorResolved=false;
+/// Resolve default SELF after provider selection and MPI initialization.
+  void resolveCommunicator()const;
 /// True if this process holds the communicator only as a stand-in.
 /// See setStandIn().
   bool standIn=false;
