@@ -718,8 +718,12 @@ int body(int rank, const void *native_world, std::size_t native_size, void *cont
         std::fputs("MPI_Abort unexpectedly threw\n",stderr);
         throw;
       }
-      std::fputs("MPI_Abort unexpectedly returned\n",stderr);
-      throw std::runtime_error("MPI_Abort unexpectedly returned");
+      // MPI permits a best-effort abort to return (e.g. MPICH with PMIx).
+      // The call has been dispatched; terminate this isolated test explicitly
+      // so peers cannot remain blocked if the native implementation returns.
+      std::fputs("MPI_Abort returned; ending isolated probe\n",stderr);
+      std::fflush(stderr);
+      std::_Exit(17);
     }
     CALL(Barrier,world);
     throw std::runtime_error("MPI_Abort failed to terminate peers");
