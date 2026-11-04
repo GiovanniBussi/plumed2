@@ -104,6 +104,8 @@ void ensureProviderSelected() {
   }
   {
     std::unique_lock<std::mutex> lock(selection_mutex);
+    // Another thread may install a provider while we wait for the lock.
+    // cppcheck-suppress identicalConditionAfterEarlyExit
     if (registry.installed()) {
       return;
     }

@@ -38,12 +38,11 @@ bool Communicator::plumedHasMPI() {
 #endif
 }
 
-Communicator::Communicator() {
+Communicator::Communicator()
 #if defined(__PLUMED_HAS_MPI)
-  communicator=MPI_COMM_SELF;
-  communicatorResolved=true;
+  : communicator(MPI_COMM_SELF), communicatorResolved(true)
 #endif
-}
+{}
 
 Communicator::Communicator(const Communicator&pc): Communicator() {
   if(pc.communicatorResolved) {
@@ -175,7 +174,7 @@ void Communicator::Abort(int errorcode) {
   std::abort();
 }
 
-void Communicator::Bcast(Data data,int root) {
+void Communicator::Bcast(const Data& data,int root) {
   checkNotStandIn();
   resolveCommunicator();
   if(initialized()) {
@@ -183,7 +182,7 @@ void Communicator::Bcast(Data data,int root) {
   }
 }
 
-void Communicator::Scatter(ConstData sendbuf,int sendcount,Data recvbuf,int recvcount,int root) {
+void Communicator::Scatter(const ConstData& sendbuf,int sendcount,const Data& recvbuf,int recvcount,int root) {
   checkNotStandIn();
   resolveCommunicator();
   void*s=const_cast<void*>((const void*)sendbuf.pointer);
@@ -199,7 +198,7 @@ void Communicator::Scatter(ConstData sendbuf,int sendcount,Data recvbuf,int recv
   }
 }
 
-void Communicator::Gather(ConstData sendbuf,int sendcount,Data recvbuf,int recvcount,int root) {
+void Communicator::Gather(const ConstData& sendbuf,int sendcount,const Data& recvbuf,int recvcount,int root) {
   checkNotStandIn();
   resolveCommunicator();
   void*s=const_cast<void*>((const void*)sendbuf.pointer);
@@ -215,7 +214,7 @@ void Communicator::Gather(ConstData sendbuf,int sendcount,Data recvbuf,int recvc
   }
 }
 
-void Communicator::Sum(Data data) {
+void Communicator::Sum(const Data& data) {
   checkNotStandIn();
   resolveCommunicator();
   if(initialized()) {
@@ -223,7 +222,7 @@ void Communicator::Sum(Data data) {
   }
 }
 
-void Communicator::Prod(Data data) {
+void Communicator::Prod(const Data& data) {
   checkNotStandIn();
   resolveCommunicator();
   if(initialized()) {
@@ -231,7 +230,7 @@ void Communicator::Prod(Data data) {
   }
 }
 
-void Communicator::Max(Data data) {
+void Communicator::Max(const Data& data) {
   checkNotStandIn();
   resolveCommunicator();
   if(initialized()) {
@@ -239,7 +238,7 @@ void Communicator::Max(Data data) {
   }
 }
 
-void Communicator::Min(Data data) {
+void Communicator::Min(const Data& data) {
   checkNotStandIn();
   resolveCommunicator();
   if(initialized()) {
@@ -247,7 +246,7 @@ void Communicator::Min(Data data) {
   }
 }
 
-Communicator::Request Communicator::Isend(ConstData data,int source,int tag) {
+Communicator::Request Communicator::Isend(const ConstData& data,int source,int tag) {
   checkNotStandIn();
   resolveCommunicator();
   Request req;
@@ -257,7 +256,7 @@ Communicator::Request Communicator::Isend(ConstData data,int source,int tag) {
   return req;
 }
 
-void Communicator::Allgatherv(ConstData in,Data out,const int*recvcounts,const int*displs) {
+void Communicator::Allgatherv(const ConstData& in,const Data& out,const int*recvcounts,const int*displs) {
   checkNotStandIn();
   resolveCommunicator();
   void*s=const_cast<void*>((const void*)in.pointer);
@@ -281,7 +280,7 @@ void Communicator::Allgatherv(ConstData in,Data out,const int*recvcounts,const i
   }
 }
 
-void Communicator::Allgather(ConstData in,Data out) {
+void Communicator::Allgather(const ConstData& in,const Data& out) {
   checkNotStandIn();
   resolveCommunicator();
   void*s=const_cast<void*>((const void*)in.pointer);
@@ -300,7 +299,7 @@ void Communicator::Allgather(ConstData in,Data out) {
   }
 }
 
-void Communicator::Recv(Data data,int source,int tag,Status&status) {
+void Communicator::Recv(const Data& data,int source,int tag,Status&status) {
   checkNotStandIn();
   resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
