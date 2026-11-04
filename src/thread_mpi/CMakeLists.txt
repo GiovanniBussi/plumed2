@@ -77,3 +77,27 @@ foreach(ranks IN ITEMS 1 2 4)
   add_test(NAME mpiwrap_runtime_${ranks} COMMAND mpiwrap_runtime_test ${ranks})
   set_tests_properties(mpiwrap_runtime_${ranks} PROPERTIES TIMEOUT 20)
 endforeach()
+
+# Compile the host and serial kernel separately: only the host links tMPI.
+# This exercises the generated Plumed.h descriptor across a DSO boundary,
+# rather than installing the embedded provider in the same translation unit.
+if(UNIX)
+  configure_file(injected-smoke-host.cpp.in injected-smoke-host.cpp COPYONLY)
+  configure_file(injected-smoke-kernel.cpp.in injected-smoke-kernel.cpp COPYONLY)
+  add_library(mpiwrap_injected_smoke_kernel SHARED
+    ${CMAKE_CURRENT_BINARY_DIR}/injected-smoke-kernel.cpp ../mpiwrap/mpiwrap.cpp)
+  target_include_directories(mpiwrap_injected_smoke_kernel PRIVATE .. ../mpiwrap)
+  target_compile_features(mpiwrap_injected_smoke_kernel PRIVATE cxx_std_17)
+  target_compile_definitions(mpiwrap_injected_smoke_kernel PRIVATE __PLUMED_MPIWRAP)
+  target_link_libraries(mpiwrap_injected_smoke_kernel PRIVATE Threads::Threads)
+  add_executable(mpiwrap_injected_smoke_host
+    ${CMAKE_CURRENT_BINARY_DIR}/injected-smoke-host.cpp)
+  target_include_directories(mpiwrap_injected_smoke_host PRIVATE .. .)
+  target_compile_definitions(mpiwrap_injected_smoke_host PRIVATE SIZEOF_LONG_LONG_INT)
+  target_link_libraries(mpiwrap_injected_smoke_host PRIVATE
+    plumed_thread_mpi ${CMAKE_DL_LIBS})
+  add_test(NAME injected_thread_mpi
+    COMMAND mpiwrap_injected_smoke_host $<TARGET_FILE:mpiwrap_injected_smoke_kernel>)
+  set_tests_properties(injected_thread_mpi PROPERTIES TIMEOUT 20
+    ENVIRONMENT "PLUMED_MPI_WRAPPER=;PLUMED_MPI_WRAPPER_FORCE=")
+endif()
