@@ -234,7 +234,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
     }
     native_handle_sizes[i] = handle_sizes[i];
   }
-  if (descriptor->native_status_size == 0 ||
+  if (descriptor->native_status_size < sizeof(std::int32_t) ||
       descriptor->native_status_size > PLUMED_MPIW_STATUS_CAPACITY ||
       descriptor->native_status_source_offset > descriptor->native_status_size - sizeof(std::int32_t) ||
       descriptor->native_status_tag_offset > descriptor->native_status_size - sizeof(std::int32_t) ||

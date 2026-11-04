@@ -285,6 +285,15 @@ int run() {
   Registry invalid_size;
   assert(!invalid_size.install(&bad_size, error));
 
+  // Check the minimum before subtracting field widths from an unsigned size.
+  auto truncated_status = descriptor;
+  truncated_status.native_status_size = 1;
+  truncated_status.native_status_source_offset = 0;
+  truncated_status.native_status_tag_offset = 0;
+  truncated_status.native_status_error_offset = 0;
+  Registry invalid_status;
+  assert(!invalid_status.install(&truncated_status, error));
+
   plumed_mpiw_metadata_entry unknown_required = metadata[1];
   unknown_required.flags = PLUMED_MPIW_METADATA_REQUIRED;
   plumed_mpiw_provider_descriptor required_unknown = makeDescriptor(
