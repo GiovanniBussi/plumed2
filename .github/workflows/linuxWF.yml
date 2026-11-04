@@ -289,24 +289,11 @@ jobs:
           make clean >/dev/null
           NV_ACC_NOTIFY=3 NVCOMPILER_OMP_DISABLE_WARNINGS=true make 2>&1 | tail -5; sort tmp/err | uniq -c | sort -rn | head -20; head -3 tmp/colvar
 
-    - name: Diagnose Intel rt-matmult only
-      env:
-        PLUMED_MATRIX_FORCE_TRACE: '1'
-      run: python3 regtest/adjmat/rt-matmult/diagnose-intel.py
-    - name: Preserve Intel diagnostics
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: intel-rt-matmult-diagnostics
-        path: |
-          config.log
-          Makefile.conf
-          regtest/adjmat/rt-matmult/report.txt
-          regtest/adjmat/rt-matmult/tmp/
-          regtest/adjmat/rt-matmult/intel-diagnostics/
+    - name: Run rt-matmult regression
+      run: make -C regtest/adjmat/rt-matmult test
     - name: Prepare injection tests after the serial build
       id: injection_setup
-      # Also run after a diagnostic test failure, provided the build succeeded.
+      # Also run after a regression failure, provided the build succeeded.
       # Native-MPI jobs already exercise their own MPI implementation.
       if: ${{ !cancelled() && steps.build.outcome == 'success' && !contains(matrix.variant, '-mpi-') }}
       run: |
@@ -328,7 +315,6 @@ jobs:
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
         export OMPI_MCA_rmaps_base_oversubscribe=1
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
-        unset PLUMED_MATRIX_FORCE_TRACE
         # The same host also tests a provider DSO with --no-injection.
         plumed mkmpi --compiler /usr/bin/mpicc.openmpi --out "$RUNNER_TEMP/provider-openmpi.so"
         # Check 1/2/4 native ranks, both creation paths, injection and DSO loading.
@@ -355,7 +341,6 @@ jobs:
         # Exercise MPICH using CPU transports available on a single runner.
         export UCX_TLS=tcp,sm,self
         unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
-        unset PLUMED_MATRIX_FORCE_TRACE
         # The same host also tests a provider DSO with --no-injection.
         plumed mkmpi --compiler /usr/bin/mpicc.mpich --out "$RUNNER_TEMP/provider-mpich.so"
         # Check 1/2/4 native ranks, both creation paths, injection and DSO loading.
