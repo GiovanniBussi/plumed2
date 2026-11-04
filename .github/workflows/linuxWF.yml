@@ -320,6 +320,26 @@ jobs:
          cd python
          pip install --user pytest
          pytest -v
+    - name: Test serial build with injected Open MPI
+      if: ${{ (contains(matrix.variant, '-debug-') && !contains(matrix.variant, '-mpi-')) || contains(matrix.variant, '-intel-') }}
+      run: |
+        set -o pipefail
+        if [[ "${{ matrix.variant }}" == *-intel-* ]]; then
+          # Remove the compiler repository before apt refreshes package indexes.
+          sudo rm -f /etc/apt/sources.list.d/oneAPI.list
+        fi
+        sudo apt-get update -qq
+        sudo apt-get install -y openmpi-bin libopenmpi-dev
+        /usr/bin/mpic++.openmpi -std=c++98 regtest/scripts/mpi-cli.cpp -ldl \
+          -o "$RUNNER_TEMP/plumed-openmpi-host"
+        export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-openmpi-host"
+        export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
+        export PLUMED_LIB="$HOME/opt/lib/libplumed.so"
+        export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
+        export OMPI_MCA_rmaps_base_oversubscribe=1
+        unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
+        make --no-print-directory -j "$PLUMED_REGTEST_JOBS" -C regtest testclean
+        make -C regtest checkfail
     - name: Build doc
       env:
         GIT_TOKEN: ${{ secrets.GIT_TOKEN_PLUMEDBOT }}
