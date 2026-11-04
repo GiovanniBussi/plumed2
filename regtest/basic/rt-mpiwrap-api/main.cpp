@@ -392,8 +392,8 @@ void requests(MPI_Comm world, int rank) {
   }
   // Completion algorithms check live receives, not just already-null requests.
   for(int mode=0; mode<6; ++mode) {
-    const bool available=mode==0 ? HAS(Test) : mode==1 ? HAS(Waitany) :
-                         mode==2 ? HAS(Testany) : mode==3 ? HAS(Waitall) :
+    const bool available=mode==0 ? HAS(Wait) : mode==1 ? HAS(Waitany) :
+                         mode==2 ? HAS(Waitany) : mode==3 ? HAS(Waitall) :
                          mode==4 ? HAS(Testall) : HAS(Waitsome);
     if(!available) {
       continue;
@@ -411,7 +411,14 @@ void requests(MPI_Comm world, int rank) {
       int flag=0, index=MPI_UNDEFINED, outcount=0, indices[2]= {-1,-1};
       if(mode==0) {
         index=seen[0] ? 1 : 0;
-        CALL(Test,&receive[index],&flag,&statuses[0]);
+        if(HAS(Test)) {
+          CALL(Test,&receive[index],&flag,&statuses[0]);
+        } else {
+          // Missing Test is already checked for a clean unavailable exception.
+          // The body still validates this receive through the blocking API.
+          CALL(Wait,&receive[index],&statuses[0]);
+          flag=1;
+        }
         outcount=flag;
         indices[0]=index;
       } else if(mode==1) {
@@ -419,7 +426,12 @@ void requests(MPI_Comm world, int rank) {
         outcount=index==MPI_UNDEFINED ? 0 : 1;
         indices[0]=index;
       } else if(mode==2) {
-        CALL(Testany,2,receive,&index,&flag,&statuses[0]);
+        if(HAS(Testany)) {
+          CALL(Testany,2,receive,&index,&flag,&statuses[0]);
+        } else {
+          CALL(Waitany,2,receive,&index,&statuses[0]);
+          flag=1;
+        }
         outcount=flag && index!=MPI_UNDEFINED ? 1 : 0;
         indices[0]=index;
       } else if(mode==3 || mode==4) {
@@ -470,9 +482,14 @@ void requests(MPI_Comm world, int rank) {
     CALL(Testsome,1,&receive,&outcount,&index,&status);
     CHECK(outcount==MPI_UNDEFINED);
   }
-  if(HAS(Testany)) {
+  if(HAS(Waitany)) {
     int index=-1, flag=0;
-    CALL(Testany,0,nullptr,&index,&flag,&status);
+    if(HAS(Testany)) {
+      CALL(Testany,0,nullptr,&index,&flag,&status);
+    } else {
+      CALL(Waitany,0,nullptr,&index,&status);
+      flag=1;
+    }
     CHECK(flag==1 && index==MPI_UNDEFINED && status.MPI_SOURCE==MPI_ANY_SOURCE && status.MPI_TAG==MPI_ANY_TAG);
     count=-1;
     CALL(Get_count,&status,MPI_INT,&count);
@@ -487,7 +504,11 @@ void requests(MPI_Comm world, int rank) {
       CHECK(cancelled==0);
     }
     MPI_Request nulls[2]= {MPI_REQUEST_NULL,MPI_REQUEST_NULL};
-    CALL(Testany,2,nulls,&index,&flag,&status);
+    if(HAS(Testany)) {
+      CALL(Testany,2,nulls,&index,&flag,&status);
+    } else {
+      CALL(Waitany,2,nulls,&index,&status);
+    }
     CHECK(flag==1 && index==MPI_UNDEFINED);
   }
   if(HAS(Probe) && HAS(Iprobe)) {

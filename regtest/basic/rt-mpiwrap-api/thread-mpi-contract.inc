@@ -100,11 +100,11 @@ void check_thread_mpi_contract() {
   CHECK(mpiwrap_has_Ssend_init()==false);
   CHECK(mpiwrap_has_Start()==false);
   CHECK(mpiwrap_has_Startall()==false);
-  CHECK(mpiwrap_has_Test()==true);
+  CHECK(mpiwrap_has_Test()==false);
   CHECK(mpiwrap_has_Test_cancelled()==false);
   CHECK(mpiwrap_has_Testall()==false);
-  CHECK(mpiwrap_has_Testany()==true);
-  CHECK(mpiwrap_has_Testsome()==true);
+  CHECK(mpiwrap_has_Testany()==false);
+  CHECK(mpiwrap_has_Testsome()==false);
   CHECK(mpiwrap_has_Topo_test()==true);
   CHECK(mpiwrap_has_Type_commit()==true);
   CHECK(mpiwrap_has_Type_contiguous()==true);
@@ -116,7 +116,7 @@ void check_thread_mpi_contract() {
   CHECK(mpiwrap_has_Wait()==true);
   CHECK(mpiwrap_has_Waitall()==true);
   CHECK(mpiwrap_has_Waitany()==true);
-  CHECK(mpiwrap_has_Waitsome()==true);
+  CHECK(mpiwrap_has_Waitsome()==false);
   CHECK(mpiwrap_has_Wtick()==true);
   CHECK(mpiwrap_has_Wtime()==true);
 #endif

@@ -46,9 +46,6 @@
   "MPI_Scatterv",
   "MPI_Send",
   "MPI_Sendrecv",
-  "MPI_Test",
-  "MPI_Testany",
-  "MPI_Testsome",
   "MPI_Topo_test",
   "MPI_Type_commit",
   "MPI_Type_contiguous",
@@ -56,7 +53,6 @@
   "MPI_Wait",
   "MPI_Waitall",
   "MPI_Waitany",
-  "MPI_Waitsome",
   "MPI_Wtick",
   "MPI_Wtime"
 ]

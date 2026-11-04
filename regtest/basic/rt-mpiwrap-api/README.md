@@ -61,3 +61,42 @@ python3 check-isolated.py mpiexec -n 4 ./exe
 Native builds require MPI-2.2 or later for `MPI_C_BOOL` and `MPI_INT64_T`, as do
 these particular datatype scenarios. They do not change the MPI version
 requirements of the provider itself.
+
+## Upstream nonblocking progress limitation
+
+The bundled upstream tMPI `Test` and `Testany` implementations do not process
+newly posted incoming envelopes. Four ranks that each post `Irecv` and `Isend`
+and then repeatedly test their receives do not progress. Calling `Waitall`
+afterward completes the transfers. This violates the [MPI progress guarantee
+for repeated receive tests](https://www.mpi-forum.org/docs/mpi-4.1/mpi41-report/node75.htm),
+which does not require the sender to complete its nonblocking send first.
+
+Consequently the tMPI capability contract excludes `Test` and `Testany`;
+`Testsome` is also unavailable because its shared replacement needs a valid
+`Testany`. The ordinary API test verifies their unavailable exceptions and
+uses `Wait`/`Waitany` for the corresponding communication scenarios. Native MPI
+still executes the complete nonblocking-test scenarios. This does not restrict
+`Isend` or ready-send emulation: completing these operations through blocking
+waits remains valid.
+
+`tmpi-progress.cpp.in` is the minimal native-tMPI-only reproducer, retained for
+checking a future upstream fix. It is not part of the normal executable build
+and does not link PLUMED's wrapper. It polls for a bounded number of attempts,
+then completes outstanding requests before leaving the rank callback. Its exit
+status is **nonzero when the defect is reproduced**; it is not an expected-fail
+CI test. Compile it against a standalone `src/thread_mpi` CMake build:
+
+```
+c++ -std=c++17 -DSIZEOF_LONG_LONG_INT -D__PLUMED_HAS_THREAD_MPI \
+  -I../../../src/thread_mpi -x c++ -c tmpi-progress.cpp.in -o progress.o
+c++ progress.o /path/to/build/libplumed_thread_mpi.a -o progress
+python3 -c 'import subprocess; subprocess.run(["./progress"], check=True, timeout=30)'
+```
+
+The test's `Waitsome` scenario accepts any nonempty valid completion subset,
+rather than requiring all ready requests in one call. A production replacement
+must additionally preserve the standard's [fairness requirement](https://www.mpi-forum.org/docs/mpi-5.0/mpi50-report/node78.htm);
+a naive single `Waitany` call does not establish that property. The tMPI
+capability contract therefore also excludes `Waitsome` until a standard-safe
+implementation is available; its unavailable exception is checked. Native MPI
+retains the full `Waitsome` scenario.
