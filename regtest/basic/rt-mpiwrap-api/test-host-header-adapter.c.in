@@ -14,7 +14,11 @@
 #include "../../../src/wrapper/Plumed.h"
 
 int main(void) {
-  const void *(*implementation)(void) = plumed_mpi_implementation;
+#ifdef __cplusplus
+  const PLMD::mpiwrap::plumed_mpiw_provider_descriptor *(*implementation)(void) = plumed_mpi_implementation;
+#else
+  const plumed_mpiw_provider_descriptor *(*implementation)(void) = plumed_mpi_implementation;
+#endif
   plumed (*create)(void) = plumed_create;
   (void)implementation;
   (void)create;

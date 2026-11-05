@@ -447,6 +447,7 @@ jobs:
       if: ${{ !cancelled() && steps.injection_host.outcome == 'success' }}
       run: |
         set -euo pipefail
+        bash regtest/basic/rt-mpiwrap-typesafe/check-callers.sh
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export OMPI_MCA_rmaps_base_oversubscribe=1
         plumed mkmpi --compiler /usr/bin/mpicc.openmpi \
