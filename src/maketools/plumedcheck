@@ -359,6 +359,8 @@ BEGINFILE{
 # check if there is anything behind copyright and preprocessor commands
     # Comments and preprocessor directives do not define C++ symbols. In
     # particular a comment must not make a macro-only header need a namespace.
+    # A fully qualified using-declaration only re-exports an existing entity;
+    # an interface containing only these and macros defines no new symbols.
     code_line=$0;
     if(in_block_comment){
       if(match(code_line,"\\*/")){
@@ -373,7 +375,8 @@ BEGINFILE{
       else { code_line=prefix; in_block_comment=1; break; }
     }
     sub("//.*$","",code_line);
-    if(!in_copyright && !match(code_line,"^[[:space:]]*(#|$)")) found_non_preprocessor_lines=1;
+    if(!in_copyright && !match(code_line,"^[[:space:]]*(#|$)") &&
+       !match(code_line,"^[[:space:]]*using[[:space:]]+::[A-Za-z_][A-Za-z_0-9:]*[[:space:]]*;[[:space:]]*$")) found_non_preprocessor_lines=1;
 
 ## check if system headers are included after local headers.
 ## I am not sure it is a good idea, so I let it commented for now.

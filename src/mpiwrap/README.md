@@ -46,7 +46,7 @@ injected or environment-selected provider triggers `mkmpi` without a
 with the host MPI runtime. The kernel never initializes or finalizes real MPI. The
 `--mpi-ranks-are-threads` query succeeds only when a thread-based provider has
 been selected.
-The separate `mpiwrap/mpi.h` inquiry reports whether an installed, initialized
+The package `mpiwrap/mpiwrap.h` inquiry reports whether an installed, initialized
 provider executes ranks as threads; the PLUMED action uses it for CHDIR safety.
 
 ## Namespaces
@@ -122,7 +122,7 @@ exception terminates the process rather than unwinding through blocked peers;
 recoverable errors use the existing command exception translation.
 
 Standalone C++ programs can use the internal `mpiwrap::launchRanks`
-entry declared in `thread-mpi-launcher.h`. CLTools uses this same entry for
+entry declared in `mpiwrap.h`. CLTools uses this same entry for
 internal launch. Select `internal_thread_mpi` for embedded workers, or
 `standalone_owned` for a native-MPI program launched by `mpiexec`; the latter
 initializes MPI, checks the requested process count, executes one callback per
@@ -136,7 +136,8 @@ C++ make regtests opt in with `plumed_mpi_harness=yes` and a positive
 `mpiexec -np N ./exe -n N` for direct MPI or `./exe -n N` for internal tMPI.
 The executable parses `-n` and calls the shared launcher. Existing make tests
 keep their previous behavior. `regtest/basic/rt-mpiwrap-launcher` is a four-rank
-launcher smoke test, not the complete mapped-API test (which is still pending).
+launcher smoke test; `regtest/basic/rt-mpiwrap-api` provides the mapped-API
+checks.
 
 ## Inject the host MPI from Plumed.h
 
@@ -243,72 +244,84 @@ an invalid force value, or a late attempt to replace an installed provider
 raises an error. Injected callback code remains host-owned, including when injection is bypassed
 by the force setting. Already published callbacks are never replaced.
 
-## Generated interface and runtime files
+## Source layout and generation
 
-All module files live directly in src/mpiwrap. The machine-readable inputs
-are support-matrix.tsv, argument-metadata.json, constant-metadata.json,
-type-metadata.json, signature-versions.json, availability-metadata.json, and
-thread-mpi-api.tsv. Signature revisions are independent of MPI standard versions.
-Build the repository formatter once with make -C astyle. generate.py validates
-these inputs and generates the wrapper declarations, provider ABI, constant
-accessors, route tables, signature checks, and coverage reports in the same
-directory. The checked-in generated files are reproducible
-with:
+All files live directly in `src/mpiwrap`. The normal PLUMED rules determine
+which files are installed and compiled: `.h` files are installed; `.cpp` files
+are compiled and linked; templates, metadata and test fixtures are ignored by
+the automatic source build. There are no `.hpp` or `.inc` files in this module.
+
+### Installed headers
+
+| File | Interface |
+| --- | --- |
+| `mpi.h` | MPI-facing facade for normal C++ callers: standard `MPI_*` type aliases, function mappings and predefined-value names. Includes `mpiwrap.h`; native builds retain the actual MPI interface. |
+| `mpiwrap.h` | Package interface: provider ABI, typed pointers and inline dispatch, handle types, capability inquiries, native communicator import and rank launching. Does not add provider-mode MPI name mappings. |
+| `internal.h` | Shared implementation declarations, principally the registry. Installed by the normal header rules but internal, with no supported external API contract. |
+
+Normal MPI users include `"mpiwrap/mpi.h"` (or
+`"plumed/mpiwrap/mpi.h"` from an installed tree). Code needing package services
+includes `mpiwrap.h`. Header search paths should name the parent directory,
+so the module's `mpi.h` does not shadow the native MPI implementation's
+`<mpi.h>`.
+
+The C++ package interface requires C++17. Its provider ABI section is also
+C-compatible; `PLUMED_MPIW_ABI_ONLY` exposes that section without the C++
+frontend, including for C++98 compatibility probes. Host injection and standalone
+provider building continue to use the self-contained public `Plumed.h`, whose
+adapter remains compatible with C99 and C++98. Complete handle definitions and
+inline dispatch stay in headers to preserve type safety and direct call-through.
+
+### Compiled sources
+
+| File | Maintained/generated | Responsibility |
+| --- | --- | --- |
+| `mpiwrap.cpp` | Generated from `mpiwrap.cpp.in` | Registry validation, dispatch/constant bridges, pointer publication and frontend predefined-value accessors. |
+| `loader.cpp` | Maintained | Provider selection, dynamic loading and automatic adapter compilation. |
+| `fallbacks.cpp` | Maintained | Shared replacement algorithms. |
+| `launcher.cpp` | Maintained | Direct-MPI and embedded thread-MPI launch paths. |
+| `tmpi.cpp` | Generated | Thin embedded tMPI adapter and descriptor. |
+
+Each source contains its own build guards. The embedded adapter is compiled
+only when thread-MPI is configured; provider-mode registry/loader/fallback
+implementations are excluded from native-MPI builds. No `.cpp` file includes
+another implementation file. Imported tMPI remains a separate module at
+`src/thread_mpi`.
+
+### Generator inputs and checks
+
+`mpiwrap.h.in` and `mpiwrap.cpp.in` contain maintained implementation scaffolding
+with explicit generation markers. `provider-abi.h.in` defines the C-compatible
+provider ABI. `native-adapter.c.in` contains the maintained native adapter body;
+the generator fills its repetitive sections and embeds it directly in
+`src/wrapper/Plumed.h`. The same source drives embedded tMPI adapter generation.
+There is no separately installed adapter body or separately compiled native
+provider source in the kernel module. `mkmpi` builds a small temporary source
+against installed `Plumed.h`.
+
+Machine-readable inputs are `support-matrix.tsv`, `argument-metadata.json`,
+`constant-metadata.json`, `type-metadata.json`, `signature-versions.json`,
+`availability-metadata.json` and `thread-mpi-api.tsv`. Signature revisions are
+independent of MPI standard versions. Generated function lists and tables are
+written directly into their complete header/source consumers, rather than
+emitted as include fragments.
+
+Build the repository formatter once with `make -C astyle`. Regenerate with:
+
+    python3 src/mpiwrap/generate.py
+
+Verify reproducibility without changing files with:
 
     python3 src/mpiwrap/generate.py --check
 
-The .cpp.in and .c.in files are compile-only tests and probes; the module's
-wildcard source build does not compile them. The implementation unity source
-mpiwrap.cpp supplies the registry and frontend in wrapper mode, including when
-the embedded runtime is disabled. Its internal adapter is compiled only when
-thread-MPI is configured. mpiwrap-launcher.cpp
-includes the internal rank launcher. mpiwrap_implementation.cpp is an opt-in
-translation unit for a provider DSO; it is not compiled into ordinary PLUMED
-kernels. Imported thread-MPI sources remain a separate module at
-src/thread_mpi.
-
-### Included implementation fragments
-
-`provider-registry.h` is an ordinary internal C++ header. There is no technical
-reason to use `.hpp`; this module follows PLUMED's `.h` convention.
-
-An `.inc` file is inserted with `#include`, rather than compiled independently.
-The generated row lists below deliberately depend on the surrounding macro,
-namespace or initializer. They are not standalone headers and some are included
-with different macro definitions. The native adapter body is also embedded into
-`Plumed.h` by the generator. These uses explain the fragment extension.
-
-The handwritten `.cpp.inc` files instead partition a unity translation unit.
-That arrangement is an implementation choice, not an ABI requirement or a
-requirement of injection: they could become ordinary guarded `.cpp` files if we
-split the translation unit. They are kernel implementation code, never host-side
-injection code. The complete inventory is:
-
-| File | Purpose and consumer |
-| --- | --- |
-| `provider-registry.cpp.inc` | Handwritten descriptor validation, owned registry, native-byte import/export and pointer publication; included by `mpiwrap.cpp`. |
-| `provider-frontend.cpp.inc` | Handwritten capability inquiries and predefined-value accessors; included by `mpiwrap.cpp`. |
-| `provider-loader.cpp.inc` | Handwritten environment selection, provider DSO loading and compiler discovery; included by `mpiwrap.cpp`. |
-| `provider-fallbacks.cpp.inc` | Handwritten shared replacement algorithms for providers missing supported primitives; included by `mpiwrap.cpp`. |
-| `thread-mpi-launcher.cpp.inc` | Handwritten explicit embedded rank launcher; included by `mpiwrap-launcher.cpp` only in thread-MPI builds. |
-| `provider-pointer-definitions.inc` | Generated definitions of kernel-local typed callback pointers; included by `mpiwrap.cpp`. |
-| `provider-dispatch-bridges.inc` | Generated typed bridges to the pointer-based provider transport; included inside the registry implementation. |
-| `provider-constant-bridges.inc` | Generated conversion/access bridges for native predefined values; included inside the registry implementation. |
-| `provider-dispatch-bindings.inc` | Generated rows assigning typed dispatch bridges into registry bindings. |
-| `provider-pointer-publish.inc` | Generated rows publishing bindings into frontend pointers, also reused by registry tests. |
-| `provider-constant-functions.inc` | Generated rows expanded into frontend predefined-value accessor functions. |
-| `provider-constant-names.inc` | Generated list of accepted predefined-value names used during descriptor validation. |
-| `native-adapter-entries.inc` | Generated canonical function names, signature IDs, revisions and argument counts used by registry validation. |
-| `thread-mpi-adapter.cpp.inc` | Generated embedded tMPI adapter and provider descriptor; included by `mpiwrap.cpp` only in thread-MPI builds. |
-| `thread-mpi-adapter-entries.inc` | Generated MPI-to-tMPI symbol list used by compile-time adapter checks. |
-| `thread-mpi-constant-accessors.inc` | Generated native tMPI predefined-value getter definitions inserted into the embedded adapter. |
-| `thread-mpi-constant-metadata.inc` | Generated predefined-value descriptor initializer rows inserted into the embedded adapter. |
-| `mpiwrap_implementation.cpp.inc` | Generated C-compatible native adapter body, embedded in the public `Plumed.h` and compiled independently by adapter checks. |
-| `mpiwrap_implementation.cpp.inc.in` | Maintained template for that native adapter body; `generate.py` fills in the generated function, constant and descriptor sections. |
-
-The former `provider-unavailable-functions.inc` contained only a comment and
-had no consumer; it has been removed. Unavailable-function handling is generated
-inline in `mpiwrap.h`.
+Verification scripts and compile-probe fixtures live in
+[`rt-mpiwrap-api`](../../regtest/basic/rt-mpiwrap-api/README.md) and
+[`rt-mpiwrap-launcher`](../../regtest/basic/rt-mpiwrap-launcher/README.md),
+including generated probe `.cpp.in` files. They are compiled explicitly by their
+check scripts and consume the same installed headers and public `Plumed.h` as
+real callers. The module contains no test executables, scratch logs or generated
+include fragments. `support-matrix.md` is the generated human-readable API
+support report; validation and coverage checks use the source metadata directly.
 
 ## Current implementation and limits
 
@@ -373,15 +386,15 @@ The focused checks can be run from the repository root:
 
     python3 src/mpiwrap/validate-manifest.py
     python3 src/mpiwrap/generate.py --check
-    sh src/mpiwrap/check-provider-registry.sh
-    bash src/mpiwrap/check-provider-discovery.sh
-    bash src/mpiwrap/check-kernel-lifecycle.sh
-    bash src/mpiwrap/check-regtest-runner.sh
+    sh regtest/basic/rt-mpiwrap-api/check-provider-registry.sh
+    bash regtest/basic/rt-mpiwrap-api/check-provider-discovery.sh
+    bash regtest/basic/rt-mpiwrap-api/check-kernel-lifecycle.sh
+    bash regtest/basic/rt-mpiwrap-launcher/check-regtest-runner.sh
     MPICH_CC_WRAPPER=/path/to/mpich/bin/mpicc \
       MPICH_CXX_WRAPPER=/path/to/mpich/bin/mpicxx \
       OMPI_CC_WRAPPER=/path/to/openmpi/bin/mpicc \
       OMPI_CXX_WRAPPER=/path/to/openmpi/bin/mpicxx \
-      bash src/mpiwrap/check-native-adapter.sh
+      bash regtest/basic/rt-mpiwrap-api/check-native-adapter.sh
 
 The provider-discovery check uses a mock compiler and provider to exercise
 automatic adapter discovery, native C/Fortran handle import,
@@ -392,16 +405,166 @@ Header and generated signature checks for local MPICH, Open MPI, and pinned
 tMPI use:
 
     MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ \
-      sh src/mpiwrap/check-generated.sh \
+      sh regtest/basic/rt-mpiwrap-api/check-generated.sh \
       /path/to/mpich/bin/mpicxx \
       /path/to/openmpi/bin/mpicxx \
       src/thread_mpi
 
 Internal launch semantics are exercised by
-src/mpiwrap/check-thread-mpi-cli.sh src/lib/plumed-static after a configured
+regtest/basic/rt-mpiwrap-launcher/check-thread-mpi-cli.sh src/lib/plumed-static after a configured
 thread-MPI build. The tests cover 1, 2, and 4 ranks, callback error handling,
 provider lifecycle, raw communicator byte-prefix handling, native/legacy
 runner selection, and CHDIR rejection while thread-MPI is active.
+
+## Extending the implementation
+
+Change the maintained metadata/templates, regenerate, then review the complete
+outputs. Do not edit generated `.h`/`.cpp` files or the generated regions of
+`Plumed.h` directly. The module implements the MPI subset PLUMED needs; adding a
+name does not require providing it on every runtime.
+
+### Adding or enabling a function
+
+1. Add the standard signature and scope to `support-matrix.tsv`, and a matching
+   function record to `argument-metadata.json`. Use MPI-5 const correctness in
+   the frontend. `MPI_Comm_rank` is a small existing example; array/status and
+   callback entries show the additional metadata those cases need.
+2. Classify every argument: direction, conversion, scalar/array extent,
+   sentinels, and when output is valid on success or error. Specify callback
+   signatures and lifetime separately. Native handles are provider-sized byte
+   values: arrays require native strides, and output storage must remain
+   zero-filled beyond the native value. Never cast wrapper arrays to native
+   arrays or read native handles as wrapper objects.
+3. Record the route for direct MPI, embedded tMPI and injected real MPI. A
+   declaration alone does not establish correct tMPI semantics: review the
+   implementation and add a reproducer. Keep unsupported/incompatible routes
+   unavailable, with a clear exception. To publish a native adapter function,
+   mark its `native_adapter` as `implemented` and keep the matching
+   `availability-metadata.json` function lists in sync.
+4. Set MPI-version requirements in `mpi_standard_functions` and conservative
+   GROMACS availability in `availability-metadata.json`. Use MPI version
+   numbers for real MPI, not `#ifdef MPI_Function`. For a new tMPI symbol, update
+   `thread-mpi-api.tsv` from the audited headers and review its release history
+   as described below. The generated body and function table must use identical
+   guards.
+5. Add a signature record in `signature-versions.json`. The fingerprint is
+   calculated by `canonical_signature_fingerprint()` in `generate.py`; the
+   validator rejects mismatches. Function IDs are derived deterministically
+   from names, not table positions or addresses. A signature revision is not an
+   MPI standard version. Changing an existing transport contract requires an
+   explicit compatibility design; do not bump a revision merely to silence
+   validation and assume already compiled adapters remain compatible.
+6. Existing conversion kinds are implemented by
+   `render_provider_inline_functions()`, `render_provider_dispatch_bridges()`
+   and `render_native_adapter_function()` in `generate.py`. Extend these only
+   if the new argument shape is not already supported. Keep native-version
+   compatibility casts local to input-only arguments in the native adapter;
+   do not weaken the frontend's const correctness or callback types.
+7. If a missing function can be implemented using other standard primitives,
+   place that algorithm in `fallbacks.cpp`, its needed declarations in
+   `mpiwrap.h.in`, and its routing/availability logic in the generator. Select
+   it only when the function is absent and all prerequisites are present.
+   Preserve error, completion, ownership and communicator semantics; a similar
+   prototype or matching numerical result is insufficient.
+8. Add semantic calls to `regtest/basic/rt-mpiwrap-api/main.cpp`. Update
+   `thread-mpi-contract.json` only after verifying the expected capability;
+   lifecycle functions can instead name a real test owner in
+   `lifecycle-coverage.json`. Run its `check-coverage.py --write` and review the
+   generated unavailable-call and capability checks. Retain tests of clean
+   failure for omitted functions, and add an isolated process test for calls
+   such as Abort that cannot safely run inside the normal test process.
+9. Run `validate-manifest.py`, regenerate, and run `generate.py --check`.
+   Exercise the header/prototype checks against MPICH, Open MPI and the
+   bundled tMPI, including older-MPI/GROMACS-version guards. Run the mapped-API
+   regtest through native MPI, embedded tMPI and the injected/provider host
+   paths where that route is supported. The commands in Verification and
+   `regtest/basic/rt-mpiwrap-api/README.md` provide the starting points.
+
+The transport remains a versioned, optional name/function table. A frozen host
+adapter cannot acquire new functions from a newer kernel: absent entries must
+still produce a justified kernel fallback or a clean unavailable exception.
+Preserve old entry layouts and signatures when extending the table; incompatible
+changes require explicit ABI versioning. Additional compatibility information
+belongs in extensible metadata, rather than new mandatory descriptor fields.
+
+### Adding constants, types or a provider-specific workaround
+
+Add a constant to `constant-metadata.json` and `support-matrix.tsv`, specifying
+its category, C/native representation and provider routes. Update the constant
+availability lists/version overrides in `availability-metadata.json`. Native
+values are obtained through accessors; do not hard-code their representation
+or eagerly evaluate thread-local communicator constants. Test both successful
+publication and omission on runtimes/versions that lack the constant.
+
+Add a new handle/status/callback category to `type-metadata.json` only after
+reviewing all scalar, array, import/export and callback conversions it requires.
+Handle capacity overrides remain compiler definitions; native builds retain
+their actual types, while provider installation validates the receiving storage.
+For shared collective fallbacks, C predefined datatypes can use their standard
+C types and `sizeof`; custom/compound types need a separate layout design and
+currently throw on those fallback paths.
+
+A provider workaround must follow the standard semantics and remain shared
+between injected and embedded providers where possible. Record its required
+capabilities/compatibility metadata and test the upstream defect independently.
+Do not put a second replacement algorithm in the injected `Plumed.h` adapter.
+Keep the thin adapter limited to native calls and necessary native-ABI handling.
+
+### Callback extensions: starting point and unresolved choices
+
+Direct native-MPI compilation already uses the native callback types and calls
+MPI directly. Provider-mode `MPI_Op_create` and
+`MPI_Comm_create_errhandler` remain unavailable today. Their argument metadata
+and the generated callback transport/invocation helpers in `mpiwrap.h` provide
+a starting point, but do not implement registration or ownership. The old
+`mpiw_old_draft` is useful design material; it is not a build dependency or proof
+that its callback conversions are portable.
+
+Custom reductions are the useful next extension. Custom error-handler callbacks
+remain outside the intended PLUMED library use: preserve the host's error
+handling policy. The pinned tMPI headers do not expose `tMPI_Op_create` or
+`tMPI_Op_free`; implementing a real-MPI callback bridge alone will not provide
+custom operations on that runtime. Keep that route unavailable until upstream
+support or a separately reviewed compatible implementation exists.
+
+There are two approaches worth evaluating before freezing a callback-capable
+host adapter:
+
+- **Native typed trampolines.** Compile a trampoline with the host's exact
+  `MPI_User_function` signature. Copy its native datatype argument into a
+  temporary zero-filled wrapper value, then invoke the saved callback through
+  its actual wrapper type. The standard callback supplies no user context, so
+  registration needs a way to identify the callback, for example a bounded set
+  of explicitly generated trampoline slots. This avoids templates and calling
+  through incompatible callback types, but needs slot allocation, concurrency,
+  exhaustion and lifetime handling in the native adapter.
+- **A documented ABI shortcut based on the draft.** Evaluate whether the
+  callback pointer/reference conversions can be supported on an explicitly
+  stated platform ABI. Distinguish a tested ABI assumption from C/C++ language
+  portability, audit pointee sizes/aliasing as well as argument passing, and
+  communicate compatibility through optional metadata. A function-pointer cast
+  alone does not establish a portable bridge.
+
+For either approach, resolve these points before publishing an entry:
+
+- Track callback code, state, operation ownership and provider-library lifetime.
+  Roll back failed registrations. Do not recycle state while an in-flight
+  reduction can still call it, including after an operation is marked for
+  freeing. Specify cleanup without asking a PLUMED kernel to finalize real MPI.
+- Support concurrent rank threads and independent operations. A process-global
+  “current callback” is insufficient. Convert callback-local native handle
+  bytes using their reported sizes; never reinterpret a small native handle as
+  a larger wrapper object.
+- Prevent exceptions from unwinding through MPI's C callback boundary. Decide
+  how a callback failure is reported without leaving other ranks blocked.
+- Test reduction results with multiple datatypes/ranks, commutative and
+  noncommutative operations, concurrent registrations, repeated create/free,
+  resource exhaustion, failure rollback and adapter/kernel lifetime. Include
+  an older adapter that omits the entry, which must still fail cleanly.
+
+These are extension requirements and options, not promises of current callback
+support. Decide the native registration/lifetime mechanism before changing the
+frozen host-side surface.
 
 ## Maintaining GROMACS compatibility
 
@@ -439,7 +602,7 @@ The capacity-override installation check uses a configured checkout:
 
     ./configure --disable-mpi
     MPICH_CXX=/usr/bin/clang++ OMPI_CXX=/usr/bin/clang++ \
-      bash src/mpiwrap/check-capacity-install.sh /path/to/mpich/mpicxx \
+      bash regtest/basic/rt-mpiwrap-api/check-capacity-install.sh /path/to/mpich/mpicxx \
       /path/to/openmpi/mpicxx
 
 It runs the public install-headers recipe and compiles installed headers
@@ -449,7 +612,7 @@ storage. The build/runtime matrix above remains separate validation.
 A separate MPI host checks injection into an already-built serial kernel:
 
 ```sh
-MPICH_CXX=/usr/bin/clang++ bash regtest/mpiwrap/check-mpi-host-injection.sh \
+MPICH_CXX=/usr/bin/clang++ bash regtest/basic/rt-mpiwrap-api/check-mpi-host-injection.sh \
   /path/to/mpicxx /path/to/mpiexec /absolute/path/to/libplumedKernel.dylib
 ```
 
@@ -482,7 +645,7 @@ No GROMACS build is required. The standalone embedded tMPI tests also run.
 Run the same host test locally with an already built serial kernel:
 
 ```sh
-bash regtest/mpiwrap/check-mpi-host-injection.sh /absolute/path/to/mpicxx \
+bash regtest/basic/rt-mpiwrap-api/check-mpi-host-injection.sh /absolute/path/to/mpicxx \
   /absolute/path/to/mpiexec /absolute/path/to/libplumedKernel.so \
   /absolute/path/to/provider.so
 ```
@@ -503,7 +666,7 @@ no new kernel symbol-table entry or public object type.
 
 | Files | Reason for the feature change |
 | --- | --- |
-| `configure.ac`, generated `configure` | Discover native MPI as before; default to internal tMPI otherwise, with an explicit opt-out. Define the wrapper infrastructure independently of runtime selection. No capacity configure options or module `.on`/`.off` manipulation. |
+| `configure.ac`, generated `configure` | Discover native MPI as before; include embedded tMPI by default in serial builds, with an explicit opt-out. Run it only through the explicit launcher. Define the wrapper infrastructure independently of runtime selection. No capacity configure options or module `.on`/`.off` manipulation. |
 | `CMakeLists.txt` | Enable the wrapper and optional embedded Win32/POSIX thread backend; retain registration objects with each platform's linker syntax. Existing Windows configuration remains supported. |
 | `src/.gitignore` | Track the imported flat runtime sources and provenance record using the existing module-ignore conventions. |
 | `src/{core,generic,tools}/Makefile` | Declare the new module/header dependencies for normal builds and installed headers. |
