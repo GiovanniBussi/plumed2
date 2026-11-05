@@ -7,27 +7,8 @@
 #include "provider-pointer-definitions.inc"
 #include "provider-frontend.cpp.inc"
 #include "provider-fallbacks.cpp.inc"
+#include "provider-loader.cpp.inc"
 #if defined(__PLUMED_HAS_THREAD_MPI)
 #include "thread-mpi-adapter.cpp.inc"
-#else
-#include "provider-loader.cpp.inc"
-namespace PLMD {
-namespace mpiwrap {
-void ensureProviderSelected() {
-  if (forceEnvironmentProvider()) {
-    return;
-  }
-  Registry &registry = currentRegistry();
-  if (registry.installed()) {
-    return;
-  }
-  const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
-  if (selected && selected[0]) {
-    installEnvironmentProvider(registry, selected);
-  }
-}
-
-}  // namespace mpiwrap
-}  // namespace PLMD
 #endif
 #endif

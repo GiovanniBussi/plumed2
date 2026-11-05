@@ -37,7 +37,7 @@
 #include "tools/Citations.h"
 #include "tools/Communicator.h"
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-#include "../mpiwrap/provider-registry.hpp"
+#include "../mpiwrap/provider-registry.h"
 #include "../mpiwrap/provider-selection.h"
 #endif
 #include "tools/DLLoader.h"

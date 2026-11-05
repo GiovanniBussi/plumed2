@@ -149,6 +149,9 @@ Communicator::~Communicator() {
 }
 
 void Communicator::Set_comm(const TypesafePtr & val) {
+  if(val) {
+    mpiwrap::ensure_provider_for_communicator();
+  }
   resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
   if(val) {
@@ -157,6 +160,9 @@ void Communicator::Set_comm(const TypesafePtr & val) {
 }
 
 void Communicator::Set_fcomm(const TypesafePtr & val) {
+  if(val) {
+    mpiwrap::ensure_provider_for_communicator();
+  }
   resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
   if(val) {

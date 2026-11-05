@@ -1,5 +1,5 @@
 // Runtime validation and typed lookup for one installed MPI provider.
-#include "provider-registry.hpp"
+#include "provider-registry.h"
 #include "mpiwrap.h"
 #include "mpi.h"
 
@@ -890,13 +890,13 @@ MPI_Comm Comm_from_native(const void *native) {
 }
 
 bool Comm_export_storage(MPI_Comm value,
-                                 plumed_mpiw_handle_storage *storage) {
+                         plumed_mpiw_handle_storage *storage) {
   return mpiwrap::exportComm(mpiwrap::currentRegistry(), value,
-                                      storage);
+                             storage);
 }
 
 bool Comm_export_native(MPI_Comm value, void *output,
-                                std::size_t capacity) {
+                        std::size_t capacity) {
   return mpiwrap::exportNativeComm(
            mpiwrap::currentRegistry(), value, output, capacity);
 }

@@ -9,6 +9,7 @@
 #include <cstring>
 namespace PLMD {
 namespace mpiwrap {
+inline void ensure_provider_for_communicator() {}
 inline MPI_Comm Comm_from_native(const void *native) {
   MPI_Comm value{};
   if (native) {
@@ -190,6 +191,7 @@ MPI_Comm Comm_from_native(const void *native);
 bool Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);
 bool Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);
 void ensure_provider_selected();
+void ensure_provider_for_communicator();
 bool provider_has_capability(const char *name);
 [[noreturn]] void unavailable(const char *name);
 plumed_mpiw_status status_to_transport(const MPI_Status &status);

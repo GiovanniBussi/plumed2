@@ -1,9 +1,11 @@
-// Explicit environment selection, shared by the default-provider path.
+// Provider selection from injection, the environment, or native communicator import.
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <string>
 #include <mutex>
+#include <condition_variable>
+#include <thread>
 #include <vector>
 #include "provider-selection.h"
 #if defined(__PLUMED_HAS_DLOPEN)
@@ -143,11 +145,18 @@ void compileSelectedProvider(const char *compiler, const std::string &output) {
   std::string script = config::getPlumedRoot() + "/scripts/mkmpi.sh";
   // Spawn an interpreter with literal arguments. Neither compiler paths nor
   // output paths are shell commands, even when they contain spaces or '$'.
-  char *arguments[] = {
-    const_cast<char *>("/bin/bash"), const_cast<char *>(script.c_str()),
-    const_cast<char *>("--compiler"), const_cast<char *>(compiler),
-    const_cast<char *>("--out"), const_cast<char *>(output.c_str()), nullptr
+  std::vector<char *> arguments{
+    const_cast<char *>("/bin/bash"), const_cast<char *>(script.c_str())
   };
+  // A null compiler deliberately delegates discovery to mkmpi, including
+  // MPICC/MPICXX and the host application's module-provided PATH.
+  if (compiler && compiler[0]) {
+    arguments.push_back(const_cast<char *>("--compiler"));
+    arguments.push_back(const_cast<char *>(compiler));
+  }
+  arguments.push_back(const_cast<char *>("--out"));
+  arguments.push_back(const_cast<char *>(output.c_str()));
+  arguments.push_back(nullptr);
   // A kernel loaded directly by a host has not run the plumed shell wrappers.
   // Supply their configured paths to this child only; changing the process
   // environment would race with other callers and unrelated application code.
@@ -167,7 +176,7 @@ void compileSelectedProvider(const char *compiler, const std::string &output) {
   child_environment.push_back(const_cast<char *>(program.c_str()));
   child_environment.push_back(nullptr);
   pid_t child;
-  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments,
+  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments.data(),
                                 child_environment.data());
   if (error != 0) {
     throw std::runtime_error("could not start MPI provider compiler: " +
@@ -181,6 +190,18 @@ void compileSelectedProvider(const char *compiler, const std::string &output) {
   if (result < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
     throw std::runtime_error("MPI provider compilation failed; see compiler diagnostics above");
   }
+}
+
+void installCompiledProvider(Registry &registry, const char *compiler) {
+  ProviderBuildDirectory build;
+  compileSelectedProvider(compiler, build.library);
+  void *library = dlopen(build.library.c_str(), RTLD_NOW | RTLD_LOCAL);
+  if (!library) {
+    const char *message = dlerror();
+    throw std::runtime_error("could not load compiled MPI provider: " +
+                             std::string(message ? message : "unknown loader error"));
+  }
+  installProviderLibrary(registry, library);
 }
 #endif
 
@@ -209,15 +230,7 @@ void installEnvironmentProvider(Registry &registry, const char *path) {
       !S_ISREG(information.st_mode) || access(path, X_OK) != 0) {
     throw std::runtime_error("could not load selected MPI provider: " + load_error);
   }
-  ProviderBuildDirectory build;
-  compileSelectedProvider(path, build.library);
-  library = dlopen(build.library.c_str(), RTLD_NOW | RTLD_LOCAL);
-  if (!library) {
-    message = dlerror();
-    throw std::runtime_error("could not load compiled MPI provider: " +
-                             std::string(message ? message : "unknown loader error"));
-  }
-  installProviderLibrary(registry, library);
+  installCompiledProvider(registry, path);
 #else
   (void) registry;
   throw std::runtime_error("PLUMED_MPI_WRAPPER requires a kernel built with dlopen support");
@@ -255,6 +268,79 @@ bool forceEnvironmentProvider() {
   installEnvironmentProvider(registry, path);
   forced_path.swap(selected_path);
   return true;
+}
+
+namespace {
+void selectProvider(bool build_default) {
+  if (forceEnvironmentProvider()) {
+    return;
+  }
+  static std::mutex selection_mutex;
+  static std::condition_variable selection_changed;
+  static bool selecting = false;
+  static std::thread::id selecting_thread;
+
+  Registry &registry = currentRegistry();
+  if (registry.installed()) {
+    return;
+  }
+  const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
+  if ((!selected || !selected[0]) && !build_default) {
+    return;
+  }
+  {
+    std::unique_lock<std::mutex> lock(selection_mutex);
+    // Another thread may install a provider while we wait for the lock.
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (registry.installed()) {
+      return;
+    }
+    while (selecting) {
+      if (selecting_thread == std::this_thread::get_id()) {
+        throw std::runtime_error("recursive MPI provider selection");
+      }
+      selection_changed.wait(lock);
+      if (registry.installed()) {
+        return;
+      }
+    }
+    selecting = true;
+    selecting_thread = std::this_thread::get_id();
+  }
+
+  try {
+    if (selected && selected[0]) {
+      installEnvironmentProvider(registry, selected);
+    } else {
+#if defined(__PLUMED_HAS_DLOPEN)
+      installCompiledProvider(registry, nullptr);
+#else
+      throw std::runtime_error("automatic MPI provider building requires dlopen support");
+#endif
+    }
+  } catch (...) {
+    std::lock_guard<std::mutex> lock(selection_mutex);
+    selecting = false;
+    selecting_thread = std::thread::id();
+    selection_changed.notify_all();
+    throw;
+  }
+  {
+    std::lock_guard<std::mutex> lock(selection_mutex);
+    selecting = false;
+    selecting_thread = std::thread::id();
+  }
+  selection_changed.notify_all();
+}
+
+} // namespace
+
+void ensureProviderSelected() {
+  selectProvider(false);
+}
+
+void ensureProviderForCommunicator() {
+  selectProvider(true);
 }
 
 } // namespace mpiwrap

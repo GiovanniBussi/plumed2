@@ -139,6 +139,7 @@ def render_header(functions, types, constants):
         "#include <cstring>",
         "namespace PLMD {",
         "namespace mpiwrap {",
+        "inline void ensure_provider_for_communicator() {}",
         "inline MPI_Comm Comm_from_native(const void *native) {",
         "  MPI_Comm value{};",
         "  if (native) std::memcpy(&value, native, sizeof(value));",
@@ -216,6 +217,7 @@ def render_header(functions, types, constants):
         "bool Comm_export_storage(MPI_Comm value, plumed_mpiw_handle_storage *storage);",
         "bool Comm_export_native(MPI_Comm value, void *output, std::size_t capacity);",
         "void ensure_provider_selected();",
+        "void ensure_provider_for_communicator();",
         "bool provider_has_capability(const char *name);",
         "[[noreturn]] void unavailable(const char *name);",
         "plumed_mpiw_status status_to_transport(const MPI_Status &status);",
@@ -1367,10 +1369,6 @@ def render_thread_mpi_constants(constants):
     return "\n".join(accessors) + "\n", "\n".join(metadata) + "\n"
 
 
-def render_provider_unavailable(functions):
-    return "// All provider function definitions are generated inline in mpiwrap.h.\n"
-
-
 def native_function_pointer_type(signature):
     result, name, args = parse_signature(signature)
     params = []
@@ -2328,7 +2326,6 @@ def generate(output, write=True):
         "thread-mpi-adapter.cpp.inc": render_thread_mpi_adapter(
             functions, constants_doc["constants"], versions
         ),
-        "provider-unavailable-functions.inc": render_provider_unavailable(functions),
         "thread-mpi-availability.h": render_thread_mpi_availability(functions),
         "native-adapter-entries.inc": native_rows,
         "mpiwrap_implementation.cpp.inc": render_native_adapter_body(

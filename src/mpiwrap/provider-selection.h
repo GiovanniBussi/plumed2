@@ -8,6 +8,8 @@ namespace mpiwrap {
 // Return true when an explicit troubleshooting override has installed its
 // provider. Throws on invalid configuration or an attempted late replacement.
 bool forceEnvironmentProvider();
+// Native communicator import is the only implicit compiler-discovery boundary.
+void ensureProviderForCommunicator();
 }
 }
 

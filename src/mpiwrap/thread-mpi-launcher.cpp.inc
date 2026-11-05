@@ -1,10 +1,10 @@
 // Explicit launcher for the embedded GROMACS thread-MPI runtime.
 #include "thread-mpi-launcher.h"
-#include "provider-registry.hpp"
+#include "provider-registry.h"
+#include "provider-selection.h"
 
 #include "provider-abi.h"
 #include <thread_mpi_tmpi.h>
-#include "provider-loader.cpp.inc"
 #include "../tools/Exception.h"
 
 #include <cstdio>
@@ -12,9 +12,6 @@
 #include <cstdlib>
 #include <exception>
 #include <string>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
 
 namespace PLMD {
 namespace mpiwrap {
@@ -58,7 +55,7 @@ void rankEntry(const void *opaque) {
     const MPI_Comm world = COMM_WORLD();
     const std::size_t native_size = currentRegistry().nativeCommSize();
     if (!Comm_export_native(world, native_world,
-                                    sizeof(native_world)) || native_size == 0) {
+                            sizeof(native_world)) || native_size == 0) {
       terminateRank(rank, "could not export the native world communicator");
     }
     local_result = context->callback(rank, native_world, native_size,
@@ -89,70 +86,6 @@ void rankEntry(const void *opaque) {
 }
 
 }  // namespace
-
-#if !defined(__PLUMED_HAS_MPI)
-void ensureProviderSelected() {
-  if (forceEnvironmentProvider()) {
-    return;
-  }
-  static std::mutex selection_mutex;
-  static std::condition_variable selection_changed;
-  static bool selecting = false;
-  static std::thread::id selecting_thread;
-
-  Registry &registry = currentRegistry();
-  if (registry.installed()) {
-    return;
-  }
-  {
-    std::unique_lock<std::mutex> lock(selection_mutex);
-    // Another thread may install a provider while we wait for the lock.
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (registry.installed()) {
-      return;
-    }
-    while (selecting) {
-      if (selecting_thread == std::this_thread::get_id()) {
-        throw std::runtime_error("recursive MPI provider selection");
-      }
-      selection_changed.wait(lock);
-      if (registry.installed()) {
-        return;
-      }
-    }
-    selecting = true;
-    selecting_thread = std::this_thread::get_id();
-  }
-
-  try {
-    const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
-    if (selected && selected[0]) {
-      installEnvironmentProvider(registry, selected);
-    } else {
-      const plumed_mpiw_provider_descriptor *descriptor =
-        plumed_mpiw_thread_mpi_provider();
-      std::string error;
-      if (!registry.install(descriptor, error) && !registry.installed()) {
-        throw std::runtime_error(error.empty() ?
-                                 "could not select the default MPI provider" : error);
-      }
-    }
-  } catch (...) {
-    std::lock_guard<std::mutex> lock(selection_mutex);
-    selecting = false;
-    selecting_thread = std::thread::id();
-    selection_changed.notify_all();
-    throw;
-  }
-  {
-    std::lock_guard<std::mutex> lock(selection_mutex);
-    selecting = false;
-    selecting_thread = std::thread::id();
-  }
-  selection_changed.notify_all();
-}
-
-#endif
 
 int launchInternalThreadMPI(int ranks, Callback callback,
                             void *callback_context, int *result) {
