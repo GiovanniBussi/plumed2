@@ -46,6 +46,23 @@ environment-selected implementation; they never initialize MPI.
 The separate `mpiwrap/mpi.h` inquiry reports whether an installed, initialized
 provider executes ranks as threads; the PLUMED action uses it for CHDIR safety.
 
+## Namespaces
+
+All C++ implementation types, functions and state live under `PLMD::mpiwrap`,
+including `mpiwrap::provider_installed()`, the registry and
+`mpiwrap::pointers`. Native MPI-name macros forward to this namespace. Standard
+MPI type aliases remain available for unchanged callers. The C-compatible
+adapter and descriptor use conditional namespace guards: C++ definitions are
+in the module namespace, while C99 compilation and exported C symbol names
+are preserved. The public `plumed_mpi_implementation` spelling remains available
+through a using-declaration. Imported runtime definitions and its test helpers
+are under `PLMD::thread_mpi`; executable entry points remain global.
+
+Declaration-only/inline headers declare `PLUMED_HEADER_ONLY`, and shared
+C headers declare `PLUMED_C_COMPATIBLE`, using the generic plumedcheck rules.
+Neither property relaxes namespace or guard checks. No mpiwrap-specific
+plumedcheck suppression is used.
+
 ## Handle and ABI boundary
 
 In provider mode, each public MPI handle is a trivial, standard-layout POD
@@ -101,7 +118,7 @@ counts must be covered by the maintained launcher check. An unrecoverable rank
 exception terminates the process rather than unwinding through blocked peers;
 recoverable errors use the existing command exception translation.
 
-Standalone C++ programs can use the internal `mpiwrap_provider::launchRanks`
+Standalone C++ programs can use the internal `mpiwrap::launchRanks`
 entry declared in `thread-mpi-launcher.h`. CLTools uses this same entry for
 internal launch. Select `internal_thread_mpi` for embedded workers, or
 `standalone_owned` for a native-MPI program launched by `mpiexec`; the latter
@@ -140,7 +157,7 @@ before any command that uses MPI:
 ```cpp
 plumed p = plumed_create();
 // Or: plumed p = plumed_create_dlopen(path);
-plumed_cmd(p, "injectMPIImplementation", PLMD::plumed_mpi_implementation());
+plumed_cmd(p, "injectMPIImplementation", PLMD::mpiwrap::plumed_mpi_implementation());
 ```
 
 C++ callers use ordinary `Plumed` constructors and the same `cmd` command.

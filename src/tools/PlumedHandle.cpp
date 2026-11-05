@@ -59,7 +59,7 @@ PlumedHandle::PlumedHandle(const char* kernel)
   }
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
   try {
-    const auto *provider=mpiwrap_provider::currentRegistry().descriptorSnapshot();
+    const auto *provider=mpiwrap::currentRegistry().descriptorSnapshot();
     if(provider) {
       int api=0;
       cmd("getApiVersion",&api);

@@ -9,5 +9,5 @@
 #include "mpiwrap_implementation.cpp.inc"
 
 int main() {
-  return plumed_mpiw_get_descriptor() == 0;
+  return PLMD::mpiwrap::plumed_mpiw_get_descriptor() == 0;
 }

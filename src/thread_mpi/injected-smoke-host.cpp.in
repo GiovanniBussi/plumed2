@@ -21,6 +21,7 @@ using namespace thread_mpi;
 #include "wrapper/Plumed.h"
 
 namespace PLMD {
+namespace thread_mpi {
 namespace injected_smoke_host {
 
 using Install=int (*)(const void *);
@@ -53,8 +54,8 @@ int run(int argc,char **argv) {
   const auto install=reinterpret_cast<Install>(dlsym(kernel,"mpiw_test_install"));
   check=reinterpret_cast<Check>(dlsym(kernel,"mpiw_test_check"));
   const auto preinit=reinterpret_cast<int (*)()>(dlsym(kernel,"mpiw_test_preinit"));
-  const auto descriptor=static_cast<const plumed_mpiw_provider_descriptor *>(
-                          plumed_mpi_implementation());
+  const auto descriptor=static_cast<const mpiwrap::plumed_mpiw_provider_descriptor *>(
+                          mpiwrap::plumed_mpi_implementation());
   // Missing native entries must select the kernel algorithms, not private
   // emulations accidentally copied into the frozen host header.
   for(std::uint64_t i=0; i<descriptor->function_count; ++i) {
@@ -80,9 +81,10 @@ int run(int argc,char **argv) {
   return result;
 }
 
-}
-}
+} // namespace injected_smoke_host
+} // namespace thread_mpi
+} // namespace PLMD
 
 int main(int argc,char **argv) {
-  return PLMD::injected_smoke_host::run(argc,argv);
+  return PLMD::thread_mpi::injected_smoke_host::run(argc,argv);
 }

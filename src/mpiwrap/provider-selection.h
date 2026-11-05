@@ -1,9 +1,10 @@
+// PLUMED_HEADER_ONLY
 /* Kernel-side environment selection; this is not part of the host MPI ABI. */
-#ifndef PLUMED_MPIWRAP_PROVIDER_SELECTION_H
-#define PLUMED_MPIWRAP_PROVIDER_SELECTION_H
+#ifndef __PLUMED_mpiwrap_provider_selection_h
+#define __PLUMED_mpiwrap_provider_selection_h
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 // Return true when an explicit troubleshooting override has installed its
 // provider. Throws on invalid configuration or an attempted late replacement.
 bool forceEnvironmentProvider();

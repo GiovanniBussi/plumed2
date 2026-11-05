@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "mpiwrap_implementation.cpp.inc"
+#ifdef __cplusplus
+using namespace PLMD::mpiwrap;
+#endif
 
 static int saw_status_ignore;
 static int saw_group_ranges;

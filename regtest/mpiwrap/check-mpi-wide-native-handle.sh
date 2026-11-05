@@ -24,13 +24,13 @@ namespace PLMD {
 int checkWideNativeHandle() {
   MPI_Comm original;
   std::memset(&original, 0xa5, sizeof(original));
-  const MPI_Comm imported = mpiwrap_Comm_from_native(&original);
+  const MPI_Comm imported = mpiwrap::Comm_from_native(&original);
   assert(std::memcmp(&original, &imported, sizeof(original)) == 0);
   unsigned char output[sizeof(MPI_Comm)];
   std::memset(output, 0x5a, sizeof(output));
-  assert(!mpiwrap_Comm_export_native(imported, output, sizeof(output) - 1));
+  assert(!mpiwrap::Comm_export_native(imported, output, sizeof(output) - 1));
   for (unsigned char byte : output) assert(byte == 0x5a);
-  assert(mpiwrap_Comm_export_native(imported, output, sizeof(output)));
+  assert(mpiwrap::Comm_export_native(imported, output, sizeof(output)));
   assert(std::memcmp(&original, output, sizeof(original)) == 0);
   return 0;
 }

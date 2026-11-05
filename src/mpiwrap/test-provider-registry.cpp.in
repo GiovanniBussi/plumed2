@@ -10,7 +10,8 @@
 #include <string>
 
 namespace PLMD {
-namespace mpiwrap_provider_test {
+namespace mpiwrap {
+namespace test {
 
 void fakeRank(void *communicator_storage, void *rank_storage, void *result) {
   std::uint32_t communicator = 0;
@@ -119,18 +120,18 @@ plumed_mpiw_function_entry finalizedEntry(plumed_mpiw_generic_fn function) {
 }
 
 int run() {
-  using PLMD::mpiwrap_provider::Registry;
+  using PLMD::mpiwrap::Registry;
 
-  Registry &current = PLMD::mpiwrap_provider::currentRegistry();
+  Registry &current = PLMD::mpiwrap::currentRegistry();
   assert(!current.installed());
-  assert(!PLMD::pointers::ready.load(std::memory_order_acquire));
-#define PLUMED_MPIW_PROVIDER_POINTER(name, suffix) assert(!PLMD::mpiwrap_has_##suffix());
+  assert(!PLMD::mpiwrap::pointers::ready.load(std::memory_order_acquire));
+#define PLUMED_MPIW_PROVIDER_POINTER(name, suffix) assert(!PLMD::mpiwrap::has_##suffix());
 #define PLUMED_MPIW_PROVIDER_CONSTANT(name, suffix, bridge)
 #include "provider-pointer-publish.inc"
 #undef PLUMED_MPIW_PROVIDER_CONSTANT
 #undef PLUMED_MPIW_PROVIDER_POINTER
   assert(!current.installed());
-  assert(!PLMD::pointers::ready.load(std::memory_order_acquire));
+  assert(!PLMD::mpiwrap::pointers::ready.load(std::memory_order_acquire));
 
   plumed_mpiw_function_entry functions[] = {
     rankEntry(reinterpret_cast<plumed_mpiw_generic_fn>(&fakeRank)),
@@ -192,7 +193,7 @@ int run() {
   std::int32_t finalized_result = -1;
   finalized_dispatch(&finalized_flag, &finalized_result);
   assert(finalized_result == 0 && finalized_flag == 1);
-  Registry &bridge_registry = PLMD::mpiwrap_provider::currentRegistry();
+  Registry &bridge_registry = PLMD::mpiwrap::currentRegistry();
   assert(bridge_registry.install(&descriptor, error));
   plumed_mpiw_handle_storage comm_handle{};
   std::memset(comm_handle.bytes, 0x5a, sizeof(comm_handle.bytes));
@@ -305,9 +306,10 @@ int run() {
   return 0;
 }
 
-}  // namespace mpiwrap_provider_test
+}  // namespace test
+} // namespace mpiwrap
 }  // namespace PLMD
 
 int main() {
-  return PLMD::mpiwrap_provider_test::run();
+  return PLMD::mpiwrap::test::run();
 }

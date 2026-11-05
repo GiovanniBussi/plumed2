@@ -73,7 +73,7 @@ int main(int argc,char **argv) {
       throw std::runtime_error("could not load PLUMED kernel");
     }
     if(inject) {
-      command.cmd("injectMPIImplementation",PLMD::plumed_mpi_implementation());
+      command.cmd("injectMPIImplementation",PLMD::mpiwrap::plumed_mpi_implementation());
     }
     if(!nompi) {
       MPI_Comm world=MPI_COMM_WORLD;
