@@ -7,7 +7,7 @@ if [[ $# != 1 || ! -x $1 ]]; then
 fi
 
 plumed=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
-tmp=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiwrap-cli.XXXXXX")
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/mpiwrap-cli.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 
 cat > "$tmp/plumed.dat" <<'EOF'

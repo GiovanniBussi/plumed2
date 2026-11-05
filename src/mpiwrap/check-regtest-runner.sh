@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/../.." && pwd)
-tmp=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiwrap-regtest.XXXXXX")
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/mpiwrap-regtest.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/regtest/scripts" "$tmp/regtest/case" "$tmp/regtest/case/trajectories"
 cp "$repo/regtest/scripts/run" "$tmp/regtest/scripts/run"

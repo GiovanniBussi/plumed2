@@ -2,7 +2,7 @@
 set -eu
 
 gromacs_repo=${GROMACS_REPO:-/Users/bussi/plumed-codex/gromacs}
-work=$(mktemp -d "${TMPDIR:-/private/tmp}/mpiw-layout-probe.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/mpiw-layout-probe.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 
