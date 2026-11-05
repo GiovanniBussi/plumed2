@@ -149,13 +149,15 @@ Communicator::~Communicator() {
 }
 
 void Communicator::Set_comm(const TypesafePtr & val) {
+  // Validate before provider discovery can compile/load an adapter.
+  const auto native=val.get<const MPI_Comm*>();
   if(val) {
     mpiwrap::ensure_provider_for_communicator();
   }
   resolveCommunicator();
   plumed_massert(initialized(),"you are trying to use an MPI function, but MPI is not initialized");
   if(val) {
-    Set_comm(mpiwrap::Comm_from_native(val.get<const void*>()));
+    Set_comm(mpiwrap::Comm_from_native(native));
   }
 }
 

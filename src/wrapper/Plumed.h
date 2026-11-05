@@ -833,7 +833,8 @@ typedef struct {
                3 integral
                4 floating point
                5 FILE (size will not be computed as it might be incomplete)
-               >5 not typechecked, reserved for future extensions
+               6 MPI provider descriptor (size not checked)
+               >6 not typechecked, reserved for future extensions
     0x1000000  * 1 for unsigned (ignored)
     0x2000000  * pointer/const type, up to 8
                0 not typechecked
@@ -845,7 +846,9 @@ typedef struct {
                6 T const *       *
                7 T const * const *
     0x10000000 * 1 to forbid pointer copy (pointer copy is also forbidden for pass-by-value)
-    0x20000000 and higher bits are ignored, reserved for future extensions
+    0x20000000 * 1 when the argument cannot be a pointer to the caller's MPI_Comm
+    0x40000000 * 1 when the argument cannot be a provider descriptor pointer
+    0x80000000 and higher bits are ignored, reserved for future extensions
   */
   __PLUMED_WRAPPER_STD size_t flags;
   /** Optional information, not used yet  */
@@ -1225,15 +1228,28 @@ plumed plumed_create_dlsym(void* dlhandle);
 __PLUMED_WRAPPER_C_END
 
 #if defined(PLUMED_MPIW_HOST_ADAPTER)
+#if !defined(GMX_THREAD_MPI) || !(GMX_THREAD_MPI)
+#include <mpi.h>
+#endif
+#endif
+
+/* A forward declaration is sufficient for transporting a provider pointer. */
 #ifdef __cplusplus
 namespace PLMD {
 namespace mpiwrap {
-extern "C" const void *plumed_mpi_implementation(void);
+struct plumed_mpiw_provider_descriptor;
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
+extern "C" const plumed_mpiw_provider_descriptor *plumed_mpi_implementation(void);
+#endif
 }
 }
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
 using PLMD::mpiwrap::plumed_mpi_implementation;
+#endif
 #else
-const void *plumed_mpi_implementation(void);
+struct plumed_mpiw_provider_descriptor;
+#if defined(PLUMED_MPIW_HOST_ADAPTER)
+const struct plumed_mpiw_provider_descriptor *plumed_mpi_implementation(void);
 #endif
 #endif
 
@@ -1508,6 +1524,26 @@ __PLUMED_WRAPPER_C_END
 
 #if __PLUMED_WRAPPER_C_TYPESAFE /*{*/
 
+/* Only classify MPI arguments when the local MPI type is visible. Explicit
+   void pointers carry no type information and remain accepted. */
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+#define __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) _Generic((val), \
+  MPI_Comm*: 0u, const MPI_Comm*: 0u, \
+  void*: 0u, const void*: 0u, default: 0x20000000u)
+#define __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val) _Generic((val), \
+  MPI_Comm*: plumed_ ## flavor ## _not_provider, \
+  const MPI_Comm*: plumed_ ## flavor ## _not_provider, \
+  default: plumed_ ## flavor ## _not_mpi_comm)
+#else
+#define __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) 0u
+#define __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val) plumed_ ## flavor ## _not_provider
+#endif
+
+#define __PLUMED_WRAPPER_C_PROVIDER_FLAG(val) _Generic((val), \
+  struct plumed_mpiw_provider_descriptor*: 0u, \
+  const struct plumed_mpiw_provider_descriptor*: 0u, \
+  void*: 0u, const void*: 0u, default: 0x40000000u)
+
 #define __PLUMED_WRAPPER_C_TYPESAFE_INNER(type_,typen_,flags_) \
   static inline void plumed_cmdnse_ ## typen_(plumed p,const char*key,type_*ptr, size_t nelem, const size_t* shape,plumed_error* error) { \
     plumed_safeptr safe; \
@@ -1515,7 +1551,7 @@ __PLUMED_WRAPPER_C_END
     safe.ptr=ptr; \
     safe.nelem=nelem; \
     safe.shape=__PLUMED_WRAPPER_STATIC_CAST(const size_t*, shape); \
-    safe.flags=flags_; \
+    safe.flags=(flags_) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(ptr) | __PLUMED_WRAPPER_C_PROVIDER_FLAG(ptr); \
     safe.opt=NULL; \
     if(error) { \
       plumed_error_init(error); \
@@ -1562,7 +1598,7 @@ __PLUMED_WRAPPER_C_END
     safe.ptr=&val; \
     safe.nelem=1; \
     safe.shape=NULL; \
-    safe.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1); \
+    safe.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) | __PLUMED_WRAPPER_C_PROVIDER_FLAG(val); \
     safe.opt=NULL; \
     if(error) { \
       plumed_error_init(error); \
@@ -1626,6 +1662,9 @@ __PLUMED_WRAPPER_C_TYPESAFE_SIZED(float,float,4)
 __PLUMED_WRAPPER_C_TYPESAFE_SIZED(double,double,4)
 __PLUMED_WRAPPER_C_TYPESAFE_SIZED(long double,long_double,4)
 __PLUMED_WRAPPER_C_TYPESAFE_EMPTY(FILE,FILE,5)
+__PLUMED_WRAPPER_C_TYPESAFE_EMPTY(struct plumed_mpiw_provider_descriptor,mpi_provider,6)
+__PLUMED_WRAPPER_C_TYPESAFE_INNER(void const,not_mpi_comm,0x60010000u | (0x2000000*3))
+__PLUMED_WRAPPER_C_TYPESAFE_INNER(void const,not_provider,0x40010000u | (0x2000000*3))
 
 static inline void plumed_cmd_null_e(plumed p,const char*key,plumed_error* error,int ignore) {
   (void) ignore;
@@ -1649,7 +1688,8 @@ static inline void plumed_cmd_null_e(plumed p,const char*key,plumed_error* error
     __PLUMED_WRAPPER_C_GENERIC2(flavor,double,double) \
     __PLUMED_WRAPPER_C_GENERIC2(flavor,long double,long_double) \
     __PLUMED_WRAPPER_C_GENERIC_EMPTY(flavor,FILE,FILE) \
-    default: plumed_ ## flavor ## _void_c)
+    __PLUMED_WRAPPER_C_GENERIC_EMPTY(flavor,struct plumed_mpiw_provider_descriptor,mpi_provider) \
+    default: __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val))
 
 #define plumed_cmd_2args(p,key) plumed_cmdnse_inner(cmdn,NULL) (p,key,NULL,0)
 
@@ -2517,6 +2557,54 @@ private:
     /// non assignable (assignment would require managing buffer, could be added in the future if needed)
     SafePtr& operator=(SafePtr const&);
   public:
+    // sizeof selects the compatible-pointer overload without evaluating it.
+    // This also works in C++98, without MPI-specific duplicate overloads for int.
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+    static char mpiCommPointer(const MPI_Comm*);
+    struct NotMPICommPointer {
+      char data[2];
+    };
+    static NotMPICommPointer mpiCommPointer(...);
+#endif
+    template<typename T>
+    static __PLUMED_WRAPPER_STD size_t mpiCommFlag(T val) {
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+      return sizeof(mpiCommPointer(val))==sizeof(char) ? 0 : 0x20000000u;
+#else
+      (void) val;
+      return 0;
+#endif
+    }
+    static __PLUMED_WRAPPER_STD size_t mpiCommFlag(void*) {
+      return 0;
+    }
+    static __PLUMED_WRAPPER_STD size_t mpiCommFlag(const void*) {
+      return 0;
+    }
+
+    template<typename T> static unsigned isConstPointer(T*) {
+      return 2;
+    }
+    template<typename T> static unsigned isConstPointer(const T*) {
+      return 3;
+    }
+
+    template<typename T> static unsigned providerFlag(T) {
+      return 0x40000000u;
+    }
+    static unsigned providerFlag(void*) {
+      return 0;
+    }
+    static unsigned providerFlag(const void*) {
+      return 0;
+    }
+    static unsigned providerFlag(::PLMD::mpiwrap::plumed_mpiw_provider_descriptor*) {
+      return 0;
+    }
+    static unsigned providerFlag(const ::PLMD::mpiwrap::plumed_mpiw_provider_descriptor*) {
+      return 0;
+    }
+
     plumed_safeptr safeptr;
     /// This buffer holds a copy of the data when they are passed by value.
     /// The size is sufficient to hold any primitive type.
@@ -2571,7 +2659,7 @@ private:
     safeptr.ptr=ptr; \
     safeptr.nelem=nelem; \
     safeptr.shape=const_cast<__PLUMED_WRAPPER_STD size_t*>(shape); \
-    safeptr.flags=flags_; \
+    safeptr.flags=(flags_) | mpiCommFlag(ptr) | providerFlag(ptr); \
     safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR; \
     buffer[0]='\0'; \
   }
@@ -2601,7 +2689,7 @@ private:
     safeptr.ptr=buffer; \
     safeptr.nelem=1; \
     safeptr.shape=__PLUMED_WRAPPER_CXX_NULLPTR; \
-    safeptr.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1); \
+    safeptr.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val) | providerFlag(val); \
     safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR; \
     __PLUMED_WRAPPER_STD memcpy(buffer,&val,sizeof(type)); \
   }
@@ -2630,6 +2718,18 @@ private:
     __PLUMED_WRAPPER_SAFEPTR_SIZED(double,4)
     __PLUMED_WRAPPER_SAFEPTR_SIZED(long double,4)
     __PLUMED_WRAPPER_SAFEPTR_EMPTY(FILE,5)
+    __PLUMED_WRAPPER_SAFEPTR_EMPTY(::PLMD::mpiwrap::plumed_mpiw_provider_descriptor,6)
+
+    // Retain the original type of opaque MPI handles before converting to void*.
+    template<typename T>
+    SafePtr(T* ptr, __PLUMED_WRAPPER_STD size_t nelem, const __PLUMED_WRAPPER_STD size_t* shape) __PLUMED_WRAPPER_CXX_NOEXCEPT {
+      safeptr.ptr=ptr;
+      safeptr.nelem=nelem;
+      safeptr.shape=shape;
+      safeptr.flags=0x10000 | (0x2000000*(isConstPointer(ptr))) | mpiCommFlag(ptr) | providerFlag(ptr);
+      safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR;
+      buffer[0]='\0';
+    }
 
     /// Return the contained plumed_safeptr
     plumed_safeptr get_safeptr() const __PLUMED_WRAPPER_CXX_NOEXCEPT {
@@ -8977,7 +9077,7 @@ namespace PLMD {
 namespace mpiwrap {
 extern "C" {
 #if defined(PLUMED_MPIW_HOST_ADAPTER)
-extern "C" const void *plumed_mpi_implementation(void) {
+extern "C" const plumed_mpiw_provider_descriptor *plumed_mpi_implementation(void) {
   return plumed_mpiw_get_descriptor();
 }
 #endif
@@ -8994,7 +9094,7 @@ using PLMD::mpiwrap::plumed_mpi_implementation;
 #endif
 #else
 #if defined(PLUMED_MPIW_HOST_ADAPTER)
-const void *plumed_mpi_implementation(void) {
+const plumed_mpiw_provider_descriptor *plumed_mpi_implementation(void) {
 return plumed_mpiw_get_descriptor();
 }
 #endif

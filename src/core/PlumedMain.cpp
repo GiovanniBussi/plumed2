@@ -854,7 +854,7 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
         if(!mpiwrap::forceEnvironmentProvider()) {
           std::string error;
           if(!mpiwrap::currentRegistry().install(
-                static_cast<const mpiwrap::plumed_mpiw_provider_descriptor*>(val.get<const void*>()),error)) {
+                val.get<const mpiwrap::plumed_mpiw_provider_descriptor*>(),error)) {
             plumed_merror(error);
           }
         }
