@@ -258,9 +258,9 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
 #if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI) && !defined(__PLUMED_HAS_MPI)
     ThreadMPICommand context {filtered_arguments,in,out};
     int result=0;
-    mpiwrap_provider::launchRanks(thread_mpi_ranks,
-                                  &runThreadMPICommand,&context,&result,
-                                  mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
+    mpiwrap::launchRanks(thread_mpi_ranks,
+                         &runThreadMPICommand,&context,&result,
+                         mpiwrap::MPILifecyclePolicy::internal_thread_mpi);
     return result;
 #else
     std::fprintf(stderr,"ERROR: --tmpi-threads requires an embedded thread-MPI build (requested %d ranks)\n",thread_mpi_ranks);
@@ -287,7 +287,7 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
     // environment (and otherwise the embedded default), without initializing it.
     if(a=="--has-mpi" || a=="--has-real-mpi" ||
         a=="--has-thread-mpi" || a=="--mpi-ranks-are-threads") {
-      mpiwrap_ensure_provider_selected();
+      mpiwrap::ensure_provider_selected();
     }
 #endif
     if(a=="help" || a=="-h" || a=="--help") {
@@ -296,15 +296,15 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
     } else if(a=="--has-mpi") {
       return Communicator::plumedHasMPI()?0:1;
     } else if(a=="--has-real-mpi") {
-      return mpiwrap_provider_installed() && !mpiwrap_provider_ranks_are_threads()?0:1;
+      return mpiwrap::provider_installed() && !mpiwrap::provider_ranks_are_threads()?0:1;
     } else if(a=="--has-thread-mpi") {
 #if defined(__PLUMED_HAS_THREAD_MPI)
       return 0;
 #else
-      return mpiwrap_provider_ranks_are_threads()?0:1;
+      return mpiwrap::provider_ranks_are_threads()?0:1;
 #endif
     } else if(a=="--mpi-ranks-are-threads") {
-      return mpiwrap_provider_ranks_are_threads()?0:1;
+      return mpiwrap::provider_ranks_are_threads()?0:1;
     } else if(a=="--has-cregex") {
       return (config::hasCregex()?0:1);
     } else if(a=="--has-dlopen") {

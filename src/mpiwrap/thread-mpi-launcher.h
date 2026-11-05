@@ -1,11 +1,12 @@
+// PLUMED_HEADER_ONLY
 // Internal rank launcher for the embedded, namespaced thread-MPI runtime.
-#ifndef PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_H
-#define PLUMED_MPIWRAP_RUNTIME_THREAD_MPI_LAUNCHER_H
+#ifndef __PLUMED_mpiwrap_thread_mpi_launcher_h
+#define __PLUMED_mpiwrap_thread_mpi_launcher_h
 
 #include <cstddef>
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 
 enum class MPILifecyclePolicy {
   // The library/CLTools caller owns MPI initialization and finalization.
@@ -30,7 +31,7 @@ int launchRanks(int ranks,
                 void *callback_context, int *result,
                 MPILifecyclePolicy lifecycle);
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 }  // namespace PLMD
 
 #endif

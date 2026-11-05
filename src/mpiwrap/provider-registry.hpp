@@ -1,6 +1,7 @@
+// PLUMED_HEADER_ONLY
 // Runtime validation and typed lookup for one installed MPI provider.
-#ifndef PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
-#define PLUMED_MPIWRAP_RUNTIME_PROVIDER_REGISTRY_HPP
+#ifndef __PLUMED_mpiwrap_provider_registry_h
+#define __PLUMED_mpiwrap_provider_registry_h
 
 #include "mpiwrap-pointers.h"
 #include "mpiwrap.h"
@@ -16,7 +17,7 @@
 #include <vector>
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 
 /* Internal API values. The v3 provider descriptor carries only the boolean
    ranks_are_threads, not these kernel-side policy labels. */
@@ -123,7 +124,7 @@ bool exportNativeComm(Registry &registry, MPI_Comm value,
 void validateInputComm(Registry &registry, const char *function,
                        const void *native_comm);
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 }  // namespace PLMD
 
 #endif

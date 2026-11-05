@@ -5,9 +5,8 @@
 #include <iostream>
 
 namespace PLMD {
-namespace thread_mpi_bindings_test {
-
-using namespace thread_mpi;
+namespace thread_mpi {
+namespace bindings_test {
 
 std::atomic<int> failures{0};
 std::atomic<int> ranks_seen{0};
@@ -73,9 +72,10 @@ int run(int argc, char **argv) {
   return 0;
 }
 
-} // namespace thread_mpi_bindings_test
+} // namespace bindings_test
+} // namespace thread_mpi
 } // namespace PLMD
 
 int main(int argc, char **argv) {
-  return PLMD::thread_mpi_bindings_test::run(argc, argv);
+  return PLMD::thread_mpi::bindings_test::run(argc, argv);
 }

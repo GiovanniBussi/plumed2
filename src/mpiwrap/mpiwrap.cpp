@@ -1,3 +1,4 @@
+#include "mpiwrap.h"
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
 /* Registry and frontend support are present in every wrapper-mode kernel so
    runtime installation remains available even for an explicitly serial
@@ -11,7 +12,7 @@
 #else
 #include "provider-loader.cpp.inc"
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 void ensureProviderSelected() {
   if (forceEnvironmentProvider()) {
     return;
@@ -26,7 +27,7 @@ void ensureProviderSelected() {
   }
 }
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 }  // namespace PLMD
 #endif
 #endif

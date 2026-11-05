@@ -9,7 +9,7 @@
 #include <exception>
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 
 int launchRanks(int ranks,
                 int (*callback)(int, const void *, std::size_t, void *),
@@ -86,7 +86,7 @@ int launchRanks(int ranks,
   return owns_mpi ? MPI_Finalize() : status;
 }
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 }  // namespace PLMD
 
 #elif defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI)

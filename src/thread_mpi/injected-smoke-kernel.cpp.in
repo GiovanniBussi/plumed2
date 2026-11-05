@@ -6,10 +6,11 @@
 #include <string>
 
 namespace PLMD {
+namespace thread_mpi {
 extern "C" int mpiw_test_install(const void *opaque) {
   std::string error;
-  const auto descriptor=static_cast<const plumed_mpiw_provider_descriptor *>(opaque);
-  if(!mpiwrap_provider::currentRegistry().install(descriptor,error)) {
+  const auto descriptor=static_cast<const mpiwrap::plumed_mpiw_provider_descriptor *>(opaque);
+  if(!mpiwrap::currentRegistry().install(descriptor,error)) {
     std::fprintf(stderr,"injected smoke install: %s\n",error.c_str());
     return 1;
   }
@@ -32,13 +33,13 @@ extern "C" int mpiw_test_preinit() {
 
 extern "C" int mpiw_test_check(const void *native_world,int rank,int size) {
   try {
-    const MPI_Comm world=mpiwrap_Comm_from_native(native_world);
+    const MPI_Comm world=mpiwrap::Comm_from_native(native_world);
     int actual=-1,self_size=0;
     if(MPI_Comm_rank(world,&actual)!=MPI_SUCCESS || actual!=rank || size!=4 ||
         MPI_Comm_size(MPI_COMM_SELF,&self_size)!=MPI_SUCCESS || self_size!=1 ||
-        mpiwrap_has_Test() || mpiwrap_has_Testany() ||
-        !mpiwrap_has_Wtick() || MPI_Wtick()<=0 ||
-        mpiwrap_has_Waitsome() || mpiwrap_has_Testsome()) {
+        mpiwrap::has_Test() || mpiwrap::has_Testany() ||
+        !mpiwrap::has_Wtick() || MPI_Wtick()<=0 ||
+        mpiwrap::has_Waitsome() || mpiwrap::has_Testsome()) {
       return 1;
     }
     signed char singleton_in=static_cast<signed char>(rank+1),singleton_out=0;
@@ -116,4 +117,5 @@ extern "C" int mpiw_test_check(const void *native_world,int rank,int size) {
     return 1;
   }
 }
+} // namespace thread_mpi
 }

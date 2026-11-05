@@ -53,11 +53,13 @@ done
 cat > "$TASK_DIR/no-factory.cpp" <<'SOURCE'
 #include "provider-abi.h"
 namespace PLMD {
+namespace mpiwrap {
 #ifdef TEST_BAD_FACTORY
 extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_provider_factory() { return 0; }
 #else
 extern "C" int unrelated_symbol() { return 0; }
 #endif
+}
 }
 SOURCE
 case "$(uname -s)" in

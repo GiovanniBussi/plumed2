@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace PLMD {
+namespace mpiwrap {
 namespace thread_mpi_adapter {
 using namespace thread_mpi;
 static void plumed_mpiw_MPI_Initialized(void *argument_0, void *result) {
@@ -551,5 +552,6 @@ static const plumed_mpiw_provider_descriptor descriptor = {
 }
 extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_thread_mpi_provider(void) {
   return &thread_mpi_adapter::descriptor;
+}
 }
 }

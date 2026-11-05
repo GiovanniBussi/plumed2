@@ -12,12 +12,14 @@
 #include <string>
 
 namespace PLMD {
+namespace mpiwrap {
 extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_thread_mpi_provider(void);
+} // namespace mpiwrap
 }
 
 namespace {
 struct GuardContext {
-  PLMD::MPI_Comm preinit_self;
+  PLMD::mpiwrap::MPI_Comm preinit_self;
   PLMD::Communicator deferred;
   std::atomic<int> valid_self{0};
   std::atomic<int> rejected_stale{0};
@@ -31,7 +33,7 @@ int checkRank(int, const void *, std::size_t, void *opaque) {
   }
   int rank=-1;
   int size=-1;
-  const PLMD::MPI_Comm self=MPI_COMM_SELF;
+  const PLMD::mpiwrap::MPI_Comm self=MPI_COMM_SELF;
   if(MPI_Comm_rank(self,&rank)!=0 || rank!=0 ||
       MPI_Comm_size(self,&size)!=0 || size!=1) {
     return 10;
@@ -49,7 +51,7 @@ int checkRank(int, const void *, std::size_t, void *opaque) {
   return 12;
 }
 
-bool rejectsNullCommunicator(const PLMD::MPI_Comm &communicator) {
+bool rejectsNullCommunicator(const PLMD::mpiwrap::MPI_Comm &communicator) {
   int rank=0;
   try {
     (void)MPI_Comm_rank(communicator,&rank);
@@ -72,7 +74,7 @@ bool runThroughDispatcher(PLMD::CLToolMain &dispatcher, int ranks) {
 }  // namespace
 
 int main() {
-  if(PLMD::mpiwrap_provider_installed()) {
+  if(PLMD::mpiwrap::installed()) {
     return 5;
   }
   {
@@ -82,17 +84,17 @@ int main() {
     PLMD::PlumedMain object;
     int api=0;
     object.cmd("getApiVersion",&api);
-    if(api!=11 || PLMD::mpiwrap_provider_installed()) {
+    if(api!=11 || PLMD::mpiwrap::installed()) {
       return 6;
     }
   }
-  if(PLMD::mpiwrap_provider_installed()) {
+  if(PLMD::mpiwrap::installed()) {
     return 7;
   }
   {
     PLMD::PlumedMain object;
     object.cmd("injectMPIImplementation",PLMD::plumed_mpiw_thread_mpi_provider());
-    if(!PLMD::mpiwrap_provider_installed() || PLMD::Communicator::initialized()) {
+    if(!PLMD::mpiwrap::installed() || PLMD::Communicator::initialized()) {
       return 8;
     }
   }
@@ -106,8 +108,8 @@ int main() {
   }
 
   int launch_result=-1;
-  PLMD::mpiwrap_provider::launchRanks(2,checkRank,&context,&launch_result,
-                                      PLMD::mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
+  PLMD::mpiwrap::launchRanks(2,checkRank,&context,&launch_result,
+                             PLMD::mpiwrap::MPILifecyclePolicy::internal_thread_mpi);
   if(launch_result!=0 || context.valid_self!=2 || context.rejected_stale!=2) {
     return 2;
   }

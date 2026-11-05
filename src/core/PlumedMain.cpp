@@ -852,10 +852,10 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
 #elif !defined(__PLUMED_MPIWRAP)
         plumed_merror("MPI provider injection is unavailable in a fully serial kernel");
 #else
-        if(!mpiwrap_provider::forceEnvironmentProvider()) {
+        if(!mpiwrap::forceEnvironmentProvider()) {
           std::string error;
-          if(!mpiwrap_provider::currentRegistry().install(
-                static_cast<const plumed_mpiw_provider_descriptor*>(val.get<const void*>()),error)) {
+          if(!mpiwrap::currentRegistry().install(
+                static_cast<const mpiwrap::plumed_mpiw_provider_descriptor*>(val.get<const void*>()),error)) {
             plumed_merror(error);
           }
         }

@@ -13,7 +13,7 @@
 #endif
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 namespace {
 
 struct Signature {
@@ -113,7 +113,7 @@ void decodeNativeStatus(Registry &registry, const void *input,
 void *nativeStatusIgnore(Registry &registry) {
   void *value = nullptr;
   if (!registry.copyNativeValue("MPI_STATUS_IGNORE", &value, sizeof(value))) {
-    mpiwrap_unavailable("MPI_STATUS_IGNORE");
+    unavailable("MPI_STATUS_IGNORE");
   }
   return value;
 }
@@ -121,7 +121,7 @@ void *nativeStatusIgnore(Registry &registry) {
 void *nativeStatusesIgnore(Registry &registry) {
   void *value = nullptr;
   if (!registry.copyNativeValue("MPI_STATUSES_IGNORE", &value, sizeof(value))) {
-    mpiwrap_unavailable("MPI_STATUSES_IGNORE");
+    unavailable("MPI_STATUSES_IGNORE");
   }
   return value;
 }
@@ -409,7 +409,7 @@ bool validateDescriptor(const plumed_mpiw_provider_descriptor *descriptor,
   native_status_offsets[1] = descriptor->native_status_tag_offset;
   native_status_offsets[2] = descriptor->native_status_error_offset;
   native_fint_size = descriptor->native_fint_size;
-  compatibility_fingerprint = ::PLMD::mpiwrap_provider::compatibilityFingerprint(*descriptor);
+  compatibility_fingerprint = ::PLMD::mpiwrap::compatibilityFingerprint(*descriptor);
   return true;
 }
 }  // namespace
@@ -422,7 +422,7 @@ void validateInputComm(Registry &registry, const char *function,
   NativeBuffer null_comm(registry.nativeCommSize());
   if (!registry.copyNativeValue("MPI_COMM_NULL", null_comm.data(),
                                 null_comm.size())) {
-    mpiwrap_unavailable("MPI_COMM_NULL");
+    unavailable("MPI_COMM_NULL");
   }
   if (std::memcmp(native_comm, null_comm.data(), null_comm.size()) == 0) {
     throw std::runtime_error(std::string(function) +
@@ -626,7 +626,7 @@ void Registry::markProviderValueUsed(const char *name) {
                                     (std::strcmp(name, "MPI_COMM_SELF") == 0 ||
                                      std::strcmp(name, "MPI_COMM_NULL") == 0) &&
                                     runtimeKind() == PLUMED_MPIW_RUNTIME_THREAD_MPI &&
-                                    !mpiwrap_is_thread_mpi_active();
+                                    !is_thread_mpi_active();
   std::lock_guard<std::mutex> lock(mutex_);
   if (preinit_communicator) {
     return;
@@ -880,25 +880,27 @@ bool exportNativeComm(Registry &registry, MPI_Comm value, void *output,
   return true;
 }
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 
 #if !defined(__PLUMED_HAS_MPI) && !defined(PLUMED_MPIW_NATIVE_ADAPTER)
 
-MPI_Comm mpiwrap_Comm_from_native(const void *native) {
-  return mpiwrap_provider::importComm(mpiwrap_provider::currentRegistry(), native);
+namespace mpiwrap {
+MPI_Comm Comm_from_native(const void *native) {
+  return mpiwrap::importComm(mpiwrap::currentRegistry(), native);
 }
 
-bool mpiwrap_Comm_export_storage(MPI_Comm value,
+bool Comm_export_storage(MPI_Comm value,
                                  plumed_mpiw_handle_storage *storage) {
-  return mpiwrap_provider::exportComm(mpiwrap_provider::currentRegistry(), value,
+  return mpiwrap::exportComm(mpiwrap::currentRegistry(), value,
                                       storage);
 }
 
-bool mpiwrap_Comm_export_native(MPI_Comm value, void *output,
+bool Comm_export_native(MPI_Comm value, void *output,
                                 std::size_t capacity) {
-  return mpiwrap_provider::exportNativeComm(
-           mpiwrap_provider::currentRegistry(), value, output, capacity);
+  return mpiwrap::exportNativeComm(
+           mpiwrap::currentRegistry(), value, output, capacity);
 }
 #endif
 
+} // namespace mpiwrap
 }  // namespace PLMD

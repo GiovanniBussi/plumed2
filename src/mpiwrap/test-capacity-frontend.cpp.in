@@ -1,7 +1,7 @@
 #include <plumed/mpiwrap/mpiwrap.h>
 
-static_assert(sizeof(PLMD::MPI_Comm) == 24, "configured handle capacity reaches frontend");
-static_assert(sizeof(((PLMD::MPI_Status *)0)->raw) == 192,
+static_assert(sizeof(PLMD::mpiwrap::MPI_Comm) == 24, "configured handle capacity reaches frontend");
+static_assert(sizeof(((PLMD::mpiwrap::MPI_Status *)0)->raw) == 192,
               "configured status capacity reaches frontend");
 
 int main() {
