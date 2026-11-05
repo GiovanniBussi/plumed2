@@ -451,17 +451,17 @@ jobs:
         export OMPI_MCA_rmaps_base_oversubscribe=1
         plumed mkmpi --compiler /usr/bin/mpicc.openmpi \
           --out "$RUNNER_TEMP/provider-openmpi.so"
-        bash regtest/mpiwrap/check-mpi-host-injection.sh \
+        bash regtest/basic/rt-mpiwrap-api/check-mpi-host-injection.sh \
           /usr/bin/mpic++.openmpi /usr/bin/mpiexec.openmpi "$PLUMED_KERNEL" \
           "$RUNNER_TEMP/provider-openmpi.so"
-        bash regtest/mpiwrap/check-mpi-provider-selection.sh \
+        bash regtest/basic/rt-mpiwrap-api/check-mpi-provider-selection.sh \
           plumed "$RUNNER_TEMP/provider-openmpi.so" /usr/bin/mpicc.openmpi
         PLUMED_MPI_WRAPPER="$RUNNER_TEMP/provider-openmpi.so" \
-          bash regtest/mpiwrap/check-mpi-provider-chdir.sh \
+          bash regtest/basic/rt-mpiwrap-api/check-mpi-provider-chdir.sh \
           "$RUNNER_TEMP/plumed-openmpi-host"
-        CXX=g++ bash src/mpiwrap/check-thread-mpi-cli.sh \
+        CXX=g++ bash regtest/basic/rt-mpiwrap-launcher/check-thread-mpi-cli.sh \
           "$HOME/opt/bin/plumed"
-        cmake -S src/thread_mpi -B "$RUNNER_TEMP/thread-mpi-tests"
+        cmake -S regtest/basic/rt-mpiwrap-launcher -B "$RUNNER_TEMP/thread-mpi-tests"
         cmake --build "$RUNNER_TEMP/thread-mpi-tests" -j 4
         ctest --test-dir "$RUNNER_TEMP/thread-mpi-tests" --output-on-failure
 

@@ -26,7 +26,7 @@
 #include "tools/Tools.h"
 #include "tools/PlumedHandle.h"
 #include "tools/Communicator.h"
-#include "../mpiwrap/mpi.h"
+#include "../mpiwrap/mpiwrap.h"
 #include "core/PlumedMain.h"
 #include <cstring>
 #ifdef __PLUMED_HAS_DLOPEN

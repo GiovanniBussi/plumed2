@@ -25,7 +25,7 @@
 #include "lepton/Exception.h"
 #include <cstring>
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-#include "../mpiwrap/provider-registry.h"
+#include "../mpiwrap/internal.h"
 #endif
 #ifdef __PLUMED_HAS_DLOPEN
 #include <dlfcn.h>

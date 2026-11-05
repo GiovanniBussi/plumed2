@@ -22,9 +22,9 @@
 #ifndef __PLUMED_tools_Communicator_h
 #define __PLUMED_tools_Communicator_h
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
-#include "../mpiwrap/mpiwrap.h"
-#endif
 #include "../mpiwrap/mpi.h"
+#endif
+#include "../mpiwrap/mpiwrap.h"
 #include <cstdlib>
 #include "Exception.h"
 #include "TypesafePtr.h"
