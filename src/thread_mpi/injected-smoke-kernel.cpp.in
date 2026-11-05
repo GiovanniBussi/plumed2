@@ -1,6 +1,6 @@
 // No native tMPI headers or library in this translation unit or test DSO.
 #include "mpiwrap/mpiwrap.h"
-#include "mpiwrap/provider-registry.hpp"
+#include "mpiwrap/provider-registry.h"
 #include <cstdio>
 #include <exception>
 #include <string>

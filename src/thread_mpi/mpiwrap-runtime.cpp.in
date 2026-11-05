@@ -1,7 +1,7 @@
 #include <thread_mpi_tmpi.h>
 
 #include "mpiwrap.h"
-#include "provider-registry.hpp"
+#include "provider-registry.h"
 #include "provider-abi.h"
 
 #include <atomic>

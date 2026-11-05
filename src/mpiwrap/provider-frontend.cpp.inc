@@ -1,8 +1,8 @@
 // Provider-mode helpers and dynamically evaluated constants.
 #include "mpiwrap.h"
-#include "provider-registry.hpp"
+#include "provider-registry.h"
+#include "provider-selection.h"
 
-#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -42,19 +42,10 @@ void ensure_provider_selected() {
     return;
   }
   mpiwrap::ensureProviderSelected();
-  if (!pointers::ready.load(std::memory_order_acquire)) {
-#if !defined(__PLUMED_HAS_THREAD_MPI)
-    // A fully serial wrapper kernel has no default provider to select. Keep
-    // its inert communicator surrogate usable unless a host explicitly
-    // requested a provider, in which case selection must publish pointers or
-    // report its configuration/load error.
-    const char *selected = std::getenv("PLUMED_MPI_WRAPPER");
-    if (!selected || !selected[0]) {
-      return;
-    }
-#endif
-    throw std::runtime_error("MPI provider selection completed without publishing function pointers");
-  }
+}
+
+void ensure_provider_for_communicator() {
+  ensureProviderForCommunicator();
 }
 
 [[noreturn]] void unavailable(const char *name) {
@@ -71,9 +62,9 @@ void ensure_provider_selected() {
   type suffix() { \
     mpiwrap::ensureProviderSelected(); \
     auto &registry = mpiwrap::currentRegistry(); \
-    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
+    registry.markProviderValueUsed(#name); \
     /* Native tMPI SELF getters require an initialized rank thread. */ \
     if (std::strcmp(#name, "MPI_COMM_SELF") == 0 && registry.ranksAreThreads() && \
         !is_thread_mpi_active()) { \
@@ -93,9 +84,9 @@ void ensure_provider_selected() {
   type suffix() { \
     mpiwrap::ensureProviderSelected(); \
     auto &registry = mpiwrap::currentRegistry(); \
-    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
+    registry.markProviderValueUsed(#name); \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \
@@ -107,9 +98,9 @@ void ensure_provider_selected() {
   type suffix() { \
     mpiwrap::ensureProviderSelected(); \
     auto &registry = mpiwrap::currentRegistry(); \
-    registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
+    registry.markProviderValueUsed(#name); \
     if (!pointers::constant_##suffix || pointers::constant_##suffix(&value, sizeof(value)) != 0) { \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \

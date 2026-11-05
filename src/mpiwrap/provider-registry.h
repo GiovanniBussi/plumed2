@@ -113,8 +113,8 @@ private:
 // The loaded kernel owns one immutable provider registry shared by all its
 // rank threads. Provider-dependent use fixes its selection for the kernel.
 Registry &currentRegistry();
-// Selects the embedded thread-MPI provider on first provider-dependent use.
-// Explicit provider installation before that point takes precedence.
+// Honors an explicit environment provider on provider-dependent use.
+// Embedded thread-MPI is installed only by its explicit launcher.
 void ensureProviderSelected();
 MPI_Comm importComm(Registry &registry, const void *native);
 bool exportComm(Registry &registry, MPI_Comm value,

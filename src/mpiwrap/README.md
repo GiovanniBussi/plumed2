@@ -1,19 +1,20 @@
 # MPI provider wrapper
 
-This module lets one PLUMED kernel use MPI through one selected runtime while
-preserving the existing Communicator source interface. It has three mutually
-exclusive configure modes: native MPI, internal thread-MPI, and fully serial.
-The native build keeps PLUMED's existing direct MPI path. The thread-MPI build
-uses the pinned GROMACS thread-MPI implementation. A fully serial build has
-neither provider and retains the existing serial behavior.
+This module lets one PLUMED kernel use MPI through an explicitly selected
+runtime while preserving the existing Communicator source interface. It has
+three mutually exclusive configure modes: native MPI, internal thread-MPI,
+and fully serial. The native build keeps PLUMED's existing direct MPI path.
+Embedded thread-MPI uses the pinned GROMACS implementation and starts only
+when the explicit internal launcher is used.
 
 ## Configuration and capability reporting
 
 Native MPI is discovered through --enable-mpi (enabled by default). Internal
 thread-MPI defaults on when native MPI is unavailable; use
 --disable-thread-mpi to turn it off. Explicitly requesting both available
-providers is an error. --disable-mpi --disable-thread-mpi configures a fully
-serial build.
+providers is an error. Building embedded thread-MPI does not make it an
+implicit serial fallback: launch it explicitly with --tmpi-threads N.
+--disable-mpi --disable-thread-mpi configures a fully serial build.
 
 __PLUMED_HAS_MPI means native MPI only. __PLUMED_HAS_THREAD_MPI means the
 internal runtime is built. __PLUMED_MPIWRAP is always defined by configure:
@@ -25,9 +26,9 @@ thread_mpi separately. The CLI provides --has-mpi for combined capability,
 --has-thread-mpi for available internal thread-MPI (or a selected thread
 provider). Both capabilities may be true. --mpi-ranks-are-threads describes
 only the selected provider, independently of initialization; CHDIR safety uses
-the separate initialized-provider runtime check. Queries do not initialize MPI.
-The normal regression suite runs with direct MPI when compiled with MPI, or
-with internal thread-MPI when compiled without MPI. Real-MPI initialization
+the separate initialized-provider runtime check. Capability queries do not
+select embedded tMPI or initialize MPI. An explicitly configured environment
+provider may be selected for a query. Real-MPI initialization
 and finalization belong to the executable or host application, never the
 serial-built PLUMED kernel. Host injection is tested by a separate MPI program.
 The regression runner preserves old test settings and native launcher overrides;
@@ -35,14 +36,16 @@ older executables without thread-MPI support retain their native MPI launcher.
 
 Provider-mode Communicator construction does not evaluate MPI_COMM_SELF or
 select a provider. Its default handle is explicitly unresolved until an MPI
-operation; then its lazy accessor selects the provider and obtains SELF once
-MPI is initialized. Inject before the first provider-dependent constant or
-call. Provider selection and initialization are separate; serial operations
-still use local fallbacks until MPI is initialized. A fully disabled build
-retains its inert serial surrogate. Internal capability inquiries do not select a provider. Explicit CLI inquiries
-(`--has-mpi`, `--has-real-mpi`, `--has-thread-mpi` and
-`--mpi-ranks-are-threads`) do select the provider so they can report an
-environment-selected implementation; they never initialize MPI.
+operation; SELF is resolved after the selected provider is initialized.
+Provider selection and initialization are separate; serial operations still
+use local fallbacks until MPI is initialized. A fully disabled build retains
+its inert serial surrogate. Importing a native communicator without an
+injected or environment-selected provider triggers `mkmpi` without a
+`--compiler` option to build the native adapter. It searches `$MPICC`,
+`$MPICXX`, `mpicc`, then `mpicxx`. This search must find a compiler compatible
+with the host MPI runtime. The kernel never initializes or finalizes real MPI. The
+`--mpi-ranks-are-threads` query succeeds only when a thread-based provider has
+been selected.
 The separate `mpiwrap/mpi.h` inquiry reports whether an installed, initialized
 provider executes ranks as threads; the PLUMED action uses it for CHDIR safety.
 
@@ -223,8 +226,9 @@ checkout. Failed builds preserve an existing output.
 Building a provider does not initialize MPI: the host remains responsible
 for its MPI lifecycle. Set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
 or an absolute executable MPI compiler path. Explicit pre-creation injection
-takes precedence; otherwise the environment selection precedes the internal
-provider. A loadable library must expose the provider factory. A non-loadable
+takes precedence; otherwise the environment provider can be selected
+explicitly. Embedded tMPI is selected only by the internal launcher. A
+loadable library must expose the provider factory. A non-loadable
 executable compiler invokes the same `mkmpi` command in a private temporary
 directory, with compiler diagnostics inherited by the process. Files with
 shared-library suffixes are never executed as compiler commands. The kernel
@@ -262,6 +266,49 @@ includes the internal rank launcher. mpiwrap_implementation.cpp is an opt-in
 translation unit for a provider DSO; it is not compiled into ordinary PLUMED
 kernels. Imported thread-MPI sources remain a separate module at
 src/thread_mpi.
+
+### Included implementation fragments
+
+`provider-registry.h` is an ordinary internal C++ header. There is no technical
+reason to use `.hpp`; this module follows PLUMED's `.h` convention.
+
+An `.inc` file is inserted with `#include`, rather than compiled independently.
+The generated row lists below deliberately depend on the surrounding macro,
+namespace or initializer. They are not standalone headers and some are included
+with different macro definitions. The native adapter body is also embedded into
+`Plumed.h` by the generator. These uses explain the fragment extension.
+
+The handwritten `.cpp.inc` files instead partition a unity translation unit.
+That arrangement is an implementation choice, not an ABI requirement or a
+requirement of injection: they could become ordinary guarded `.cpp` files if we
+split the translation unit. They are kernel implementation code, never host-side
+injection code. The complete inventory is:
+
+| File | Purpose and consumer |
+| --- | --- |
+| `provider-registry.cpp.inc` | Handwritten descriptor validation, owned registry, native-byte import/export and pointer publication; included by `mpiwrap.cpp`. |
+| `provider-frontend.cpp.inc` | Handwritten capability inquiries and predefined-value accessors; included by `mpiwrap.cpp`. |
+| `provider-loader.cpp.inc` | Handwritten environment selection, provider DSO loading and compiler discovery; included by `mpiwrap.cpp`. |
+| `provider-fallbacks.cpp.inc` | Handwritten shared replacement algorithms for providers missing supported primitives; included by `mpiwrap.cpp`. |
+| `thread-mpi-launcher.cpp.inc` | Handwritten explicit embedded rank launcher; included by `mpiwrap-launcher.cpp` only in thread-MPI builds. |
+| `provider-pointer-definitions.inc` | Generated definitions of kernel-local typed callback pointers; included by `mpiwrap.cpp`. |
+| `provider-dispatch-bridges.inc` | Generated typed bridges to the pointer-based provider transport; included inside the registry implementation. |
+| `provider-constant-bridges.inc` | Generated conversion/access bridges for native predefined values; included inside the registry implementation. |
+| `provider-dispatch-bindings.inc` | Generated rows assigning typed dispatch bridges into registry bindings. |
+| `provider-pointer-publish.inc` | Generated rows publishing bindings into frontend pointers, also reused by registry tests. |
+| `provider-constant-functions.inc` | Generated rows expanded into frontend predefined-value accessor functions. |
+| `provider-constant-names.inc` | Generated list of accepted predefined-value names used during descriptor validation. |
+| `native-adapter-entries.inc` | Generated canonical function names, signature IDs, revisions and argument counts used by registry validation. |
+| `thread-mpi-adapter.cpp.inc` | Generated embedded tMPI adapter and provider descriptor; included by `mpiwrap.cpp` only in thread-MPI builds. |
+| `thread-mpi-adapter-entries.inc` | Generated MPI-to-tMPI symbol list used by compile-time adapter checks. |
+| `thread-mpi-constant-accessors.inc` | Generated native tMPI predefined-value getter definitions inserted into the embedded adapter. |
+| `thread-mpi-constant-metadata.inc` | Generated predefined-value descriptor initializer rows inserted into the embedded adapter. |
+| `mpiwrap_implementation.cpp.inc` | Generated C-compatible native adapter body, embedded in the public `Plumed.h` and compiled independently by adapter checks. |
+| `mpiwrap_implementation.cpp.inc.in` | Maintained template for that native adapter body; `generate.py` fills in the generated function, constant and descriptor sections. |
+
+The former `provider-unavailable-functions.inc` contained only a comment and
+had no consumer; it has been removed. Unavailable-function handling is generated
+inline in `mpiwrap.h`.
 
 ## Current implementation and limits
 
@@ -327,6 +374,7 @@ The focused checks can be run from the repository root:
     python3 src/mpiwrap/validate-manifest.py
     python3 src/mpiwrap/generate.py --check
     sh src/mpiwrap/check-provider-registry.sh
+    bash src/mpiwrap/check-provider-discovery.sh
     bash src/mpiwrap/check-kernel-lifecycle.sh
     bash src/mpiwrap/check-regtest-runner.sh
     MPICH_CC_WRAPPER=/path/to/mpich/bin/mpicc \
@@ -334,6 +382,11 @@ The focused checks can be run from the repository root:
       OMPI_CC_WRAPPER=/path/to/openmpi/bin/mpicc \
       OMPI_CXX_WRAPPER=/path/to/openmpi/bin/mpicxx \
       bash src/mpiwrap/check-native-adapter.sh
+
+The provider-discovery check uses a mock compiler and provider to exercise
+automatic adapter discovery, native C/Fortran handle import,
+injection/environment precedence, and retry after a compiler failure without
+starting real MPI.
 
 Header and generated signature checks for local MPICH, Open MPI, and pinned
 tMPI use:
