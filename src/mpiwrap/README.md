@@ -188,6 +188,9 @@ clear runtime error.
 
 ## Build a native provider
 
+Use `plumed mkmpi --out provider.so` to search for an executable compiler in
+the order `$MPICC`, `$MPICXX`, `mpicc`, `mpicxx`. Environment values may be
+paths or executable names on `PATH`; unavailable candidates are skipped.
 Use `plumed mkmpi --compiler /absolute/path/to/mpicc --out provider.so`
 (or an MPI C++ compiler driver) to build the shared native adapter. The command
 reuses configure-tested compiler/shared-library flags, relies on the `.cpp`

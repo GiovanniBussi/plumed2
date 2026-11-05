@@ -4,14 +4,17 @@ set -euo pipefail
 
 MANUAL='Build an MPI provider for a serial-built PLUMED kernel.
 
-Usage: plumed mkmpi --compiler /absolute/path/to/mpicc --out provider.so
+Usage: plumed mkmpi [--compiler /absolute/path/to/mpicc] --out provider.so
 
 Options:
-  --compiler PATH        Absolute path to an MPI C or C++ compiler driver
+  --compiler PATH        Absolute MPI compiler path (default: search below)
   -o, --out PATH         Output shared library (required)
   --cflag ARG            Add one compiler argument; may be repeated
   --ldflag ARG           Add one linker argument; may be repeated
   -h, --help             Show this help
+
+Without --compiler, try $MPICC, $MPICXX, mpicc, then mpicxx, selecting the
+first executable found. Environment values may be paths or names on PATH.
 
 The adapter is C++98-compatible. The .cpp suffix selects the language; no
 standard or language-selection flags are added. Configured shared-library
@@ -19,6 +22,7 @@ flags are reused. Extra flags are individual arguments without shell evaluation.
 The generated provider uses the selected MPI runtime and no PLUMED library.'
 
 compiler=
+compiler_given=no
 output=
 cflags=()
 ldflags=()
@@ -34,7 +38,7 @@ while (($#)); do
         exit 1
       fi
       case "$option" in
-        --compiler) compiler=$2 ;;
+        --compiler) compiler=$2; compiler_given=yes ;;
         -o|--out) output=$2 ;;
         --cflag) cflags+=("$2") ;;
         --ldflag) ldflags+=("$2") ;;
@@ -43,6 +47,22 @@ while (($#)); do
     *) echo "mkmpi: unknown option $1 (see --help)" >&2; exit 1 ;;
   esac
 done
+if [[ "$compiler_given" = no ]]; then
+  for candidate in "${MPICC:-}" "${MPICXX:-}" mpicc mpicxx; do
+    [[ -n "$candidate" ]] || continue
+    candidate=$(type -P -- "$candidate") || continue
+    if [[ -f "$candidate" && -x "$candidate" ]]; then
+      # Keep the wrapper's basename (including symlinks), but resolve relative
+      # paths before compiling into a temporary directory.
+      compiler="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
+      break
+    fi
+  done
+  if [[ -z "$compiler" ]]; then
+    echo 'mkmpi: no MPI compiler found; set MPICC or MPICXX, or use --compiler' >&2
+    exit 1
+  fi
+fi
 if [[ "$compiler" != /* || ! -f "$compiler" || ! -x "$compiler" ]]; then
   echo 'mkmpi: --compiler must name an absolute executable MPI compiler path' >&2
   exit 1
