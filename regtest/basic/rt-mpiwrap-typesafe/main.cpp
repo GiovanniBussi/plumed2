@@ -75,15 +75,19 @@ void run() {
   const auto* provider=&descriptor;
   require(TypesafePtr(provider).get<const mpiwrap::plumed_mpiw_provider_descriptor*>()==provider);
   require(((TypesafePtr(provider).getFlags()>>16)&0xffu)==6);
-  require(TypesafePtr(static_cast<const void*>(provider)).get<const mpiwrap::plumed_mpiw_provider_descriptor*>()==provider);
+  require(TypesafePtr::unchecked(provider).get<const mpiwrap::plumed_mpiw_provider_descriptor*>()==provider);
+  typeError([&] { TypesafePtr(static_cast<const void*>(provider)).get<const mpiwrap::plumed_mpiw_provider_descriptor*>(); },"MPI provider descriptor pointer");
   typeError([&] { TypesafePtr(&mutableData).get<const mpiwrap::plumed_mpiw_provider_descriptor*>(); },"MPI provider descriptor pointer");
-  TypesafePtr futureProvider(const_cast<void*>(static_cast<const void*>(provider)),0,nullptr,0x80070000u);
-  require(futureProvider.get<const mpiwrap::plumed_mpiw_provider_descriptor*>()==provider);
+  TypesafePtr futureProvider(const_cast<void*>(static_cast<const void*>(provider)),0,nullptr,0x40070000u);
+  typeError([&] { futureProvider.get<const mpiwrap::plumed_mpiw_provider_descriptor*>(); },"MPI provider descriptor pointer");
+  TypesafePtr reservedProvider(const_cast<void*>(static_cast<const void*>(provider)),0,nullptr,0x40060000u);
+  require(reservedProvider.get<const mpiwrap::plumed_mpiw_provider_descriptor*>()==provider);
   int wrongProvider=1;
   typeError([&] { TypesafePtr(&wrongProvider).get<const mpiwrap::plumed_mpiw_provider_descriptor*>(); },"MPI provider descriptor pointer");
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
   wrapperTypeError([&] { command.cmd("injectMPIImplementation",&wrongProvider); },"MPI provider descriptor pointer");
   wrapperTypeError([&] { command.cmd("injectMPIImplementation",&mutableData); },"MPI provider descriptor pointer");
+  wrapperTypeError([&] { command.cmd("injectMPIImplementation",static_cast<const void*>(provider)); },"MPI provider descriptor pointer");
 #endif
 }
 }

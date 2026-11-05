@@ -133,22 +133,6 @@ class TypesafePtr {
     return 0;
   }
 
-  template<typename T> static unsigned providerFlag(T) {
-    return 0x40000000u;
-  }
-  static unsigned providerFlag(void*) {
-    return 0;
-  }
-  static unsigned providerFlag(const void*) {
-    return 0;
-  }
-  static unsigned providerFlag(mpiwrap::plumed_mpiw_provider_descriptor*) {
-    return 0;
-  }
-  static unsigned providerFlag(const mpiwrap::plumed_mpiw_provider_descriptor*) {
-    return 0;
-  }
-
 public:
 
   TypesafePtr(void* ptr, std::size_t nelem, const std::size_t* shape, std::size_t flags):
@@ -186,7 +170,7 @@ public:
   TypesafePtr(type_*ptr, std::size_t nelem=0, const std::size_t* shape=nullptr) : \
     myptr((void*)const_cast<type*>(ptr)), \
     mynelem(nelem), \
-    myflags((flags_) | mpiCommFlag(ptr) | providerFlag(ptr)) \
+    myflags((flags_) | mpiCommFlag(ptr)) \
   { \
     init_shape(shape); \
     buffer[0]='\0'; \
@@ -212,11 +196,11 @@ public:
   __PLUMED_WRAPPER_TYPESAFEPTR(type,code,sizeof(type)) \
   TypesafePtr(type val, std::size_t nelem=0, const std::size_t* shape=nullptr): \
       mynelem(1), \
-      myflags(sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val) | providerFlag(val)) \
+      myflags(sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val)) \
     { \
     plumed_assert(sizeof(type)<=32); \
     myptr=&buffer[0]; \
-    myflags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val) | providerFlag(val); \
+    myflags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val); \
     std::memcpy(&buffer[0],&val,sizeof(type)); \
     init_shape(shape); \
   }
@@ -248,7 +232,7 @@ public:
   template<typename T>
   TypesafePtr(T* ptr, std::size_t nelem=0, const std::size_t* shape=nullptr):
     TypesafePtr(static_cast<const void*>(ptr),nelem,shape) {
-    myflags=0x10000u | (0x2000000u*(std::is_const<T>::value ? 3 : 2)) | mpiCommFlag(ptr) | providerFlag(ptr);
+    myflags=0x10000u | (0x2000000u*(std::is_const<T>::value ? 3 : 2)) | mpiCommFlag(ptr);
   }
 
   ~TypesafePtr() {
@@ -342,8 +326,9 @@ private:
       throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
     }
     const bool provider=std::is_same<typename std::remove_cv<T>::type,mpiwrap::plumed_mpiw_provider_descriptor>::value;
-    // Zero/void and unknown future types retain the historical unchecked path.
-    if(provider && ((myflags & 0x40000000u) || (type>=2 && type<6))) {
+    // This new API requires its dedicated type tag. Calls without any type
+    // metadata (the untyped C interface) already returned above.
+    if(provider && type!=6) {
       throw ExceptionTypeError()<<"This command expects an MPI provider descriptor pointer. Received a "<<type_str()<<" instead"<<extra_msg();
     }
     const bool untypedCommunicator=communicator && (type==0 || type==1);

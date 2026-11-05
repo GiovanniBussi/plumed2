@@ -167,9 +167,11 @@ plumed_cmd(p, "injectMPIImplementation", PLMD::mpiwrap::plumed_mpi_implementatio
 C++ callers use ordinary `Plumed` constructors and the same `cmd` command.
 
 The accessor returns a typed provider descriptor pointer. Safeptr type code 6
-identifies it; older kernels ignore this reserved code. New kernels reject
-known incompatible provider arguments, while legacy void/unannotated pointers
-remain accepted. The descriptor ABI and kernel symbol table are unchanged.
+identifies it; older kernels ignore this reserved code. The new injection API
+requires this dedicated type whenever type metadata is supplied, including for
+otherwise opaque object pointers. There is no legacy typed provider argument to
+preserve. The untyped C interface remains unchecked, as for other commands.
+The descriptor ABI and kernel symbol table are unchanged.
 
 When the local MPI declaration precedes `Plumed.h`, communicator arguments are
 checked against that translation unit's `MPI_Comm*`, preserving const pointers.
@@ -183,8 +185,8 @@ An integer or distinct opaque-pointer handle passed by value is rejected when
 the local type is known. Explicitly erased void pointers remain unchecked,
 including when MPI_Comm is itself void*. C99's untyped interface is unchanged.
 Host-adapter mode includes native `mpi.h` before setting up its type checks.
-The additional exclusion bit `0x40000000` rejects known non-provider arguments
-without rejecting old or explicitly erased provider pointers.
+Provider checks use type code 6 alone. No additional provider exclusion bit is
+needed; `0x40000000` and higher bits remain reserved.
 
 `regtest/basic/rt-mpiwrap-typesafe` checks exceptions, forwarding and legacy
 metadata. Its `check-callers.sh` checks C11 and C++98/11/17 transport against

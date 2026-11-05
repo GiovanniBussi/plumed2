@@ -14,7 +14,6 @@ static MPI_Comm expectedComm;
 static const void* expectedPointer;
 static unsigned expectedType;
 static int expectedNotComm;
-static int expectedNotProvider=1;
 static bool communicatorCommand;
 extern "C" void* plumed_malloc(size_t n) {
   return std::malloc(n);
@@ -25,7 +24,7 @@ extern "C" void plumed_free(void* p) {
 extern "C" void plumed_cmd_safe_nothrow(plumed,const char*,plumed_safeptr safe,plumed_nothrow_handler) {
   assert(((safe.flags>>16)&0xffu)==expectedType);
   assert(!!(safe.flags&0x20000000u)==expectedNotComm);
-  assert(!!(safe.flags&0x40000000u)==expectedNotProvider);
+  assert(!(safe.flags&0x40000000u));
   if(communicatorCommand) {
     assert(std::memcmp(safe.ptr,&expectedComm,sizeof(expectedComm))==0);
   } else {
@@ -60,7 +59,6 @@ int main() {
 #endif
   expectedType=1;
   expectedNotComm=0;
-  expectedNotProvider=0;
   // Ordinary erased pointers retain their payload, even if MPI_Comm=void*.
   communicatorCommand=false;
   expectedPointer=&comm;
