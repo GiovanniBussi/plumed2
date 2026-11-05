@@ -847,8 +847,7 @@ typedef struct {
                7 T const * const *
     0x10000000 * 1 to forbid pointer copy (pointer copy is also forbidden for pass-by-value)
     0x20000000 * 1 when the argument cannot be a pointer to the caller's MPI_Comm
-    0x40000000 * 1 when the argument cannot be a provider descriptor pointer
-    0x80000000 and higher bits are ignored, reserved for future extensions
+    0x40000000 and higher bits are ignored, reserved for future extensions
   */
   __PLUMED_WRAPPER_STD size_t flags;
   /** Optional information, not used yet  */
@@ -1531,18 +1530,13 @@ __PLUMED_WRAPPER_C_END
   MPI_Comm*: 0u, const MPI_Comm*: 0u, \
   void*: 0u, const void*: 0u, default: 0x20000000u)
 #define __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val) _Generic((val), \
-  MPI_Comm*: plumed_ ## flavor ## _not_provider, \
-  const MPI_Comm*: plumed_ ## flavor ## _not_provider, \
+  MPI_Comm*: plumed_ ## flavor ## _void_c, \
+  const MPI_Comm*: plumed_ ## flavor ## _void_c, \
   default: plumed_ ## flavor ## _not_mpi_comm)
 #else
 #define __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) 0u
-#define __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val) plumed_ ## flavor ## _not_provider
+#define __PLUMED_WRAPPER_C_MPI_DEFAULT(flavor,val) plumed_ ## flavor ## _void_c
 #endif
-
-#define __PLUMED_WRAPPER_C_PROVIDER_FLAG(val) _Generic((val), \
-  struct plumed_mpiw_provider_descriptor*: 0u, \
-  const struct plumed_mpiw_provider_descriptor*: 0u, \
-  void*: 0u, const void*: 0u, default: 0x40000000u)
 
 #define __PLUMED_WRAPPER_C_TYPESAFE_INNER(type_,typen_,flags_) \
   static inline void plumed_cmdnse_ ## typen_(plumed p,const char*key,type_*ptr, size_t nelem, const size_t* shape,plumed_error* error) { \
@@ -1551,7 +1545,7 @@ __PLUMED_WRAPPER_C_END
     safe.ptr=ptr; \
     safe.nelem=nelem; \
     safe.shape=__PLUMED_WRAPPER_STATIC_CAST(const size_t*, shape); \
-    safe.flags=(flags_) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(ptr) | __PLUMED_WRAPPER_C_PROVIDER_FLAG(ptr); \
+    safe.flags=(flags_) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(ptr); \
     safe.opt=NULL; \
     if(error) { \
       plumed_error_init(error); \
@@ -1598,7 +1592,7 @@ __PLUMED_WRAPPER_C_END
     safe.ptr=&val; \
     safe.nelem=1; \
     safe.shape=NULL; \
-    safe.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) | __PLUMED_WRAPPER_C_PROVIDER_FLAG(val); \
+    safe.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val); \
     safe.opt=NULL; \
     if(error) { \
       plumed_error_init(error); \
@@ -1663,8 +1657,7 @@ __PLUMED_WRAPPER_C_TYPESAFE_SIZED(double,double,4)
 __PLUMED_WRAPPER_C_TYPESAFE_SIZED(long double,long_double,4)
 __PLUMED_WRAPPER_C_TYPESAFE_EMPTY(FILE,FILE,5)
 __PLUMED_WRAPPER_C_TYPESAFE_EMPTY(struct plumed_mpiw_provider_descriptor,mpi_provider,6)
-__PLUMED_WRAPPER_C_TYPESAFE_INNER(void const,not_mpi_comm,0x60010000u | (0x2000000*3))
-__PLUMED_WRAPPER_C_TYPESAFE_INNER(void const,not_provider,0x40010000u | (0x2000000*3))
+__PLUMED_WRAPPER_C_TYPESAFE_INNER(void const,not_mpi_comm,0x20010000u | (0x2000000*3))
 
 static inline void plumed_cmd_null_e(plumed p,const char*key,plumed_error* error,int ignore) {
   (void) ignore;
@@ -2589,22 +2582,6 @@ private:
       return 3;
     }
 
-    template<typename T> static unsigned providerFlag(T) {
-      return 0x40000000u;
-    }
-    static unsigned providerFlag(void*) {
-      return 0;
-    }
-    static unsigned providerFlag(const void*) {
-      return 0;
-    }
-    static unsigned providerFlag(::PLMD::mpiwrap::plumed_mpiw_provider_descriptor*) {
-      return 0;
-    }
-    static unsigned providerFlag(const ::PLMD::mpiwrap::plumed_mpiw_provider_descriptor*) {
-      return 0;
-    }
-
     plumed_safeptr safeptr;
     /// This buffer holds a copy of the data when they are passed by value.
     /// The size is sufficient to hold any primitive type.
@@ -2659,7 +2636,7 @@ private:
     safeptr.ptr=ptr; \
     safeptr.nelem=nelem; \
     safeptr.shape=const_cast<__PLUMED_WRAPPER_STD size_t*>(shape); \
-    safeptr.flags=(flags_) | mpiCommFlag(ptr) | providerFlag(ptr); \
+    safeptr.flags=(flags_) | mpiCommFlag(ptr); \
     safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR; \
     buffer[0]='\0'; \
   }
@@ -2689,7 +2666,7 @@ private:
     safeptr.ptr=buffer; \
     safeptr.nelem=1; \
     safeptr.shape=__PLUMED_WRAPPER_CXX_NULLPTR; \
-    safeptr.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val) | providerFlag(val); \
+    safeptr.flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1) | mpiCommFlag(val); \
     safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR; \
     __PLUMED_WRAPPER_STD memcpy(buffer,&val,sizeof(type)); \
   }
@@ -2726,7 +2703,7 @@ private:
       safeptr.ptr=ptr;
       safeptr.nelem=nelem;
       safeptr.shape=shape;
-      safeptr.flags=0x10000 | (0x2000000*(isConstPointer(ptr))) | mpiCommFlag(ptr) | providerFlag(ptr);
+      safeptr.flags=0x10000 | (0x2000000*(isConstPointer(ptr))) | mpiCommFlag(ptr);
       safeptr.opt=__PLUMED_WRAPPER_CXX_NULLPTR;
       buffer[0]='\0';
     }
