@@ -2,7 +2,7 @@
 #include "core/CLToolMain.h"
 #include "core/PlumedMain.h"
 #include "tools/Communicator.h"
-#include "mpiwrap/provider-registry.hpp"
+#include "mpiwrap/provider-registry.h"
 #include "mpiwrap/mpiwrap.h"
 #include "mpiwrap/thread-mpi-launcher.h"
 

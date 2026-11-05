@@ -1,5 +1,5 @@
 // Focused tests for ABI3 provider validation and owned descriptor snapshots.
-#include "provider-registry.hpp"
+#include "provider-registry.h"
 #include "provider-callbacks.h"
 #include "mpiwrap.h"
 

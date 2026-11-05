@@ -1,6 +1,6 @@
 #include <thread_mpi_tmpi.h>
 #include "thread-mpi-launcher.h"
-#include "provider-registry.hpp"
+#include "provider-registry.h"
 #include "mpiwrap.h"
 
 #include <cstdlib>
@@ -80,19 +80,19 @@ int runUnlaunchedSerial() {
   int initialized = 1;
   if (mpiwrap::Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
       initialized != 0 || registry.installed()) {
-    std::cerr << "MPI_Initialized selected or initialized a provider\n";
+    std::cerr << "MPI_Initialized selected or initialized a provider without an explicit launch\n";
     return 1;
   }
-  const MPI_Comm self = mpiwrap::COMM_SELF();
-  if (!registry.installed() || registry.runtimeKind() !=
-      PLUMED_MPIW_RUNTIME_THREAD_MPI) {
-    std::cerr << "MPI_COMM_SELF use did not select the default provider\n";
+  (void) mpiwrap::COMM_SELF();
+  if (registry.installed()) {
+    std::cerr << "MPI_COMM_SELF selected a provider without an explicit launch\n";
     return 1;
   }
-  (void) self;
+  // Merely building with embedded tMPI must not start or select it. The only
+  // supported activation path is the explicit internal launcher.
   if (mpiwrap::Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
-      initialized != 0) {
-    std::cerr << "provider selection initialized thread-MPI unexpectedly\n";
+      initialized != 0 || registry.installed()) {
+    std::cerr << "unlaunched MPI inquiry selected or initialized a provider\n";
     return 1;
   }
   return 0;

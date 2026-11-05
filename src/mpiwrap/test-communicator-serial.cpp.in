@@ -23,18 +23,18 @@ int main() {
   using PLMD::Communicator;
   using PLMD::mpiwrap::assertThrows;
 
-  assert(!PLMD::mpiwrap::installed());
+  assert(!PLMD::mpiwrap::provider_installed());
   assert(!Communicator::initialized());
   assert(!Communicator::plumedHasMPI());
 
   Communicator comm;
-  assert(!PLMD::mpiwrap::installed());
+  assert(!PLMD::mpiwrap::provider_installed());
   {
     Communicator copy(comm);
     Communicator assigned;
     assigned=copy;
   }
-  assert(!PLMD::mpiwrap::installed());
+  assert(!PLMD::mpiwrap::provider_installed());
   assert(comm.Get_rank() == 0);
   assert(comm.Get_size() == 1);
   // Fully disabled kernels may still forward their inert serial surrogate.
@@ -78,7 +78,7 @@ int main() {
     request.wait();
   });
 
-  assert(!PLMD::mpiwrap::installed());
+  assert(!PLMD::mpiwrap::provider_installed());
   assert(!Communicator::initialized());
   assert(!Communicator::plumedHasMPI());
 }

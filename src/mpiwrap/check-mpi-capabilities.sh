@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise capability reporting without initializing MPI or launching ranks.
+# Exercise capability reporting without selecting a provider or launching ranks.
 set -euo pipefail
 if [[ $# -ne 2 ]]; then
   echo "usage: $0 THREAD_MPI_PLUMED REAL_MPI_PROVIDER" >&2
@@ -11,7 +11,10 @@ unset PLUMED_MPI_WRAPPER_FORCE
 unset PLUMED_MPI_WRAPPER
 "$program" --no-mpi --has-mpi
 "$program" --no-mpi --has-thread-mpi
-"$program" --no-mpi --mpi-ranks-are-threads
+if "$program" --no-mpi --mpi-ranks-are-threads; then
+  echo 'embedded thread-MPI was reported as selected without an explicit launch' >&2
+  exit 1
+fi
 if "$program" --no-mpi --has-real-mpi; then
   echo 'internal thread-MPI was incorrectly reported as real MPI' >&2
   exit 1
