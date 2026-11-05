@@ -1,5 +1,5 @@
 #include "plumed/mpiwrap/mpiwrap.h"
-#include "plumed/mpiwrap/thread-mpi-launcher.h"
+#include "plumed/mpiwrap/mpi.h"
 
 #include <cstdio>
 #include <cstring>

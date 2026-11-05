@@ -29,7 +29,7 @@
 #include "tools/DLLoader.h"
 #include "tools/Subprocess.h"
 #if defined(__PLUMED_MPIWRAP) && defined(__PLUMED_HAS_THREAD_MPI) && !defined(__PLUMED_HAS_MPI)
-#include "../mpiwrap/thread-mpi-launcher.h"
+#include "../mpiwrap/mpiwrap.h"
 #endif
 #include <string>
 #include <cstring>

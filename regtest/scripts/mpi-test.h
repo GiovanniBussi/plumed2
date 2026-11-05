@@ -3,7 +3,7 @@
 
 #if defined(__PLUMED_MPIWRAP)
 #include "plumed/mpiwrap/mpiwrap.h"
-#include "plumed/mpiwrap/thread-mpi-launcher.h"
+#include "plumed/mpiwrap/mpi.h"
 #else
 // Keep these tests usable with older native-MPI PLUMED installations.
 #include <mpi.h>

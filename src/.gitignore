@@ -73,9 +73,22 @@
 !/sizeshape
 !/ttsketch
 !/xsprint
+# MPI modules are flat; keep generated dependency directories ignored.
+!/mpiwrap/
+/mpiwrap/*
+!/mpiwrap/*.h
+!/mpiwrap/*.cpp
+!/mpiwrap/*.in
+!/mpiwrap/*.json
+!/mpiwrap/*.tsv
+!/mpiwrap/*.md
+!/mpiwrap/*.py
+!/mpiwrap/Makefile
+!/mpiwrap/module.type
 !/thread_mpi/
 /thread_mpi/*
 !/thread_mpi/*.cpp
+!/thread_mpi/*.h
 !/thread_mpi/UPSTREAM.json
 
 # And just ignore these files
