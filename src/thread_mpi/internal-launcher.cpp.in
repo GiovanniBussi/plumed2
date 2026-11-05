@@ -9,7 +9,8 @@
 #include <stdexcept>
 
 namespace PLMD {
-namespace thread_mpi_launcher_test {
+namespace thread_mpi {
+namespace launcher_test {
 
 int rank_callback(int rank, const void *native_comm, std::size_t native_size,
                   void *opaque) {
@@ -20,7 +21,7 @@ int rank_callback(int rank, const void *native_comm, std::size_t native_size,
     return 101;
   }
   int wrapper_rank = -1;
-  if (mpiwrap_Comm_rank(mpiwrap_COMM_WORLD(), &wrapper_rank) !=
+  if (mpiwrap::Comm_rank(mpiwrap::COMM_WORLD(), &wrapper_rank) !=
       thread_mpi::TMPI_SUCCESS || wrapper_rank != rank) {
     return 100;
   }
@@ -30,15 +31,15 @@ int rank_callback(int rank, const void *native_comm, std::size_t native_size,
 int run(int ranks, int throw_rank) {
   if (throw_rank >= 0) {
     int result = 0;
-    (void)mpiwrap_provider::launchRanks(
+    (void)mpiwrap::launchRanks(
       ranks, rank_callback, &throw_rank, &result,
-      mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
+      mpiwrap::MPILifecyclePolicy::internal_thread_mpi);
     return 1;
   }
   int result = -1;
-  const int status = mpiwrap_provider::launchRanks(
+  const int status = mpiwrap::launchRanks(
                        ranks, rank_callback, nullptr, &result,
-                       mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
+                       mpiwrap::MPILifecyclePolicy::internal_thread_mpi);
   if (status != 0 || result != ranks) {
     std::cerr << "internal launch result mismatch: status=" << status
               << " result=" << result << " expected=" << ranks << '\n';
@@ -53,10 +54,10 @@ int run(int ranks, int throw_rank) {
 
   const int second_ranks = ranks == 4 ? 2 : ranks + 1;
   int second_result = -1;
-  const int second_status = mpiwrap_provider::launchRanks(
+  const int second_status = mpiwrap::launchRanks(
                               second_ranks, rank_callback, nullptr,
                               &second_result,
-                              mpiwrap_provider::MPILifecyclePolicy::internal_thread_mpi);
+                              mpiwrap::MPILifecyclePolicy::internal_thread_mpi);
   if (second_status != 0 || second_result != second_ranks) {
     std::cerr << "sequential internal launch result mismatch: status="
               << second_status << " result=" << second_result
@@ -72,24 +73,24 @@ int run(int ranks, int throw_rank) {
 }
 
 int runUnlaunchedSerial() {
-  auto &registry = mpiwrap_provider::currentRegistry();
+  auto &registry = mpiwrap::currentRegistry();
   if (registry.installed()) {
     return 1;
   }
   int initialized = 1;
-  if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
+  if (mpiwrap::Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
       initialized != 0 || registry.installed()) {
     std::cerr << "MPI_Initialized selected or initialized a provider\n";
     return 1;
   }
-  const MPI_Comm self = mpiwrap_COMM_SELF();
+  const MPI_Comm self = mpiwrap::COMM_SELF();
   if (!registry.installed() || registry.runtimeKind() !=
       PLUMED_MPIW_RUNTIME_THREAD_MPI) {
     std::cerr << "MPI_COMM_SELF use did not select the default provider\n";
     return 1;
   }
   (void) self;
-  if (mpiwrap_Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
+  if (mpiwrap::Initialized(&initialized) != thread_mpi::TMPI_SUCCESS ||
       initialized != 0) {
     std::cerr << "provider selection initialized thread-MPI unexpectedly\n";
     return 1;
@@ -97,12 +98,13 @@ int runUnlaunchedSerial() {
   return 0;
 }
 
-}  // namespace thread_mpi_launcher_test
+}  // namespace launcher_test
+}  // namespace thread_mpi
 }  // namespace PLMD
 
 int main(int argc, char **argv) {
   if (argc == 2 && std::strcmp(argv[1], "serial") == 0) {
-    return PLMD::thread_mpi_launcher_test::runUnlaunchedSerial();
+    return PLMD::thread_mpi::launcher_test::runUnlaunchedSerial();
   }
   if (argc != 2 && argc != 3) {
     return 2;
@@ -118,5 +120,5 @@ int main(int argc, char **argv) {
     }
     throw_rank = ranks > 1 ? 1 : 0;
   }
-  return PLMD::thread_mpi_launcher_test::run(ranks, throw_rank);
+  return PLMD::thread_mpi::launcher_test::run(ranks, throw_rank);
 }

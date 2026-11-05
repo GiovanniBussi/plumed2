@@ -3,7 +3,7 @@
 #include <atomic>
 
 namespace PLMD {
-namespace thread_mpi_test {
+namespace thread_mpi {
 namespace internal_copy {
 
 std::atomic<int> visited{0};
@@ -32,5 +32,5 @@ int run() {
 }
 
 } // namespace internal_copy
-} // namespace thread_mpi_test
+} // namespace thread_mpi
 } // namespace PLMD

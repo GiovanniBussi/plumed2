@@ -5,12 +5,15 @@
 #include <cstdio>
 
 namespace PLMD {
+namespace mpiwrap {
 extern "C" plumed_symbol_table_type *plumed_symbol_table_reexport() {
   return nullptr;
 }
+} // namespace mpiwrap
 }
 
 namespace PLMD {
+namespace mpiwrap {
 int checkForcedProvider(int argc, char **argv) {
   if(argc != 3) {
     return 2;
@@ -29,8 +32,9 @@ int checkForcedProvider(int argc, char **argv) {
     return 1;
   }
 }
+} // namespace mpiwrap
 }
 
 int main(int argc, char **argv) {
-  return PLMD::checkForcedProvider(argc,argv);
+  return PLMD::mpiwrap::checkForcedProvider(argc,argv);
 }

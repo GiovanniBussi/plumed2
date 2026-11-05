@@ -17,12 +17,14 @@
 #include <thread>
 
 namespace PLMD {
+namespace mpiwrap {
 extern "C" const plumed_mpiw_provider_descriptor *
 plumed_mpiw_thread_mpi_provider(void);
+} // namespace mpiwrap
 }
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 namespace {
 
 using Callback = int (*)(int, const void *, std::size_t, void *);
@@ -53,9 +55,9 @@ void rankEntry(const void *opaque) {
   try {
     alignas(std::max_align_t)
     unsigned char native_world[sizeof(plumed_mpiw_handle_storage)] {};
-    const MPI_Comm world = mpiwrap_COMM_WORLD();
+    const MPI_Comm world = COMM_WORLD();
     const std::size_t native_size = currentRegistry().nativeCommSize();
-    if (!mpiwrap_Comm_export_native(world, native_world,
+    if (!Comm_export_native(world, native_world,
                                     sizeof(native_world)) || native_size == 0) {
       terminateRank(rank, "could not export the native world communicator");
     }
@@ -196,5 +198,5 @@ int launchRanks(int ranks, Callback callback, void *callback_context,
   throw ExceptionError("real-MPI lifecycle policy is unavailable in an internal tMPI build");
 }
 
-}  // namespace mpiwrap_provider
+}  // namespace mpiwrap
 }  // namespace PLMD

@@ -8,23 +8,24 @@
 #include <string>
 
 namespace PLMD {
+namespace mpiwrap {
 
-bool mpiwrap_provider_installed() {
-  return mpiwrap_provider::currentRegistry().installed();
+bool provider_installed() {
+  return mpiwrap::currentRegistry().installed();
 }
 
-bool mpiwrap_provider_has_capability(const char *name) {
-  auto &registry = mpiwrap_provider::currentRegistry();
+bool provider_has_capability(const char *name) {
+  auto &registry = mpiwrap::currentRegistry();
   return registry.installed() && registry.hasCapability(name);
 }
 
-bool mpiwrap_provider_ranks_are_threads() {
-  auto &registry = mpiwrap_provider::currentRegistry();
+bool provider_ranks_are_threads() {
+  auto &registry = mpiwrap::currentRegistry();
   return registry.installed() && registry.ranksAreThreads();
 }
 
-bool mpiwrap_is_thread_mpi_active() {
-  auto &registry = mpiwrap_provider::currentRegistry();
+bool is_thread_mpi_active() {
+  auto &registry = mpiwrap::currentRegistry();
   if (!registry.installed() ||
       registry.runtimeKind() != PLUMED_MPIW_RUNTIME_THREAD_MPI) {
     return false;
@@ -36,11 +37,11 @@ bool mpiwrap_is_thread_mpi_active() {
   return initialized && initialized(&flag) == 0 && flag != 0;
 }
 
-void mpiwrap_ensure_provider_selected() {
+void ensure_provider_selected() {
   if (pointers::ready.load(std::memory_order_acquire)) {
     return;
   }
-  mpiwrap_provider::ensureProviderSelected();
+  mpiwrap::ensureProviderSelected();
   if (!pointers::ready.load(std::memory_order_acquire)) {
 #if !defined(__PLUMED_HAS_THREAD_MPI)
     // A fully serial wrapper kernel has no default provider to select. Keep
@@ -56,8 +57,8 @@ void mpiwrap_ensure_provider_selected() {
   }
 }
 
-[[noreturn]] void mpiwrap_unavailable(const char *name) {
-  auto &registry = mpiwrap_provider::currentRegistry();
+[[noreturn]] void unavailable(const char *name) {
+  auto &registry = mpiwrap::currentRegistry();
   throw std::runtime_error(std::string("MPI function unavailable: ") + name +
                            " (provider " + registry.providerName() + ")");
 }
@@ -65,17 +66,17 @@ void mpiwrap_ensure_provider_selected() {
 #define PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name) \
   throw std::runtime_error(std::string("MPI constant unavailable: ") + #name + \
                            " (provider " + \
-                           mpiwrap_provider::currentRegistry().providerName() + ")")
+                           mpiwrap::currentRegistry().providerName() + ")")
 #define PLUMED_MPIW_PROVIDER_HANDLE(name, suffix, type) \
-  type mpiwrap_##suffix() { \
-    mpiwrap_provider::ensureProviderSelected(); \
-    auto &registry = mpiwrap_provider::currentRegistry(); \
+  type suffix() { \
+    mpiwrap::ensureProviderSelected(); \
+    auto &registry = mpiwrap::currentRegistry(); \
     registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
     /* Native tMPI SELF getters require an initialized rank thread. */ \
     if (std::strcmp(#name, "MPI_COMM_SELF") == 0 && registry.ranksAreThreads() && \
-        !mpiwrap_is_thread_mpi_active()) { \
+        !is_thread_mpi_active()) { \
       if (!pointers::constant_COMM_NULL || \
           pointers::constant_COMM_NULL(&value.storage, sizeof(value.storage)) != 0) { \
         PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
@@ -89,9 +90,9 @@ void mpiwrap_ensure_provider_selected() {
     return value; \
   }
 #define PLUMED_MPIW_PROVIDER_INTEGER(name, suffix, type) \
-  type mpiwrap_##suffix() { \
-    mpiwrap_provider::ensureProviderSelected(); \
-    auto &registry = mpiwrap_provider::currentRegistry(); \
+  type suffix() { \
+    mpiwrap::ensureProviderSelected(); \
+    auto &registry = mpiwrap::currentRegistry(); \
     registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
@@ -101,11 +102,11 @@ void mpiwrap_ensure_provider_selected() {
     return value; \
   }
 #define PLUMED_MPIW_PROVIDER_COMPILE_TIME_INTEGER(name, suffix, type) \
-  type mpiwrap_##suffix() { return type{}; }
+  type suffix() { return type{}; }
 #define PLUMED_MPIW_PROVIDER_POINTER(name, suffix, type) \
-  type mpiwrap_##suffix() { \
-    mpiwrap_provider::ensureProviderSelected(); \
-    auto &registry = mpiwrap_provider::currentRegistry(); \
+  type suffix() { \
+    mpiwrap::ensureProviderSelected(); \
+    auto &registry = mpiwrap::currentRegistry(); \
     registry.markProviderValueUsed(#name); \
     type value{}; \
     if (!registry.installed()) return value; \
@@ -121,4 +122,5 @@ void mpiwrap_ensure_provider_selected() {
 #undef PLUMED_MPIW_PROVIDER_HANDLE
 #undef PLUMED_MPIW_PROVIDER_CONSTANT_ERROR
 
+} // namespace mpiwrap
 } // namespace PLMD

@@ -3,6 +3,7 @@
 #include <cassert>
 
 namespace PLMD {
+namespace mpiwrap {
 
 template <typename Function>
 void assertThrows(Function function) {
@@ -15,24 +16,25 @@ void assertThrows(Function function) {
   assert(threw);
 }
 
+} // namespace mpiwrap
 }  // namespace PLMD
 
 int main() {
   using PLMD::Communicator;
-  using PLMD::assertThrows;
+  using PLMD::mpiwrap::assertThrows;
 
-  assert(!PLMD::mpiwrap_provider_installed());
+  assert(!PLMD::mpiwrap::installed());
   assert(!Communicator::initialized());
   assert(!Communicator::plumedHasMPI());
 
   Communicator comm;
-  assert(!PLMD::mpiwrap_provider_installed());
+  assert(!PLMD::mpiwrap::installed());
   {
     Communicator copy(comm);
     Communicator assigned;
     assigned=copy;
   }
-  assert(!PLMD::mpiwrap_provider_installed());
+  assert(!PLMD::mpiwrap::installed());
   assert(comm.Get_rank() == 0);
   assert(comm.Get_size() == 1);
   // Fully disabled kernels may still forward their inert serial surrogate.
@@ -76,7 +78,7 @@ int main() {
     request.wait();
   });
 
-  assert(!PLMD::mpiwrap_provider_installed());
+  assert(!PLMD::mpiwrap::installed());
   assert(!Communicator::initialized());
   assert(!Communicator::plumedHasMPI());
 }

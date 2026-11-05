@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 namespace PLMD {
+namespace mpiwrap {
 namespace {
 bool exists(const char *path) {
   return std::ifstream(path).good();
@@ -20,14 +21,15 @@ void require(bool condition) {
   }
 }
 }
+} // namespace mpiwrap
 }
 
 int main(int argc,char **argv) {
   if(argc!=6) {
     return 2;
   }
-  using PLMD::require;
-  using PLMD::exists;
+  using PLMD::mpiwrap::require;
+  using PLMD::mpiwrap::exists;
   const char *unloaded=argv[4];
   const int descriptor=1;
   setenv("MPIW_TEST_KERNEL_MARKER",unloaded,1);

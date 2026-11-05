@@ -24,7 +24,7 @@ extern char **environ;
 #endif
 
 namespace PLMD {
-namespace mpiwrap_provider {
+namespace mpiwrap {
 namespace {
 
 #if defined(__PLUMED_HAS_DLOPEN)
@@ -257,5 +257,5 @@ bool forceEnvironmentProvider() {
   return true;
 }
 
-} // namespace mpiwrap_provider
+} // namespace mpiwrap
 } // namespace PLMD

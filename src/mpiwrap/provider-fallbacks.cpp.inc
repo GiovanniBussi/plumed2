@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace PLMD {
+namespace mpiwrap {
 namespace mpiwrap_fallback_detail {
 
 bool ready() {
@@ -30,7 +31,7 @@ bool collective_primitives() {
           pointers::constant_C_BOOL || pointers::constant_INT64_T) &&
          pointers::Comm_rank && pointers::Comm_size && pointers::Bcast &&
          (pointers::Comm_test_inter ||
-          mpiwrap_provider_has_capability("capability:intracommunicators-only"));
+          provider_has_capability("capability:intracommunicators-only"));
 }
 
 // Basic C datatype extents are fixed by the MPI language binding. Compare the
@@ -38,7 +39,7 @@ bool collective_primitives() {
 // Compound pair types and custom typemaps are deliberately not approximated.
 std::size_t basic_extent(MPI_Datatype datatype) {
 #define PLUMED_MPIW_BASIC_EXTENT(name, type) \
-  if(pointers::constant_ ## name && datatype==mpiwrap_ ## name()) return sizeof(type)
+  if(pointers::constant_ ## name && datatype==name()) return sizeof(type)
   PLUMED_MPIW_BASIC_EXTENT(CHAR,char);
   PLUMED_MPIW_BASIC_EXTENT(SIGNED_CHAR,signed char);
   PLUMED_MPIW_BASIC_EXTENT(UNSIGNED_CHAR,unsigned char);
@@ -70,25 +71,25 @@ std::size_t bytes(int count,std::size_t extent) {
 }
 
 bool in_place(const void *buffer) {
-  return pointers::constant_IN_PLACE && buffer==mpiwrap_IN_PLACE();
+  return pointers::constant_IN_PLACE && buffer==IN_PLACE();
 }
 
 void intracommunicator(MPI_Comm comm) {
   if(pointers::Comm_test_inter) {
     int inter=0;
-    const int rc=mpiwrap_Comm_test_inter(comm,&inter);
-    if(rc!=mpiwrap_SUCCESS() || inter) {
+    const int rc=Comm_test_inter(comm,&inter);
+    if(rc!=SUCCESS() || inter) {
       throw std::runtime_error("MPI collective fallback requires an intracommunicator");
     }
-  } else if(!mpiwrap_provider_has_capability("capability:intracommunicators-only")) {
+  } else if(!provider_has_capability("capability:intracommunicators-only")) {
     throw std::runtime_error("MPI provider cannot establish the collective fallback communicator kind");
   }
 }
 
 void rank_size(MPI_Comm comm,int &rank,int &size) {
   intracommunicator(comm);
-  if(mpiwrap_Comm_rank(comm,&rank)!=mpiwrap_SUCCESS() ||
-      mpiwrap_Comm_size(comm,&size)!=mpiwrap_SUCCESS() || size<1 || rank<0 || rank>=size) {
+  if(Comm_rank(comm,&rank)!=SUCCESS() ||
+      Comm_size(comm,&size)!=SUCCESS() || size<1 || rank<0 || rank>=size) {
     throw std::runtime_error("MPI collective fallback could not query the communicator");
   }
 }
@@ -106,23 +107,23 @@ int some(bool wait,int count,MPI_Request requests[],int *outcount,
   if(count<0 || !outcount || (count && (!requests || !indices))) {
     throw std::invalid_argument("MPI request completion fallback requires valid arrays");
   }
-  if(mpiwrap_requests_all_null(count,requests)) {
-    *outcount=mpiwrap_UNDEFINED();
-    return mpiwrap_SUCCESS();
+  if(requests_all_null(count,requests)) {
+    *outcount=UNDEFINED();
+    return SUCCESS();
   }
   std::vector<unsigned char> completed_indices(static_cast<std::size_t>(count),0);
-  int completed=0,result=mpiwrap_SUCCESS();
+  int completed=0,result=SUCCESS();
   while(completed<count) {
-    int index=mpiwrap_UNDEFINED(),flag=0;
+    int index=UNDEFINED(),flag=0;
     MPI_Status status{};
     const int rc=wait && completed==0 ?
-                 mpiwrap_Waitany(count,requests,&index,&status) :
-                 mpiwrap_Testany(count,requests,&index,&flag,&status);
+                 Waitany(count,requests,&index,&status) :
+                 Testany(count,requests,&index,&flag,&status);
     if(wait && completed==0) {
-      flag=index!=mpiwrap_UNDEFINED();
+      flag=index!=UNDEFINED();
     }
-    if(index==mpiwrap_UNDEFINED() || !flag) {
-      if(rc!=mpiwrap_SUCCESS()) {
+    if(index==UNDEFINED() || !flag) {
+      if(rc!=SUCCESS()) {
         result=rc;
       }
       break;
@@ -134,13 +135,13 @@ int some(bool wait,int count,MPI_Request requests[],int *outcount,
     indices[completed]=index;
     // Waitany/Testany report a single request's error directly. Some-functions
     // collect per-request errors and return MPI_ERR_IN_STATUS instead.
-    if(rc!=mpiwrap_SUCCESS()) {
-      if(rc!=mpiwrap_ERR_IN_STATUS()) {
+    if(rc!=SUCCESS()) {
+      if(rc!=ERR_IN_STATUS()) {
         status.MPI_ERROR=rc;
       }
-      result=mpiwrap_ERR_IN_STATUS();
+      result=ERR_IN_STATUS();
     } else {
-      status.MPI_ERROR=mpiwrap_SUCCESS();
+      status.MPI_ERROR=SUCCESS();
     }
     if(statuses) {
       statuses[completed]=status;
@@ -153,36 +154,36 @@ int some(bool wait,int count,MPI_Request requests[],int *outcount,
 
 }
 
-bool mpiwrap_can_fallback_Wait() {
+bool can_fallback_Wait() {
   return mpiwrap_fallback_detail::ready() && pointers::Waitany &&
          mpiwrap_fallback_detail::request_constants();
 }
 
-bool mpiwrap_can_fallback_Testsome() {
+bool can_fallback_Testsome() {
   return mpiwrap_fallback_detail::ready() && pointers::Testany &&
          pointers::constant_ERR_IN_STATUS && mpiwrap_fallback_detail::request_constants();
 }
 
-bool mpiwrap_can_fallback_Waitsome() {
-  return mpiwrap_can_fallback_Testsome() && pointers::Waitany;
+bool can_fallback_Waitsome() {
+  return can_fallback_Testsome() && pointers::Waitany;
 }
 
-bool mpiwrap_can_fallback_Allgather() {
+bool can_fallback_Allgather() {
   return mpiwrap_fallback_detail::collective_primitives();
 }
 
-bool mpiwrap_can_fallback_Allgatherv() {
+bool can_fallback_Allgatherv() {
   return mpiwrap_fallback_detail::collective_primitives();
 }
 
-bool mpiwrap_requests_all_null(int count,const MPI_Request requests[]) {
+bool requests_all_null(int count,const MPI_Request requests[]) {
   if(count<0 || (count && !requests)) {
     throw std::invalid_argument("MPI request completion requires a nonnegative count and request array");
   }
   if(count==0) {
     return true;
   }
-  const MPI_Request null_request=mpiwrap_REQUEST_NULL();
+  const MPI_Request null_request=REQUEST_NULL();
   for(int i=0; i<count; ++i) {
     if(requests[i]!=null_request) {
       return false;
@@ -191,47 +192,47 @@ bool mpiwrap_requests_all_null(int count,const MPI_Request requests[]) {
   return true;
 }
 
-void mpiwrap_set_empty_status(MPI_Status *status) {
+void set_empty_status(MPI_Status *status) {
   if(status) {
     // No fabricated provider-private status layout: raw_size=0 marks a
     // synthetic empty status, interpreted by PLUMED's status-query wrappers.
     *status=MPI_Status{};
-    status->MPI_SOURCE=mpiwrap_ANY_SOURCE();
-    status->MPI_TAG=mpiwrap_ANY_TAG();
-    status->MPI_ERROR=mpiwrap_SUCCESS();
+    status->MPI_SOURCE=ANY_SOURCE();
+    status->MPI_TAG=ANY_TAG();
+    status->MPI_ERROR=SUCCESS();
   }
 }
 
-bool mpiwrap_is_empty_status(const MPI_Status *status) {
+bool is_empty_status(const MPI_Status *status) {
   return status && status->raw_size==0 && pointers::constant_ANY_SOURCE &&
          pointers::constant_ANY_TAG && pointers::constant_SUCCESS &&
-         status->MPI_SOURCE==mpiwrap_ANY_SOURCE() &&
-         status->MPI_TAG==mpiwrap_ANY_TAG() && status->MPI_ERROR==mpiwrap_SUCCESS();
+         status->MPI_SOURCE==ANY_SOURCE() &&
+         status->MPI_TAG==ANY_TAG() && status->MPI_ERROR==SUCCESS();
 }
 
-int mpiwrap_fallback_Wait(MPI_Request *request,MPI_Status *status) {
+int fallback_Wait(MPI_Request *request,MPI_Status *status) {
   if(!request) {
     throw std::invalid_argument("MPI_Wait requires a request");
   }
-  int index=mpiwrap_UNDEFINED();
-  const int rc=mpiwrap_Waitany(1,request,&index,status);
-  if(index==mpiwrap_UNDEFINED() && rc==mpiwrap_SUCCESS()) {
-    mpiwrap_set_empty_status(status);
+  int index=UNDEFINED();
+  const int rc=Waitany(1,request,&index,status);
+  if(index==UNDEFINED() && rc==SUCCESS()) {
+    set_empty_status(status);
   }
   return rc;
 }
 
-int mpiwrap_fallback_Waitsome(int count,MPI_Request requests[],int *outcount,
+int fallback_Waitsome(int count,MPI_Request requests[],int *outcount,
                               int indices[],MPI_Status statuses[]) {
   return mpiwrap_fallback_detail::some(true,count,requests,outcount,indices,statuses);
 }
 
-int mpiwrap_fallback_Testsome(int count,MPI_Request requests[],int *outcount,
+int fallback_Testsome(int count,MPI_Request requests[],int *outcount,
                               int indices[],MPI_Status statuses[]) {
   return mpiwrap_fallback_detail::some(false,count,requests,outcount,indices,statuses);
 }
 
-int mpiwrap_fallback_Allgather(const void *send,int sendcount,MPI_Datatype sendtype,
+int fallback_Allgather(const void *send,int sendcount,MPI_Datatype sendtype,
                                void *recv,int recvcount,MPI_Datatype recvtype,MPI_Comm comm) {
   int rank=0,size=0;
   mpiwrap_fallback_detail::rank_size(comm,rank,size);
@@ -257,15 +258,15 @@ int mpiwrap_fallback_Allgather(const void *send,int sendcount,MPI_Datatype sendt
   for(int root=0; root<size; ++root) {
     void *segment=segment_bytes ? static_cast<unsigned char *>(recv)+
                   static_cast<std::size_t>(root)*segment_bytes : recv;
-    const int rc=mpiwrap_Bcast(segment,recvcount,recvtype,root,comm);
-    if(rc!=mpiwrap_SUCCESS()) {
+    const int rc=Bcast(segment,recvcount,recvtype,root,comm);
+    if(rc!=SUCCESS()) {
       return rc;
     }
   }
-  return mpiwrap_SUCCESS();
+  return SUCCESS();
 }
 
-int mpiwrap_fallback_Allgatherv(const void *send,int sendcount,MPI_Datatype sendtype,
+int fallback_Allgatherv(const void *send,int sendcount,MPI_Datatype sendtype,
                                 void *recv,const int counts[],const int displs[],
                                 MPI_Datatype recvtype,MPI_Comm comm) {
   int rank=0,size=0;
@@ -297,15 +298,15 @@ int mpiwrap_fallback_Allgatherv(const void *send,int sendcount,MPI_Datatype send
   for(int root=0; root<size; ++root) {
     void *segment=counts[root] ? static_cast<unsigned char *>(recv)+
                   mpiwrap_fallback_detail::bytes(displs[root],extent) : recv;
-    const int rc=mpiwrap_Bcast(segment,counts[root],recvtype,root,comm);
-    if(rc!=mpiwrap_SUCCESS()) {
+    const int rc=Bcast(segment,counts[root],recvtype,root,comm);
+    if(rc!=SUCCESS()) {
       return rc;
     }
   }
-  return mpiwrap_SUCCESS();
+  return SUCCESS();
 }
 
-bool mpiwrap_try_singleton_reduce(const void *send,void *recv,int count,
+bool try_singleton_reduce(const void *send,void *recv,int count,
                                   MPI_Datatype type,int root,MPI_Comm comm,int *result) {
   if(!pointers::Comm_size || root>0 || root< -1 || count<0) {
     return false;
@@ -314,10 +315,10 @@ bool mpiwrap_try_singleton_reduce(const void *send,void *recv,int count,
   // a local group size of one does not make it a singleton collective.
   if(pointers::Comm_test_inter) {
     int inter=0;
-    if(mpiwrap_Comm_test_inter(comm,&inter)!=mpiwrap_SUCCESS() || inter) {
+    if(Comm_test_inter(comm,&inter)!=SUCCESS() || inter) {
       return false;
     }
-  } else if(!mpiwrap_provider_has_capability("capability:intracommunicators-only")) {
+  } else if(!provider_has_capability("capability:intracommunicators-only")) {
     return false;
   }
   const std::size_t extent=mpiwrap_fallback_detail::basic_extent(type);
@@ -325,7 +326,7 @@ bool mpiwrap_try_singleton_reduce(const void *send,void *recv,int count,
     return false;
   }
   int size=0;
-  if(mpiwrap_Comm_size(comm,&size)!=mpiwrap_SUCCESS() || size!=1) {
+  if(Comm_size(comm,&size)!=SUCCESS() || size!=1) {
     return false;
   }
   const std::size_t length=mpiwrap_fallback_detail::bytes(count,extent);
@@ -340,8 +341,9 @@ bool mpiwrap_try_singleton_reduce(const void *send,void *recv,int count,
       std::memmove(recv,send,length);
     }
   }
-  *result=mpiwrap_SUCCESS();
+  *result=SUCCESS();
   return true;
 }
 
+} // namespace mpiwrap
 }

@@ -14,6 +14,12 @@
 #endif
 #endif
 
+#ifdef __cplusplus
+namespace PLMD {
+namespace mpiwrap {
+extern "C" {
+#endif
+
 #define PLUMED_MPIW_JOIN_INNER(a, b) a##b
 #define PLUMED_MPIW_JOIN(a, b) PLUMED_MPIW_JOIN_INNER(a, b)
 #define PLUMED_MPIW_STATIC_ASSERT(c, m) \
@@ -3824,3 +3830,9 @@ static const plumed_mpiw_provider_descriptor plumed_mpiw_descriptor = {
 static const plumed_mpiw_provider_descriptor *plumed_mpiw_get_descriptor(void) {
   return &plumed_mpiw_descriptor;
 }
+
+#ifdef __cplusplus
+}
+} // namespace mpiwrap
+} // namespace PLMD
+#endif
