@@ -36,7 +36,12 @@ jobs:
           VERSION=${VERSION//-/_}
           VERSION=${VERSION#v}
         fi
+        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
         make -C conda
+    - name: Test optional MPI packages
+      run: |
+        source activate base
+        make -C conda test
     - name: Deploy
       env:
         CONDA_UPLOAD_TOKEN: ${{ secrets.CONDA_UPLOAD_TOKEN }}
