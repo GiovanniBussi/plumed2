@@ -16,7 +16,9 @@ INPUT
 cat > "$tmp/guest/guest.dat" <<'INPUT'
 UNITS LENGTH=A ENERGY=kcal/mol TIME=ps
 INPUT
-(cd "$tmp" && "$helper" driver --plumed host.dat --parse-only --natoms 1 >out 2>err) || {
+# The standard main always requests injection; force the supplied DSO so this
+# check exercises environment loading rather than silently accepting injection.
+(cd "$tmp" && PLUMED_MPI_WRAPPER_FORCE=1 "$helper" driver --plumed host.dat --parse-only --natoms 1 >out 2>err) || {
   cat "$tmp/out" "$tmp/err" >&2
   exit 1
 }

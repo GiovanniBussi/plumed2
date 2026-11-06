@@ -88,7 +88,8 @@ checking a future upstream fix. It is not part of the normal executable build
 and does not link PLUMED's wrapper. It polls for a bounded number of attempts,
 then completes outstanding requests before leaving the rank callback. Its exit
 status is **nonzero when the defect is reproduced**; it is not an expected-fail
-CI test. Compile it against a standalone `src/thread_mpi` CMake build:
+CI test. Compile it against the standalone runtime library built by
+`regtest/basic/rt-mpiwrap-launcher/CMakeLists.txt`:
 
 ```
 c++ -std=c++17 -DSIZEOF_LONG_LONG_INT -D__PLUMED_HAS_THREAD_MPI \

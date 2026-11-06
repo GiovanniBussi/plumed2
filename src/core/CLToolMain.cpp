@@ -283,8 +283,8 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
       continue;
     }
 #if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-    // Explicit CLI inquiries describe the runtime selected by injection or the
-    // environment (and otherwise the embedded default), without initializing it.
+    // Explicit CLI inquiries honor injection or an environment-selected provider
+    // without initializing MPI. Embedded thread-MPI needs an explicit launch.
     if(a=="--has-mpi" || a=="--has-real-mpi" ||
         a=="--has-thread-mpi" || a=="--mpi-ranks-are-threads") {
       mpiwrap::ensure_provider_selected();

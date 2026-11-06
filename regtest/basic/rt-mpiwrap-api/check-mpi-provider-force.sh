@@ -33,8 +33,8 @@ SOURCE
 # Normal injection wins over an unusable environment selection.
 PLUMED_MPI_WRAPPER="$TASK_DIR/missing.so" PLUMED_MPI_WRAPPER_FORCE=0 \
   "$TASK_DIR/probe" "$1" "$2"
-# Force bypasses even an invalid incoming descriptor; the kernel owns and
-# closes the bypassed library reference on a successful installation.
+# Force bypasses even an invalid incoming descriptor. The host releases its
+# bypassed-library reference after destroying the PLUMED object and kernel.
 MPIW_BYPASSED_MARKER="$TASK_DIR/unloaded" PLUMED_MPI_WRAPPER="$2" \
   PLUMED_MPI_WRAPPER_FORCE=1 "$TASK_DIR/probe" "$1" "$TASK_DIR/bypassed.so"
 test -f "$TASK_DIR/unloaded"

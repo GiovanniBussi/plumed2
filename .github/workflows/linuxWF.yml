@@ -451,6 +451,8 @@ jobs:
         export OMPI_MCA_rmaps_base_oversubscribe=1
         plumed mkmpi --compiler /usr/bin/mpicc.openmpi \
           --out "$RUNNER_TEMP/provider-openmpi.so"
+        bash regtest/basic/rt-mpiwrap-api/check-mpi-provider-force.sh \
+          "$PLUMED_KERNEL" "$RUNNER_TEMP/provider-openmpi.so"
         bash regtest/basic/rt-mpiwrap-api/check-mpi-host-injection.sh \
           /usr/bin/mpic++.openmpi /usr/bin/mpiexec.openmpi "$PLUMED_KERNEL" \
           "$RUNNER_TEMP/provider-openmpi.so"
