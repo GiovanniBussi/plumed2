@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <cerrno>
+#include <memory>
 #ifdef __APPLE__
 #include <fstream>
 #include <mach-o/loader.h>
@@ -141,6 +142,45 @@ void installProviderLibrary(Registry &registry, void *library) {
     throw;
   }
   // Successful installation transfers this dlopen reference to the registry.
+}
+
+bool installAdjacentProvider(Registry &registry) {
+  const std::string kernel = config::getLibraryPath();
+  if (kernel.empty()) {
+    return false;
+  }
+  // Follow a kernel symlink and resolve relative loader paths before looking
+  // beside the actual library. Do not depend on the active Conda environment.
+  const std::unique_ptr<char, decltype(&std::free)> resolved(
+    realpath(kernel.c_str(), nullptr), &std::free);
+  if (!resolved) {
+    return false;
+  }
+  const std::string location(resolved.get());
+  const std::string path = location.substr(0, location.find_last_of('/') + 1) +
+                           "lib" + config::getPlumedProgramName() + "-mpi-provider." + config::getSoExt();
+  struct stat information;
+  // lstat also detects a broken provider symlink: an installed but unusable
+  // provider must report its error rather than silently compiling another one.
+  if (lstat(path.c_str(), &information) != 0) {
+    if (errno == ENOENT) {
+      return false;
+    }
+    throw std::runtime_error("could not inspect installed MPI provider " + path +
+                             ": " + std::strerror(errno));
+  }
+  void *library = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+  if (!library) {
+    const char *message = dlerror();
+    throw std::runtime_error("could not load installed MPI provider " + path +
+                             ": " + (message ? message : "unknown loader error"));
+  }
+  try {
+    installProviderLibrary(registry, library);
+  } catch (const std::exception &error) {
+    throw std::runtime_error("installed MPI provider " + path + ": " + error.what());
+  }
+  return true;
 }
 
 void compileSelectedProvider(const char *compiler, const std::string &output) {
@@ -315,7 +355,9 @@ void selectProvider(bool build_default) {
       installEnvironmentProvider(registry, selected);
     } else {
 #if defined(__PLUMED_HAS_DLOPEN)
-      installCompiledProvider(registry, nullptr);
+      if (!installAdjacentProvider(registry)) {
+        installCompiledProvider(registry, nullptr);
+      }
 #else
       throw std::runtime_error("automatic MPI provider building requires dlopen support");
 #endif

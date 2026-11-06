@@ -40,10 +40,12 @@ operation; SELF is resolved after the selected provider is initialized.
 Provider selection and initialization are separate; serial operations still
 use local fallbacks until MPI is initialized. A fully disabled build retains
 its inert serial surrogate. Importing a native communicator without an
-injected or environment-selected provider triggers `mkmpi` without a
-`--compiler` option to build the native adapter. It searches `$MPICC`,
-`$MPICXX`, `mpicc`, then `mpicxx`. This search must find a compiler compatible
-with the host MPI runtime. The kernel never initializes or finalizes real MPI. The
+injected or environment-selected provider first looks beside the loaded
+kernel for `libplumed-mpi-provider.so` (`libplumed-mpi-provider.dylib` on macOS).
+If absent, it triggers `mkmpi` without a `--compiler` option to build the
+native adapter. It searches `$MPICC`, `$MPICXX`, `mpicc`, then `mpicxx`.
+This search must find a compiler compatible with the host MPI runtime.
+The kernel never initializes or finalizes real MPI. The
 `--mpi-ranks-are-threads` query succeeds only when a thread-based provider has
 been selected.
 The package `mpiwrap/mpiwrap.h` inquiry reports whether an installed, initialized
@@ -260,7 +262,7 @@ checkout. Failed builds preserve an existing output.
 
 Building a provider does not initialize MPI: the host remains responsible
 for its MPI lifecycle. Set `PLUMED_MPI_WRAPPER` to an absolute provider-library path
-or an absolute executable MPI compiler path. Explicit pre-creation injection
+or an absolute executable MPI compiler path. Host injection
 takes precedence; otherwise the environment provider can be selected
 explicitly. Embedded tMPI is selected only by the internal launcher. A
 loadable library must expose the provider factory. A non-loadable
@@ -269,6 +271,19 @@ directory, with compiler diagnostics inherited by the process. Files with
 shared-library suffixes are never executed as compiler commands. The kernel
 retains the loaded provider library; temporary build files are removed after
 loading. This selection does not initialize the host MPI runtime.
+
+Packages can install a prebuilt adapter beside `libplumedKernel` as
+`libplumed-mpi-provider.so` (`libplumed-mpi-provider.dylib` on macOS).
+For a custom program name, replace `plumed` with that configured name; for
+example, `plumed_custom` uses `libplumed_custom-mpi-provider.so`.
+The kernel resolves its actual loaded library path, including symlinks,
+rather than using the current Conda
+environment or working directory. When a native communicator is supplied,
+an installed adapter is tried after injection and explicit environment
+selection, but before automatic compilation. A present adapter that cannot
+load or fails provider validation raises an error with its path; it does not
+silently fall back to a compiler. This discovery neither initializes MPI nor
+selects a provider during ordinary construction or capability inquiries.
 
 For troubleshooting, set `PLUMED_MPI_WRAPPER_FORCE=1` together with
 `PLUMED_MPI_WRAPPER` before any provider is installed. This makes that
@@ -479,9 +494,10 @@ The focused checks can be run from the repository root:
       bash regtest/basic/rt-mpiwrap-api/check-native-adapter.sh
 
 The provider-discovery check uses a mock compiler and provider to exercise
-automatic adapter discovery, native C/Fortran handle import,
-injection/environment precedence, and retry after a compiler failure without
-starting real MPI.
+adjacent adapter discovery after relocation and through a kernel symlink,
+compiler fallback when absent, rejection of broken installed adapters,
+native C/Fortran handle import, injection/environment precedence, and retry
+after a compiler failure without starting real MPI.
 
 Header and generated signature checks for local MPICH, Open MPI, and pinned
 tMPI use:

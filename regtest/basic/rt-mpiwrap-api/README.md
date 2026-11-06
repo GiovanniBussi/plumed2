@@ -133,6 +133,9 @@ default, 16-byte and 24-byte capacities. The thin native adapter uses pointers
 to native storage; it does not need to share the kernel's capacity. Host
 injection, provider selection, provider force, nested kernel, CHDIR, and
 pure-serial Communicator checks take inputs shown by their usage messages.
+`check-provider-discovery.sh` also checks lazy discovery of a sibling
+`libplumed-mpi-provider` adapter, relocated/symlinked kernel paths, rejection of invalid
+installed providers, and precedence over automatic compilation.
 
 Launcher and runtime selection checks live with the launcher regression:
 `regtest/basic/rt-mpiwrap-launcher/check-thread-mpi-cli.sh`,

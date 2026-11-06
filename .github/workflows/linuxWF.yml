@@ -446,6 +446,7 @@ jobs:
       run: |
         set -euo pipefail
         bash regtest/basic/rt-mpiwrap-api/check-mkmpi.sh
+        bash regtest/basic/rt-mpiwrap-api/check-provider-discovery.sh
         bash regtest/basic/rt-mpiwrap-typesafe/check-callers.sh
         export PLUMED_KERNEL="$HOME/opt/lib/libplumedKernel.so"
         export OMPI_MCA_rmaps_base_oversubscribe=1

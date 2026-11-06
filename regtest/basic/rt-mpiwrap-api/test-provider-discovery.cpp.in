@@ -43,7 +43,7 @@ extern "C" const plumed_mpiw_provider_descriptor *plumed_mpiw_provider_factory()
     sizeof(int),sizeof(int),3*sizeof(int),0,sizeof(int),2*sizeof(int),
     sizeof(int),1,3,functions,0,nullptr
   };
-  return &descriptor;
+  return std::getenv("MPIW_TEST_REJECT_DESCRIPTOR") ? nullptr : &descriptor;
 }
 #else
 } // namespace mpiwrap
@@ -56,7 +56,19 @@ std::string getPlumedIncludedir() {
   return getPlumedRoot()+"/include";
 }
 std::string getPlumedProgramName() {
-  return "plumed";
+  const char *name=std::getenv("MPIW_TEST_PROGRAM_NAME");
+  return name ? name : "plumed";
+}
+std::string getLibraryPath() {
+  const char *path=std::getenv("MPIW_TEST_KERNEL_PATH");
+  return path ? path : "";
+}
+std::string getSoExt() {
+#ifdef __APPLE__
+  return "dylib";
+#else
+  return "so";
+#endif
 }
 }
 namespace mpiwrap {
@@ -78,6 +90,17 @@ int main(int argc, char **argv) {
   assert(!provider_installed());
   int flag=-1;
   assert(Initialized(&flag)==0 && flag==0);
+  const std::string mode(argv[1]);
+  if(mode=="installed-invalid") {
+    try {
+      ensure_provider_for_communicator();
+    } catch(const std::runtime_error &error) {
+      assert(std::string(error.what()).find("installed MPI provider")!=std::string::npos);
+      assert(!provider_installed());
+      return 0;
+    }
+    throw std::runtime_error("invalid installed provider was accepted");
+  }
   if(std::string(argv[1])=="failure") {
     bool failed=false;
     try {
@@ -89,7 +112,6 @@ int main(int argc, char **argv) {
     const std::string compiler=std::string(std::getenv("MPIW_TEST_ROOT"))+"/mock-mpicc";
     assert(setenv("MPICC",compiler.c_str(),1)==0);
   }
-  const std::string mode(argv[1]);
   if(mode=="environment") {
     const std::string library=std::string(std::getenv("MPIW_TEST_ROOT"))+"/provider.so";
     assert(setenv("PLUMED_MPI_WRAPPER",library.c_str(),1)==0);
