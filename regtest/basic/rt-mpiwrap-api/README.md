@@ -139,6 +139,8 @@ Launcher and runtime selection checks live with the launcher regression:
 `check-thread-mpi-benchmark.sh`, and `check-mpi-capabilities.sh`.
 `check-mpi-host-injection.sh` builds shared and runtime executables through
 `mkmpi --executable`, using the installed standard main. Environment-provider
-cases use `PLUMED_MPI_WRAPPER_FORCE=1`. Shared `mpi-test.h` and
-`mpi-native-probe.cpp` helpers remain in `regtest/scripts`; there is no separate
-CLI host source.
+cases use `PLUMED_MPI_WRAPPER_FORCE=1`. The standalone `mpi-native-probe.cpp`
+preflight lives in this test directory and is compiled separately by that
+script; the normal regression builds only `main.cpp`. The shared `mpi-test.h`
+harness remains in `regtest/scripts` for use by tests across several modules.
+There is no separate CLI host source.

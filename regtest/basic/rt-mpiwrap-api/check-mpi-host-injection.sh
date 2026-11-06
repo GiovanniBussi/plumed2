@@ -80,7 +80,7 @@ fi
 echo 'MPI host honors --no-mpi without initialization, finalization, or abort'
 
 # Separate launcher/runtime failures from any host-header or kernel behavior.
-"$1" -std=c++98 "$ROOT/regtest/scripts/mpi-native-probe.cpp" -o "$TASK_DIR/native-probe"
+"$1" -std=c++98 "$ROOT/regtest/basic/rt-mpiwrap-api/mpi-native-probe.cpp" -o "$TASK_DIR/native-probe"
 if command -v ldd >/dev/null 2>&1; then
   ldd "$TASK_DIR/native-probe"
   ldd "$TASK_DIR/mpi-host-shared"
@@ -89,7 +89,7 @@ fi
 if ! "$2" -n 2 "$TASK_DIR/native-probe" 2; then
   echo 'Native MPI failed before loading PLUMED; retrying the probe without inherited include/library paths' >&2
   env -u CPATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u LIBRARY_PATH -u LD_LIBRARY_PATH \
-    "$1" -std=c++98 "$ROOT/regtest/scripts/mpi-native-probe.cpp" -o "$TASK_DIR/clean-native-probe" && \
+    "$1" -std=c++98 "$ROOT/regtest/basic/rt-mpiwrap-api/mpi-native-probe.cpp" -o "$TASK_DIR/clean-native-probe" && \
   env -u CPATH -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u LIBRARY_PATH -u LD_LIBRARY_PATH \
     "$2" -n 2 "$TASK_DIR/clean-native-probe" 2 || true
   exit 1
