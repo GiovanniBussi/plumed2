@@ -21,26 +21,10 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "TypesafePtr.h"
 #include "core/PlumedMainInitializer.h"
-#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-#include "../mpiwrap/mpi.h"
-#endif
 
 #include <iostream>
 
 namespace PLMD {
-
-#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
-const MPI_Comm* TypesafePtr::getMPIComm() const {
-#if defined(__PLUMED_HAS_MPI)
-  // A native MPI_Comm can alias int or void*. Only an explicit communicator
-  // request may consume this flag; ordinary get<int*>() must ignore it.
-  if(!typesafePtrSkipCheck() && ((myflags & 0x20000000u) || ((myflags>>16)&0xffu)==6)) {
-    throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
-  }
-#endif
-  return get<const MPI_Comm*>();
-}
-#endif
 
 TypesafePtr TypesafePtr::fromSafePtr(void* safe) {
   auto s=(plumed_safeptr_x*)safe;

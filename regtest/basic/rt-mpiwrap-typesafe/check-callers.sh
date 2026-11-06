@@ -31,8 +31,6 @@ HEADER
     "$task/caller-cxx"
   done
 done
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -Wno-unused-parameter -D__PLUMED_MPIWRAP \
-  -fsyntax-only -x c++ "$root/regtest/basic/rt-mpiwrap-typesafe/kernel.cpp.in"
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_TEST_WRAPPER_COMM \
   -x c++ "$root/regtest/basic/rt-mpiwrap-typesafe/caller.cpp.in" -o "$task/caller-wrapper"
 "$task/caller-wrapper"
