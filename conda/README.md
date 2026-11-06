@@ -81,4 +81,6 @@ each implementation it checks that the base has no external MPI dependency,
 adds `plumed-mpi` plus the selected runtime, exercises the MPI executable,
 removes the add-on, and checks that the kernel bytes stayed unchanged and
 ordinary/internal-thread capabilities remain available. CI runs these checks
-on its existing Linux and macOS conda jobs.
+on Linux x86_64, native Linux aarch64 (`ubuntu-24.04-arm`), and macOS.
+The workflow temporarily uses `conda-ci`'s `test-update` branch for the Linux
+ARM64 bootstrap; switch it back to `master` after that helper change is merged.
