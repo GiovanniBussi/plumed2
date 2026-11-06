@@ -2,6 +2,8 @@
 
 These are PLUMED's own CI/channel recipes. They prototype optional extension
 packages; they do not change conda-forge's recipes or existing package names.
+Runtime selection, host compatibility, lifecycle rules and provider limits are
+covered by the [MPI wrapper documentation](../src/mpiwrap/README.md).
 
 | Package | Contents | External MPI dependency |
 | --- | --- | --- |
