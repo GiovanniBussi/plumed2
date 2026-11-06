@@ -8,7 +8,6 @@ mkdir -p "$tmp/regtest/scripts" "$tmp/regtest/case" "$tmp/regtest/case/trajector
 cp "$repo/regtest/scripts/run" "$tmp/regtest/scripts/run"
 cp "$repo/regtest/scripts/fixzeroes.sh" "$tmp/regtest/scripts/fixzeroes.sh"
 cp "$repo/regtest/scripts/exe.make" "$tmp/regtest/scripts/exe.make"
-cp "$repo/regtest/scripts/mpi-cli.cpp" "$tmp/regtest/scripts/mpi-cli.cpp"
 : > "$tmp/regtest/case/trajectories/testUtils.h"
 mkdir -p "$tmp/bin"
 cat > "$tmp/bin/plumed" <<'EOF'

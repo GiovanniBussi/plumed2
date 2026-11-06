@@ -19,12 +19,12 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "wrapper/Plumed.h"
-#include <cstring>
-
 #ifdef __PLUMED_HAS_MPI
+#define PLUMED_MPIW_HOST_ADAPTER 1
 #include <mpi.h>
 #endif
+#include "wrapper/Plumed.h"
+#include <cstring>
 
 /**
   This main uses only the interface published in
@@ -56,6 +56,14 @@ int main(int argc,char**argv) {
 
   try {
     PLMD::Plumed p;
+#ifdef __PLUMED_HAS_MPI
+    // Older kernels predate injection; they retain the native-MPI path.
+    int api=0;
+    p.cmd("getApiVersion",&api);
+    if(api>=11) {
+      p.cmd("injectMPIImplementation",PLMD::mpiwrap::plumed_mpi_implementation());
+    }
+#endif
     p.cmd("CLTool setArgc",&argc);
     p.cmd("CLTool setArgv",argv, {static_cast<std::size_t>(argc)});
 #ifdef __PLUMED_HAS_MPI

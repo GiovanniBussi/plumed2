@@ -167,11 +167,14 @@ plumed_cmd(p, "injectMPIImplementation", PLMD::mpiwrap::plumed_mpi_implementatio
 C++ callers use ordinary `Plumed` constructors and the same `cmd` command.
 
 The accessor returns a typed provider descriptor pointer. Safeptr type code 6
-identifies it; older kernels ignore this reserved code. The new injection API
-requires this dedicated type whenever type metadata is supplied, including for
+identifies it; older kernels ignore this reserved code. Provider-mode kernels
+require this dedicated type whenever type metadata is supplied, including for
 otherwise opaque object pointers. There is no legacy typed provider argument to
 preserve. The untyped C interface remains unchecked, as for other commands.
-The descriptor ABI and kernel symbol table are unchanged.
+The descriptor ABI and kernel symbol table are unchanged. Native-MPI kernels
+ignore injection without reading or validating the supplied descriptor. Their
+provider registry, dispatch and fallback implementations are compiled out;
+standard MPI calls use the linked MPI library directly.
 
 When the local MPI declaration precedes `Plumed.h`, communicator arguments are
 checked against that translation unit's `MPI_Comm*`, preserving const pointers.
@@ -274,6 +277,47 @@ Without the force flag, injection retains priority. An absent provider path,
 an invalid force value, or a late attempt to replace an installed provider
 raises an error. Injected callback code remains host-owned, including when injection is bypassed
 by the force setting. Already published callbacks are never replaced.
+
+## Build an MPI executable
+
+`mkmpi --executable` recompiles the exact `src/main/main.cpp` used for the normal
+PLUMED executable. The source is also installed, so the original checkout is not
+needed. Executable mode uses C++11 and prefers `$MPICXX`, `$MPICC`, `mpicxx`, then
+`mpicc`; choose an MPI C++ driver when specifying `--compiler`.
+
+```sh
+plumed mkmpi --executable --compiler /absolute/path/to/mpicxx --out plumed-mpi
+mpiexec -n 8 ./plumed-mpi driver --plumed plumed.dat --ixyz trajectory.xyz
+```
+
+The default `--link shared` links the current `libplumed`. `--link runtime`
+embeds the public wrapper's loader instead, with the current kernel as its
+default; `PLUMED_KERNEL` can select a different kernel at execution time.
+This allows a precompiled serial kernel to use MPI installed afterwards.
+The executable and MPI/kernel dependencies must be available on the compute
+nodes. The selected kernel must support injection for this serial-kernel use.
+
+The ordinary main owns MPI initialization/finalization, destroys PLUMED before
+finalizing MPI, and passes the native communicator to CLTools. It injects MPI
+before other setup when the kernel advertises command API 11 or newer. Older
+kernels retain the historical native-MPI path. `--no-mpi` skips MPI initialization,
+communicator setup and finalization; `--mpi` restores them if it follows
+`--no-mpi`. Neither option changes injection. No additional launcher options are
+introduced. Native-MPI kernels ignore injection, including when this same main
+is built as the normal native-MPI executable.
+
+To exercise environment loading while using the same executable:
+
+```sh
+export PLUMED_MPI_WRAPPER=/absolute/path/to/provider.so
+export PLUMED_MPI_WRAPPER_FORCE=1
+mpiexec -n 8 ./plumed-mpi driver --plumed plumed.dat --ixyz trajectory.xyz
+```
+
+The provider must use the host executable's MPI implementation. Injection is
+still requested by the main; the kernel's existing force mechanism overrides it.
+Provider-only `mkmpi` builds retain their existing compiler discovery and
+C++98-compatible implementation; executable mode does not change them.
 
 ## Source layout and generation
 
@@ -659,12 +703,13 @@ Python calls should release the GIL during the long-running command.
 ### MPI installed after a serial kernel build
 
 The dedicated Linux injection job installs Open MPI after building PLUMED
-serially. A small C++98 host reruns the suite through injection; focused checks
-also exercise 1, 2 and 4 ranks and both creation paths. Debug and Intel jobs add
-a posterior Open MPI injection pass after their normal suites. The focused
-checks also build a provider DSO with `plumed mkmpi` and pass `--no-injection`
-to the same host, selecting that DSO through `PLUMED_MPI_WRAPPER`. The same
-checks can be repeated manually with another MPI implementation.
+serially. `plumed mkmpi --executable` builds the injecting host from the
+installed standard main. Focused checks exercise 1, 2 and 4 ranks in shared and
+runtime modes. Debug and Intel jobs add a posterior Open MPI injection pass
+after their normal suites. The focused checks also build a provider DSO with
+`plumed mkmpi` and select it through `PLUMED_MPI_WRAPPER` together with
+`PLUMED_MPI_WRAPPER_FORCE=1`. The same checks can be repeated manually with
+another MPI implementation.
 The same serial kernel is tested again through injection;
 there is no PLUMED rebuild. The host owns MPI initialization
 and finalization. `PLUMED_CLI_PROGRAM_NAME` selects it for CLTool tests only,
@@ -682,18 +727,17 @@ bash regtest/basic/rt-mpiwrap-api/check-mpi-host-injection.sh /absolute/path/to/
 ```
 
 The optional fourth argument enables environment-provider cases in addition to
-injection cases. Omitting it retains the injection-only test. The host consumes
-`--no-injection` as its first option and does not forward it to PLUMED. It owns
-MPI initialization and finalization for parallel execution in both
-modes; `--no-mpi` queries avoid MPI lifecycle calls.
+injection cases. Omitting it retains the injection-only test. Both paths use
+unmodified standard-main behavior; `--no-mpi` queries avoid MPI lifecycle calls.
 
 
 ## Integration with existing PLUMED code
 
 The MPI provider implementation keeps existing callers and native-MPI initialization
-unchanged. In particular `src/main/main.cpp`, kernel initializer/symbol-table
-code and existing wrapper entry-point implementations are unchanged. There is
-no new kernel symbol-table entry or public object type.
+unchanged. The standard main now requests injection before CLTool setup and is
+reused by `mkmpi --executable`. Kernel initializer/symbol-table code and existing
+wrapper entry-point implementations are unchanged. There is no new kernel
+symbol-table entry or public object type.
 
 | Files | Reason for the feature change |
 | --- | --- |
@@ -711,7 +755,8 @@ no new kernel symbol-table entry or public object type.
 | `src/core/Value.h` | Suppress only the observed cppcheck false positive on a member-reference accessor, without changing its code or return type. |
 | `src/maketools/codecheck` | Exclude the imported runtime like other vendor code, avoid opt-in adapter configurations in kernel analysis, and exempt only structural rules incompatible with generated C ABI headers. Semantic diagnostics remain enabled. |
 | `src/wrapper/Plumed.h` | Add the opt-in generated host/native adapter and its one implementation accessor. Existing C/C++ wrapper implementations and exception handling are unchanged. |
-| `scripts/mkmpi.sh` | Build a standalone provider from the already-installed public header, using the chosen MPI driver, C++98-compatible bodies and atomic output publication. No extra implementation sources are installed. |
+| `scripts/mkmpi.sh` | Build a standalone provider from the public header or recompile the installed standard main into a shared/runtime MPI executable, with atomic output publication. |
+| `src/main/main.cpp`, `src/lib/Makefile` | Request injection on MPI-enabled entry before CLTool setup, retaining older-kernel behavior. Install this exact source for `mkmpi --executable`; no second CLI host implementation. |
 | `plugins/pycv/FindPlumed.cmake` | Link external MPI only for a native-MPI build; embedded tMPI does not require external MPI headers or libraries. |
 | `regtest/scripts/run`, `mpi*.cpp`, `mpi-test.h` | Select direct MPI, an injecting CLI host or internal ranks while keeping old `mpiprocs` values and old-kernel behavior. External MPI lifecycle remains owned by the executable. |
 | Converted existing MPI regtests | Mechanical lifecycle/communicator changes only; original calculations, rank counts and reference files are retained. Four cases with process-global environment or independent serial processes remain native-only. |

@@ -6,11 +6,14 @@ TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-mkmpi-test.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
 TASK_DIR=$(cd "$TASK_DIR" && pwd)
 export PLUMED_ROOT="$TASK_DIR/installed tree"
-mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/include/plumed/wrapper" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
+mkdir -p "$PLUMED_ROOT/src/config" "$PLUMED_ROOT/src/main" "$PLUMED_ROOT/include/plumed/wrapper" "$TASK_DIR/compiler dir" "$TASK_DIR/output dir"
 printf '/* public header */\n' > "$PLUMED_ROOT/include/plumed/wrapper/Plumed.h"
 export PLUMED_INCLUDEDIR="$PLUMED_ROOT/include"
 export PLUMED_PROGRAM_NAME=plumed
-printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\n" > "$PLUMED_ROOT/src/config/compile_options.sh"
+printf "mpi_provider_compile_flags='-fPIC'\nmpi_provider_link_flags='-shared'\nsoext=so\n" > "$PLUMED_ROOT/src/config/compile_options.sh"
+cp "$ROOT/src/main/main.cpp" "$PLUMED_ROOT/src/main/main.cpp"
+printf 'kernel\n' > "$TASK_DIR/libplumedKernel.so"
+printf 'wrapper\n' > "$TASK_DIR/libplumed.so"
 export ARGUMENT_LOG="$TASK_DIR/arguments" COMPILER_LOG="$TASK_DIR/compiler-used"
 cat > "$TASK_DIR/compiler dir/mpicc" <<'COMPILER'
 #!/usr/bin/env bash
@@ -60,6 +63,28 @@ fi
 if grep -E -- '^-std=|^-x$' "$ARGUMENT_LOG" >/dev/null; then
   echo 'mkmpi added unconfigured language flags' >&2; exit 1
 fi
+for mode in shared runtime; do
+  "$ROOT/scripts/mkmpi.sh" --executable --link "$mode" \
+    --compiler "$TASK_DIR/compiler dir/mpicc" --out "$output"
+  grep -Fx -- "$PLUMED_ROOT/src/main/main.cpp" "$ARGUMENT_LOG" >/dev/null
+  grep -Fx -- '-D__PLUMED_HAS_MPI=1' "$ARGUMENT_LOG" >/dev/null
+  if grep -Fx -- '-shared' "$ARGUMENT_LOG" >/dev/null; then
+    echo 'mkmpi linked its executable as a provider library' >&2; exit 1
+  fi
+  if [[ "$mode" = shared ]]; then
+    grep -Fx -- '-lplumed' "$ARGUMENT_LOG" >/dev/null
+  else
+    grep -Fx -- '-D__PLUMED_WRAPPER_LINK_RUNTIME=1' "$ARGUMENT_LOG" >/dev/null
+    if grep -Fx -- '-lplumed' "$ARGUMENT_LOG" >/dev/null; then
+      echo 'runtime executable unexpectedly links libplumed' >&2; exit 1
+    fi
+  fi
+done
+for invalid in runtime other; do
+  if "$ROOT/scripts/mkmpi.sh" --link "$invalid" --out "$output" 2>/dev/null; then
+    echo 'mkmpi accepted a link mode without executable mode' >&2; exit 1
+  fi
+done
 # Isolate discovery from MPI installations on the developer's PATH.
 mkdir "$TASK_DIR/bin"
 for program in bash basename cat dirname mktemp mv rm uname; do
@@ -83,6 +108,10 @@ check_default "$TASK_DIR/compiler dir/mpicc" \
 (cd "$TASK_DIR" && check_default "$TASK_DIR/compiler dir/mpicc" MPICC="compiler dir/mpicc")
 check_default "$TASK_DIR/bin/env-cxx" MPICC=/missing/mpicc MPICXX=env-cxx
 check_default "$TASK_DIR/bin/mpicc"
+# Executable mode prefers the MPI C++ driver without changing provider discovery.
+env PATH="$TASK_DIR/bin" MPICC=mpicc MPICXX=env-cxx \
+  "$ROOT/scripts/mkmpi.sh" --executable --out "$output"
+test "$(cat "$COMPILER_LOG")" = "$TASK_DIR/bin/env-cxx"
 rm "$TASK_DIR/bin/mpicc"
 check_default "$TASK_DIR/bin/mpicxx"
 # Explicit selection must take precedence over all defaults.

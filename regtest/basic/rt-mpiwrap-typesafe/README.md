@@ -12,8 +12,10 @@ Both sides use only extra metadata in the existing safeptr flags. Old kernels
 ignore the communicator exclusion bit and provider type code 6. New kernels
 accept legacy void/unannotated communicator pointers. The new provider API
 requires dedicated type code 6 when metadata is present, including for opaque
-pointers; it does not need another exclusion bit. C99's untyped interface is
-unchanged; C11 and C++ callers can carry the new annotations. Communicators remain
+pointers; it does not need another exclusion bit. Native-MPI kernels ignore
+injection entirely, including null, invalid and incorrectly typed descriptors.
+C99's untyped interface is unchanged; C11 and C++ callers can carry the new
+annotations. Communicators remain
 pointer-only; values are rejected if the local type distinguishes them.
 Run `bash regtest/basic/rt-mpiwrap-typesafe/check-callers.sh` from the repository
 root for C11/C++98/11/17 transport probes and native kernel instantiations without an MPI installation.

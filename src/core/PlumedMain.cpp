@@ -844,11 +844,13 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
         plumedDat=val.getCString();
         break;
       case cmd_injectMPIImplementation:
+#if defined(__PLUMED_HAS_MPI)
+        // Native MPI already owns the implementation. Ignore injection without
+        // inspecting the descriptor, including tables supplied by MD engines.
+#else
         CHECK_NOTINIT(initialized,word);
         CHECK_NOTNULL(val,word);
-#if defined(__PLUMED_HAS_MPI)
-        plumed_merror("MPI provider injection is disabled in native-MPI kernels");
-#elif !defined(__PLUMED_MPIWRAP)
+#if !defined(__PLUMED_MPIWRAP)
         plumed_merror("MPI provider injection is unavailable in a fully serial kernel");
 #else
         if(!mpiwrap::forceEnvironmentProvider()) {
@@ -858,6 +860,7 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
             plumed_merror(error);
           }
         }
+#endif
 #endif
         break;
       case cmd_setMPIComm:

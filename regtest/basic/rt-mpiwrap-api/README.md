@@ -136,6 +136,9 @@ pure-serial Communicator checks take inputs shown by their usage messages.
 Launcher and runtime selection checks live with the launcher regression:
 `regtest/basic/rt-mpiwrap-launcher/check-thread-mpi-cli.sh`,
 `check-thread-mpi-lifecycle.sh`, `check-regtest-runner.sh`,
-`check-thread-mpi-benchmark.sh`, and `check-mpi-capabilities.sh`. Shared
-`mpi-cli.cpp`, `mpi-test.h`, and `mpi-native-probe.cpp` helpers remain in
-`regtest/scripts`.
+`check-thread-mpi-benchmark.sh`, and `check-mpi-capabilities.sh`.
+`check-mpi-host-injection.sh` builds shared and runtime executables through
+`mkmpi --executable`, using the installed standard main. Environment-provider
+cases use `PLUMED_MPI_WRAPPER_FORCE=1`. Shared `mpi-test.h` and
+`mpi-native-probe.cpp` helpers remain in `regtest/scripts`; there is no separate
+CLI host source.

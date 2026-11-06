@@ -97,6 +97,12 @@ void run() {
   wrapperTypeError([&] { command.cmd("injectMPIImplementation",&wrongProvider); },"MPI provider descriptor pointer");
   wrapperTypeError([&] { command.cmd("injectMPIImplementation",&mutableData); },"MPI provider descriptor pointer");
   wrapperTypeError([&] { command.cmd("injectMPIImplementation",static_cast<const void*>(provider)); },"MPI provider descriptor pointer");
+#elif defined(__PLUMED_HAS_MPI)
+  // Native MPI ignores injection, including descriptors it could not inspect.
+  command.cmd("injectMPIImplementation",provider);
+  command.cmd("injectMPIImplementation",&wrongProvider);
+  command.cmd("injectMPIImplementation",&mutableData);
+  command.cmd("injectMPIImplementation");
 #endif
 }
 }

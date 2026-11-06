@@ -8,7 +8,30 @@ fi
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 TASK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/plumed-host-injection.XXXXXX")
 trap 'rm -rf "$TASK_DIR"' EXIT
-"$1" -std=c++98 -DPLUMED_MPI_HOST_LINK_RUNTIME=1 "$ROOT/regtest/scripts/mpi-cli.cpp" -ldl -o "$TASK_DIR/mpi-host"
+kernel_dir=$(cd "$(dirname "$3")" && pwd)
+program_name=$(basename "$3")
+program_name=${program_name#lib}
+program_name=${program_name%Kernel.*}
+for candidate in "$kernel_dir/$program_name" "$kernel_dir/../.."; do
+  if [[ -r "$candidate/src/main/main.cpp" && -r "$candidate/src/config/compile_options.sh" ]]; then
+    mpi_root=$(cd "$candidate" && pwd)
+    break
+  fi
+done
+if [[ -z ${mpi_root:-} ]]; then
+  echo 'cannot find the installed standard main beside the requested kernel' >&2
+  exit 1
+fi
+include_dir="$mpi_root/src/include"
+if [[ ! -d "$include_dir" ]]; then include_dir="$mpi_root/../../include"; fi
+build_main() {
+  env PLUMED_ROOT="$mpi_root" PLUMED_INCLUDEDIR="$include_dir" \
+    PLUMED_PROGRAM_NAME="$program_name" \
+    "$ROOT/scripts/mkmpi.sh" --executable --compiler "$1" "${@:2}"
+}
+for link in shared runtime; do
+  build_main "$1" --link "$link" --out "$TASK_DIR/mpi-host-$link"
+done
 # Fail deterministically if --no-mpi reaches a lifecycle call, including the
 # exception path. These executable definitions interpose the shared MPI library.
 cat > "$TASK_DIR/no-mpi-lifecycle.cpp" <<'SOURCE'
@@ -32,18 +55,17 @@ int MPI_Abort(MPI_Comm, int) {
 }
 }
 SOURCE
-"$1" -std=c++98 -DPLUMED_MPI_HOST_LINK_RUNTIME=1 \
-  "$ROOT/regtest/scripts/mpi-cli.cpp" "$TASK_DIR/no-mpi-lifecycle.cpp" \
-  -ldl -o "$TASK_DIR/no-init-host"
+build_main "$1" --link runtime --cflag "$TASK_DIR/no-mpi-lifecycle.cpp" \
+  --out "$TASK_DIR/no-init-host"
 no_init_environment=(env -u PLUMED_MPI_WRAPPER -u PLUMED_MPI_WRAPPER_FORCE "PLUMED_KERNEL=$3")
 "${no_init_environment[@]}" "$TASK_DIR/no-init-host" --no-mpi --has-real-mpi
 "${no_init_environment[@]}" "$TASK_DIR/no-init-host" --mpi --no-mpi info --root
 status=0
-"${no_init_environment[@]}" PLUMED_MPI_HOST_EXPLICIT_PATH="$TASK_DIR/missing-kernel" \
+"${no_init_environment[@]}" PLUMED_KERNEL="$TASK_DIR/missing-kernel" \
   "$TASK_DIR/no-init-host" --no-mpi info --root > "$TASK_DIR/no-init-error.log" 2>&1 || status=$?
-if ((status != 1)); then
+if ((status == 0 || status == 91)); then
   cat "$TASK_DIR/no-init-error.log" >&2
-  echo "uninitialized host did not return a clean error" >&2
+  echo "uninitialized host did not fail without entering MPI" >&2
   exit 1
 fi
 # A later --mpi must enable initialization; also verify our interceptor works.
@@ -61,7 +83,8 @@ echo 'MPI host honors --no-mpi without initialization, finalization, or abort'
 "$1" -std=c++98 "$ROOT/regtest/scripts/mpi-native-probe.cpp" -o "$TASK_DIR/native-probe"
 if command -v ldd >/dev/null 2>&1; then
   ldd "$TASK_DIR/native-probe"
-  ldd "$TASK_DIR/mpi-host"
+  ldd "$TASK_DIR/mpi-host-shared"
+  ldd "$TASK_DIR/mpi-host-runtime"
 fi
 if ! "$2" -n 2 "$TASK_DIR/native-probe" 2; then
   echo 'Native MPI failed before loading PLUMED; retrying the probe without inherited include/library paths' >&2
@@ -90,24 +113,18 @@ environment["PLUMED_KERNEL"] = str(kernel)
 for mode in (("injection", "environment") if provider else ("injection",)):
     if mode == "environment":
         environment["PLUMED_MPI_WRAPPER"] = str(provider)
+        environment["PLUMED_MPI_WRAPPER_FORCE"] = "1"
     else:
         environment.pop("PLUMED_MPI_WRAPPER", None)
-    for explicit in (False, True):
+        environment.pop("PLUMED_MPI_WRAPPER_FORCE", None)
+    for link in ("shared", "runtime"):
         for ranks in (1, 2, 4):
-            work = directory / f"{mode}-{'path' if explicit else 'selected'}-{ranks}"
+            work = directory / f"{mode}-{link}-{ranks}"
             work.mkdir()
             shutil.copyfile(fixture / "plumed.dat", work / "plumed.dat")
-            if explicit:
-                environment["PLUMED_MPI_HOST_EXPLICIT_PATH"] = str(kernel)
-                # Explicit-path creation must not accidentally use the environment.
-                environment["PLUMED_KERNEL"] = str(work / "missing-kernel")
-            else:
-                environment.pop("PLUMED_MPI_HOST_EXPLICIT_PATH", None)
-                environment["PLUMED_KERNEL"] = str(kernel)
-            environment["PLUMED_MPI_HOST_EXPECTED_RANKS"] = str(ranks)
+            environment["PLUMED_KERNEL"] = str(kernel)
             result = subprocess.run(
-                [str(launcher), "-n", str(ranks), str(directory / "mpi-host"),
-                 *(["--no-injection"] if mode == "environment" else []),
+                [str(launcher), "-n", str(ranks), str(directory / f"mpi-host-{link}"),
                  "driver", "--plumed=plumed.dat", "--timestep=0.05", "--ixyz",
                  str(root / "regtest/trajectories/trajectory.xyz"), "--dump-forces", "ff"],
                 cwd=work, env=environment, stdout=subprocess.PIPE,
@@ -115,7 +132,7 @@ for mode in (("injection", "environment") if provider else ("injection",)):
             )
             if result.returncode:
                 print(result.stdout, file=sys.stderr)
-                raise SystemExit(f"MPI host failed: mode={mode}, explicit={explicit}, ranks={ranks}")
+                raise SystemExit(f"MPI host failed: mode={mode}, link={link}, ranks={ranks}")
             for reference in fixture.glob("*.reference"):
                 name = reference.name[:-len(".reference")]
                 if name.startswith("ff.") and int(name.split(".")[1]) >= ranks:
@@ -127,7 +144,7 @@ for mode in (("injection", "environment") if provider else ("injection",)):
                 if not actual.is_file():
                     print(result.stdout, file=sys.stderr)
                     print("Produced files: " + ", ".join(sorted(p.name for p in work.iterdir())), file=sys.stderr)
-                    raise SystemExit(f"MPI host did not produce {name}: mode={mode}, explicit={explicit}, ranks={ranks}")
+                    raise SystemExit(f"MPI host did not produce {name}: mode={mode}, link={link}, ranks={ranks}")
                 shutil.copyfile(reference, expected)
                 # Use the same portable normalization as the ordinary regtests.
                 subprocess.run([str(root / "regtest/scripts/fixzeroes.sh"), str(actual)], check=True)
@@ -136,6 +153,6 @@ for mode in (("injection", "environment") if provider else ("injection",)):
                     print("".join(difflib.unified_diff(
                         expected.read_text().splitlines(True), actual.read_text().splitlines(True),
                         fromfile=str(reference), tofile=str(actual))), file=sys.stderr)
-                    raise SystemExit(f"host injection differs: {name}, explicit={explicit}, ranks={ranks}")
-            print(f"MPI host passed: mode={mode}, explicit={explicit}, ranks={ranks}")
+                    raise SystemExit(f"host injection differs: {name}, link={link}, ranks={ranks}")
+            print(f"MPI host passed: mode={mode}, link={link}, ranks={ranks}")
 PYTHON
