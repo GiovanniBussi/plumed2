@@ -150,7 +150,7 @@ Communicator::~Communicator() {
 
 void Communicator::Set_comm(const TypesafePtr & val) {
   // Validate before provider discovery can compile/load an adapter.
-  const auto native=val.get<const MPI_Comm*>();
+  const auto native=val.getMPIComm();
   if(val) {
     mpiwrap::ensure_provider_for_communicator();
   }

@@ -322,9 +322,11 @@ private:
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
     communicator=!byvalue && std::is_same<typename std::remove_cv<T>::type,MPI_Comm>::value;
 #endif
+#if !defined(__PLUMED_HAS_MPI)
     if(communicator && ((myflags & 0x20000000u) || type==6)) {
       throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
     }
+#endif
     const bool provider=std::is_same<typename std::remove_cv<T>::type,mpiwrap::plumed_mpiw_provider_descriptor>::value;
     // This new API requires its dedicated type tag. Calls without any type
     // metadata (the untyped C interface) already returned above.
@@ -441,6 +443,19 @@ private:
   }
 
 public:
+
+#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
+  const MPI_Comm* getMPIComm() const {
+#if defined(__PLUMED_HAS_MPI)
+    // A native MPI_Comm can alias int or void*. Only an explicit communicator
+    // request may consume this flag; ordinary get<int*>() must ignore it.
+    if(!typesafePtrSkipCheck() && ((myflags & 0x20000000u) || ((myflags>>16)&0xffu)==6)) {
+      throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
+    }
+#endif
+    return get<const MPI_Comm*>();
+  }
+#endif
 
   template<typename T>
   void set(T val) const {

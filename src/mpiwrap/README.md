@@ -176,8 +176,12 @@ The descriptor ABI and kernel symbol table are unchanged.
 When the local MPI declaration precedes `Plumed.h`, communicator arguments are
 checked against that translation unit's `MPI_Comm*`, preserving const pointers.
 The reserved flag `0x20000000` means the argument is incompatible. New kernels
-check it through `TypesafePtr::get<const MPI_Comm*>()` before discovery or byte
-copying. Old callers omit it and old kernels ignore it. In provider mode the
+check it through `TypesafePtr::getMPIComm()` at the communicator boundary,
+before discovery or byte copying. In native mode this explicit request is
+necessary because MPI_Comm can alias an ordinary type such as int: normal
+integer commands must ignore the communicator exclusion flag. Provider-mode
+`get<const MPI_Comm*>()` can also check it because the wrapper class is distinct.
+Old callers omit the flag and old kernels ignore it. In provider mode the
 native size is not compared against `sizeof` the wrapper class.
 
 Communicator commands retain the pointer-only interface: pass `&comm`.

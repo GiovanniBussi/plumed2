@@ -39,6 +39,11 @@ void run() {
     int value;
   } mutableData{};
   require(TypesafePtr(&mutableData).get<Mutable*>()==&mutableData);
+  // A caller with a different local MPI type can exclude int* as a
+  // communicator, without preventing normal integer input/output commands.
+  int integer=7;
+  TypesafePtr notComm(&integer,0,nullptr,sizeof(int) | 0x30000u | 0x4000000u | 0x20000000u);
+  require(notComm.get<int*>()==&integer);
 #if defined(__PLUMED_MPIWRAP) || defined(__PLUMED_HAS_MPI)
   MPI_Comm communicator {};
   const MPI_Comm constant{};
@@ -46,8 +51,9 @@ void run() {
   require(TypesafePtr(&communicator).get<const MPI_Comm*>()==&communicator);
   require(TypesafePtr(&constant).get<const MPI_Comm*>()==&constant);
   require(TypesafePtr(static_cast<const void*>(&communicator)).get<const MPI_Comm*>()==&communicator);
-  typeError([&] { TypesafePtr(&wrong).get<const MPI_Comm*>(); },"pointer to MPI_Comm");
-  typeError([&] { TypesafePtr(1).get<const MPI_Comm*>(); },"pointer to MPI_Comm");
+  typeError([&] { TypesafePtr(&wrong).getMPIComm(); },"pointer to MPI_Comm");
+  typeError([&] { TypesafePtr(1).getMPIComm(); },"pointer to MPI_Comm");
+  typeError([&] { notComm.getMPIComm(); },"pointer to MPI_Comm");
 
   // An older caller supplies no negative annotation. In provider mode its
   // native integer can be smaller than our wrapper object: do not dereference.
@@ -62,6 +68,9 @@ void run() {
   require(future.get<const MPI_Comm*>()==&communicator);
 
   Plumed command;
+  plumed_safeptr integerArgument {&integer,0,nullptr,notComm.getFlags(),nullptr};
+  plumed_cmd_safe(command,"getApiVersion",integerArgument);
+  require(integer>=11);
   for(const char* key : {
         "setMPIComm","setMPImultiSimComm","CLTool setMPIComm",
         "GREX setMPIIntracomm","GREX setMPIIntercomm"
