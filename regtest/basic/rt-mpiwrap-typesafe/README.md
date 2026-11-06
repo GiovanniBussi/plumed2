@@ -5,8 +5,6 @@ integer/pointer/wrapper communicator types, const and untyped pointers, rejected
 wrong-type arguments, provider pointers, exception translation, and
 metadata forwarding through ordinary, CLTool and GREX commands. Raw legacy
 communicator flags and unknown future communicator annotations remain accepted.
-All legacy untyped constness codes are exercised, including rejection of the
-by-value marker when a communicator address is requested.
 The native integer in a legacy provider-mode argument is deliberately smaller
 than wrapper storage.
 

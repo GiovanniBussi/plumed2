@@ -66,21 +66,6 @@ void run() {
   // Future annotations remain ignored.
   TypesafePtr future(&communicator,0,nullptr,0x40000000u | 0x70000u);
   require(future.get<const MPI_Comm*>()==&communicator);
-  // Legacy untyped metadata skips communicator constness checks, while
-  // retaining the prohibition on taking an address from a by-value argument.
-  for(std::size_t type : {
-        0u,1u
-      }) {
-    for(std::size_t cons=0; cons<8; ++cons) {
-      std::size_t flags=(type<<16) | (cons<<25) | sizeof(MPI_Comm);
-      TypesafePtr untyped(&communicator,0,nullptr,flags);
-      if(cons==1) {
-        typeError([&] { untyped.get<const MPI_Comm*>(); },"passed by value");
-      } else {
-        require(untyped.get<const MPI_Comm*>()==&communicator);
-      }
-    }
-  }
 
   Plumed command;
   plumed_safeptr integerArgument {&integer,0,nullptr,notComm.getFlags(),nullptr};

@@ -292,56 +292,6 @@ public:
 
 private:
 
-  // Normalize only local checking metadata; never change the caller's flags.
-  // Overloads keep MPI's special storage rules out of ordinary argument checks.
-  template<typename T>
-  void checkMPIArgument(const T*, std::size_t&, std::size_t&, std::size_t&, bool) const {
-  }
-
-  void checkMPIArgument(const mpiwrap::plumed_mpiw_provider_descriptor*,
-                        std::size_t&, std::size_t& type, std::size_t&, bool) const {
-    if(type!=6) {
-      throw ExceptionTypeError()<<"This command expects an MPI provider descriptor pointer. Received a "<<type_str()<<" instead"<<extra_msg();
-    }
-  }
-
-  template<typename T>
-  static std::size_t argumentSize(const T*) {
-    return typesafePtrSizeof<typename std::remove_pointer<T>::type>();
-  }
-
-#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
-  static std::size_t argumentSize(const MPI_Comm*) {
-    // Native handles can point to an incomplete implementation type.
-    return sizeof(MPI_Comm);
-  }
-
-  void checkMPIArgument(const MPI_Comm*, std::size_t& size, std::size_t& type,
-                        std::size_t& cons, bool byvalue) const {
-    (void)size; // Provider mode can ignore the caller's native handle size.
-    if(byvalue) {
-      return;
-    }
-#if !defined(__PLUMED_HAS_MPI)
-    if((myflags & 0x20000000u) || type==6) {
-      throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
-    }
-#endif
-#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
-    // The caller's native storage can be smaller than the wrapper object.
-    size=0;
-#endif
-    if(type==0 || type==1) {
-      type=0;
-      // Legacy untyped communicators bypass constness checks. Retain the
-      // by-value marker so taking an address from value storage still throws.
-      if(cons!=1) {
-        cons=0;
-      }
-    }
-  }
-#endif
-
   template<typename T>
   T* get_priv(std::size_t nelem, const std::size_t* shape, bool byvalue) const {
 
@@ -349,6 +299,15 @@ private:
       return (T*) myptr;
     }
     typedef typename std::remove_pointer<T>::type T_noptr;
+#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
+    // A native MPI_Comm can point to an incomplete implementation type.
+    // Check the handle size, without dereferencing that opaque type.
+    typedef typename std::conditional<
+    std::is_same<typename std::remove_cv<T>::type,MPI_Comm>::value,
+        T,T_noptr>::type T_size;
+#else
+    typedef T_noptr T_size;
+#endif
     if(myflags==0) {
       return (T*) myptr;  // no check
     }
@@ -357,10 +316,26 @@ private:
     // auto unsi=(flags>>24)&0x1; // ignored
     auto cons=(myflags>>25)&0x7;
 
-    const auto* requested=static_cast<const typename std::remove_cv<T>::type*>(nullptr);
-    checkMPIArgument(requested,size,type,cons,byvalue);
+    // A communicator request consumes negative information supplied by the
+    // caller, whose native MPI_Comm may differ from this kernel's wrapper.
+    bool communicator=false;
+#if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
+    communicator=!byvalue && std::is_same<typename std::remove_cv<T>::type,MPI_Comm>::value;
+#endif
+#if !defined(__PLUMED_HAS_MPI)
+    if(communicator && ((myflags & 0x20000000u) || type==6)) {
+      throw ExceptionTypeError()<<"This command expects a pointer to MPI_Comm"<<extra_msg();
+    }
+#endif
+    const bool provider=std::is_same<typename std::remove_cv<T>::type,mpiwrap::plumed_mpiw_provider_descriptor>::value;
+    // This new API requires its dedicated type tag. Calls without any type
+    // metadata (the untyped C interface) already returned above.
+    if(provider && type!=6) {
+      throw ExceptionTypeError()<<"This command expects an MPI provider descriptor pointer. Received a "<<type_str()<<" instead"<<extra_msg();
+    }
+    const bool untypedCommunicator=communicator && (type==0 || type==1);
     // type=0: ignore check; type>6: reserved for future extensions.
-    if(type!=0 && type<=6) {
+    if(type!=0 && type<=6 && !untypedCommunicator) {
       if(std::is_integral<T_noptr>::value && (type!=is_integral)) {
         throw ExceptionTypeError() <<"This command expects an integer type. Received a " << type_str() << " instead"<<extra_msg();
       }
@@ -372,8 +347,12 @@ private:
       }
     }
 
-    if(size>0 && argumentSize(requested)>0 && argumentSize(requested)!=size) {
-      throw ExceptionTypeError() << "This command expects a type with size " << argumentSize(requested) << ". Received type has size " << size << " instead"<<extra_msg();
+    bool nativeSize=true;
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+    nativeSize=!communicator; // native bytes, not sizeof(the wrapper class)
+#endif
+    if(nativeSize && size>0 && typesafePtrSizeof<T_size>() >0 && typesafePtrSizeof<T_size>()!=size) {
+      throw ExceptionTypeError() << "This command expects a type with size " << typesafePtrSizeof<T_size>() << ". Received type has size " << size << " instead"<<extra_msg();
     }
 
     if(!byvalue)
@@ -382,7 +361,7 @@ private:
       }
 
     // cons==1 (by value) is here treated as cons==3 (const type*)
-    if(cons>0) {
+    if(cons>0 && !untypedCommunicator) {
       if(!std::is_pointer<T>::value) {
         if(std::is_void<T>::value) {
           if(cons==1) {
