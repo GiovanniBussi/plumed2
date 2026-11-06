@@ -34,3 +34,18 @@ done
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_TEST_WRAPPER_COMM \
   -x c++ "$root/regtest/basic/rt-mpiwrap-typesafe/caller.cpp.in" -o "$task/caller-wrapper"
 "$task/caller-wrapper"
+# Type-only consumers must retain the same communicator annotations.
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_TEST_WRAPPER_COMM -DPLUMED_TEST_TYPES_ONLY \
+  -x c++ "$root/regtest/basic/rt-mpiwrap-typesafe/caller.cpp.in" -o "$task/caller-types"
+"$task/caller-types"
+# These common headers must not pull provider dispatch into every action.
+cat > "$task/common.cpp" <<HEADER
+#include "$root/src/tools/TypesafePtr.h"
+#include "$root/src/tools/Communicator.h"
+#ifdef __PLUMED_mpiwrap_mpiwrap_h
+#error "common type consumers must not include the package interface"
+#endif
+int main() { return sizeof(MPI_Comm) == 0; }
+HEADER
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -Wno-unused-parameter -D__PLUMED_MPIWRAP \
+  -fsyntax-only "$task/common.cpp"

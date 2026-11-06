@@ -3,13 +3,7 @@
 // Generated from mpiwrap.h.in by generate.py; do not edit the output.
 #ifndef __PLUMED_mpiwrap_mpiwrap_h
 #define __PLUMED_mpiwrap_mpiwrap_h
-#ifndef PLUMED_MPIW_HANDLE_CAPACITY
-#define PLUMED_MPIW_HANDLE_CAPACITY ((sizeof(void *) > 8U) ? sizeof(void *) : 8U)
-#endif
-
-#ifndef PLUMED_MPIW_STATUS_CAPACITY
-#define PLUMED_MPIW_STATUS_CAPACITY 128
-#endif
+#include "types.h"
 
 @PROVIDER_ABI@
 @CALLBACK_TYPES@

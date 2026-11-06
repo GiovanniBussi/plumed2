@@ -1,6 +1,10 @@
 /* Public wrapper transport, independent of MPI initialization and a kernel. */
 #if defined(PLUMED_TEST_WRAPPER_COMM)
+#if defined(PLUMED_TEST_TYPES_ONLY)
+#include "../../../src/mpiwrap/mpi-types.h"
+#else
 #include "../../../src/mpiwrap/mpi.h"
+#endif
 #else
 #include <mpi.h>
 #endif

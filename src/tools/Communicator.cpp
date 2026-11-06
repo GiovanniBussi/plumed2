@@ -20,6 +20,7 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "Communicator.h"
+#include "../mpiwrap/mpi.h"
 #include "Exception.h"
 #include "AtomNumber.h"
 #include <cstdlib>

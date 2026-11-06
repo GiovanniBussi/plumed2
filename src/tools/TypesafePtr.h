@@ -24,7 +24,7 @@
 
 #include "Exception.h"
 #if defined(__PLUMED_HAS_MPI) || defined(__PLUMED_MPIWRAP)
-#include "../mpiwrap/mpi.h"
+#include "../mpiwrap/mpi-types.h"
 #endif
 
 #include <memory>

@@ -1525,7 +1525,7 @@ __PLUMED_WRAPPER_C_END
 
 /* Only classify MPI arguments when the local MPI type is visible. Explicit
    void pointers carry no type information and remain accepted. */
-#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h) || defined(__PLUMED_mpiwrap_mpi_types_h)
 #define __PLUMED_WRAPPER_C_MPI_COMM_FLAG(val) _Generic((val), \
   MPI_Comm*: 0u, const MPI_Comm*: 0u, \
   void*: 0u, const void*: 0u, default: 0x20000000u)
@@ -2552,7 +2552,7 @@ private:
   public:
     // sizeof selects the compatible-pointer overload without evaluating it.
     // This also works in C++98, without MPI-specific duplicate overloads for int.
-#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h) || defined(__PLUMED_mpiwrap_mpi_types_h)
     static char mpiCommPointer(const MPI_Comm*);
     struct NotMPICommPointer {
       char data[2];
@@ -2561,7 +2561,7 @@ private:
 #endif
     template<typename T>
     static __PLUMED_WRAPPER_STD size_t mpiCommFlag(T val) {
-#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h)
+#if defined(MPI_VERSION) || defined(MPI_Comm) || defined(__PLUMED_mpiwrap_mpi_h) || defined(__PLUMED_mpiwrap_mpi_types_h)
       return sizeof(mpiCommPointer(val))==sizeof(char) ? 0 : 0x20000000u;
 #else
       (void) val;

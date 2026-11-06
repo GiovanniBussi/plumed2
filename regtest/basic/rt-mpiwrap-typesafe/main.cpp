@@ -1,5 +1,6 @@
 // Include the local MPI type before the public wrapper can erase argument types.
 #include "plumed/tools/Communicator.h"
+#include "plumed/mpiwrap/mpiwrap.h"
 #include "plumed/wrapper/Plumed.h"
 #include <fstream>
 #include <stdexcept>

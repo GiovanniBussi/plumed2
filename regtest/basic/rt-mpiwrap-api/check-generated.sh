@@ -39,6 +39,9 @@ grep -q 'requires GROMACS 2026.0 or newer' "$tmp/old-gromacs-version.log"
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -I"$generated" \
   -iquote "$module" \
   -fsyntax-only -x c++ "$generated/wrapper-header-check.cpp.in"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -DPLUMED_TEST_PACKAGE_FIRST -I"$generated" \
+  -iquote "$module" \
+  -fsyntax-only -x c++ "$generated/wrapper-header-check.cpp.in"
 "${CC:-cc}" -std=c99 -Wall -Wextra -Werror -iquote "$module" \
   -fsyntax-only -x c "$module/mpiwrap.h"
 "${CXX:-c++}" -std=c++98 -Wall -Wextra -Werror -DPLUMED_MPIW_ABI_ONLY \
