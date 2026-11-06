@@ -1,10 +1,17 @@
-// Instantiate kernel checks with integer and opaque native communicator types.
+// Instantiate native checks and the declaration-only provider interface.
 #include "../../../src/tools/TypesafePtr.h"
+#if defined(__PLUMED_MPIWRAP) && !defined(__PLUMED_HAS_MPI)
+#ifdef __PLUMED_mpiwrap_mpiwrap_h
+#error TypesafePtr must not include the generated MPI interface
+#endif
+#endif
 namespace PLMD {
 namespace test_mpi_typesafe {
 void checkNative(MPI_Comm* comm) {
+#if defined(__PLUMED_HAS_MPI)
   (void)TypesafePtr(comm).get<const MPI_Comm*>();
   (void)TypesafePtr(static_cast<const void*>(comm)).get<const MPI_Comm*>();
+#endif
   (void)TypesafePtr(comm).getMPIComm();
 }
 }
