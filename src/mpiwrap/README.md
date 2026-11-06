@@ -248,12 +248,12 @@ the order `$MPICC`, `$MPICXX`, `mpicc`, `mpicxx`. Environment values may be
 paths or executable names on `PATH`; unavailable candidates are skipped.
 Use `plumed mkmpi --compiler /absolute/path/to/mpicc --out provider.so`
 (or an MPI C++ compiler driver) to build the shared native adapter. The command
-reuses configure-tested compiler/shared-library flags, relies on the `.cpp`
+reuses configure-tested compiler/shared-library flags, relies on the `.c`
 suffix for language selection, and adds no language-standard flag. The adapter
-is C++98-compatible and does not link a PLUMED kernel.
+is C99/C++98-compatible and does not link a PLUMED kernel.
 Use a `.dylib` output name on macOS. Pass each additional compiler or linker
 argument separately with repeated `--cflag ARG` or `--ldflag ARG` options;
-arguments are never shell-evaluated. The selected compiler must support C++.
+arguments are never shell-evaluated. Either a C or C++ compiler driver works.
 The command compiles a small generated stub against the installed public
 `Plumed.h`; it does not need adapter source files or the original source
 checkout. Failed builds preserve an existing output.
@@ -282,13 +282,14 @@ by the force setting. Already published callbacks are never replaced.
 
 `mkmpi --executable` recompiles the exact `src/main/main.cpp` used for the normal
 PLUMED executable. The source is also installed, so the original checkout is not
-needed. Executable mode leaves the language standard at the compiler default
-and prefers `$MPICXX`, `$MPICC`, `mpicxx`, then `mpicc`; choose an MPI C++ driver
-when specifying `--compiler`. The current main requires C++11 or newer. If a
-compiler defaults to an older mode, add `--cflag -std=c++11` (or a newer mode).
+needed. Both modes use the same compiler search: `$MPICC`, `$MPICXX`, `mpicc`,
+then `mpicxx`. Executable mode copies the source unchanged into a temporary
+`main.c` so a C driver selects C without compiler-specific language flags.
+The main uses the C wrapper interface and is C99/C++98-compatible. Neither
+mode forces a language standard; either a C or C++ driver works.
 
 ```sh
-plumed mkmpi --executable --compiler /absolute/path/to/mpicxx --out plumed-mpi
+plumed mkmpi --executable --compiler /absolute/path/to/mpicc --out plumed-mpi
 mpiexec -n 8 ./plumed-mpi driver --plumed plumed.dat --ixyz trajectory.xyz
 ```
 
@@ -305,8 +306,12 @@ before other setup when the kernel advertises command API 11 or newer. Older
 kernels retain the historical native-MPI path. `--no-mpi` skips MPI initialization,
 communicator setup and finalization; `--mpi` restores them if it follows
 `--no-mpi`. Neither option changes injection. No additional launcher options are
-introduced. Native-MPI kernels ignore injection, including when this same main
-is built as the normal native-MPI executable.
+introduced. PLUMED command exceptions are transferred through the existing C
+error interface, including nested messages. On failure the main prints the
+diagnostic, releases the error and PLUMED object, and aborts, retaining fatal
+exception behavior without entering MPI finalization while peers may be blocked.
+Native-MPI kernels ignore injection, including when this same main is built as
+the normal native-MPI executable.
 
 To exercise environment loading while using the same executable:
 

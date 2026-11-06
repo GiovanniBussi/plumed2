@@ -17,18 +17,16 @@ Options:
   -h, --help             Show this help
 
 Without --compiler, try $MPICC, $MPICXX, mpicc, then mpicxx, selecting the
-first executable found. Executable mode instead tries $MPICXX, $MPICC,
-mpicxx, then mpicc, and requires a C++ compiler driver. Environment values may
-be paths or names on PATH.
+first executable found in either mode. Environment values may be paths or
+names on PATH.
 
-The adapter is C++98-compatible. The .cpp suffix selects the language; no
+The adapter and main are C99-compatible. The .c suffix selects the language; no
 standard or language-selection flags are added. Configured shared-library
 flags are reused. Extra flags are individual arguments without shell evaluation.
 The generated provider uses the selected MPI runtime and no PLUMED library.
 
 Executable mode uses the compiler default and the standard main, including
---mpi/--no-mpi. That source requires C++11 or newer; use --cflag -std=c++11
-if the compiler defaults to an older mode.
+--mpi/--no-mpi. The same source remains usable by C++ compiler drivers.
 It injects host MPI into provider-capable kernels; native-MPI kernels ignore
 injection. Shared mode links the current libplumed. Runtime mode embeds the
 public loader; PLUMED_KERNEL overrides the default kernel selected at build
@@ -76,9 +74,6 @@ if [[ "$link_given" = yes && "$executable" != yes ]]; then
 fi
 if [[ "$compiler_given" = no ]]; then
   candidates=("${MPICC:-}" "${MPICXX:-}" mpicc mpicxx)
-  if [[ "$executable" = yes ]]; then
-    candidates=("${MPICXX:-}" "${MPICC:-}" mpicxx mpicc)
-  fi
   for candidate in "${candidates[@]}"; do
     [[ -n "$candidate" ]] || continue
     candidate=$(type -P -- "$candidate") || continue
@@ -142,6 +137,8 @@ if [[ "$executable" = yes ]]; then
     echo "mkmpi: missing standard main source $main_source" >&2
     exit 1
   fi
+  # Compile identical source as C without requiring compiler-specific -x flags.
+  cp "$main_source" "$build_dir/main.c"
   program_name=${PLUMED_PROGRAM_NAME:-plumed}
   library_dir=
   for candidate in "$plumed_mpi_root/src/lib" "$(dirname "$plumed_mpi_root")"; do
@@ -169,9 +166,9 @@ if [[ "$executable" = yes ]]; then
     main_link_flags=(-ldl)
   fi
   "$compiler" "${main_flags[@]}" -I"$(dirname "$header")/.." \
-    ${cflags[@]+"${cflags[@]}"} "$main_source" "${main_link_flags[@]}" \
+    ${cflags[@]+"${cflags[@]}"} "$build_dir/main.c" "${main_link_flags[@]}" \
     ${ldflags[@]+"${ldflags[@]}"} -o "$temporary_output" || {
-      echo "mkmpi: executable compilation/link failed; select an MPI C++ compiler with --compiler or MPICXX" >&2
+      echo "mkmpi: executable compilation/link failed with $compiler" >&2
       exit 1
     }
   if [[ ! -s "$temporary_output" ]]; then
@@ -181,7 +178,7 @@ if [[ "$executable" = yes ]]; then
   mv -f "$temporary_output" "$output"
   exit 0
 fi
-adapter_source="$build_dir/mpiwrap_implementation.cpp"
+adapter_source="$build_dir/mpiwrap_implementation.c"
 cat > "$adapter_source" <<'ADAPTER'
 #define PLUMED_MPIW_NATIVE_ADAPTER 1
 #define __PLUMED_WRAPPER_IMPLEMENTATION 0

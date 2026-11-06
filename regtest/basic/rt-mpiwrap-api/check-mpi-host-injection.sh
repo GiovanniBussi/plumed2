@@ -68,6 +68,16 @@ if ((status == 0 || status == 91)); then
   echo "uninitialized host did not fail without entering MPI" >&2
   exit 1
 fi
+# Exercise a kernel-thrown exception as well as the invalid-loader error above.
+status=0
+"${no_init_environment[@]}" PLUMED_MPI_WRAPPER_FORCE=invalid \
+  "$TASK_DIR/no-init-host" --no-mpi info --root > "$TASK_DIR/kernel-error.log" 2>&1 || status=$?
+if ((status == 0 || status == 91)) || \
+    ! grep -q 'PLUMED_MPI_WRAPPER_FORCE must be 0 or 1' "$TASK_DIR/kernel-error.log"; then
+  cat "$TASK_DIR/kernel-error.log" >&2
+  echo 'host did not report the kernel exception without entering MPI' >&2
+  exit 1
+fi
 # A later --mpi must enable initialization; also verify our interceptor works.
 status=0
 "${no_init_environment[@]}" "$TASK_DIR/no-init-host" --no-mpi --mpi info --root \

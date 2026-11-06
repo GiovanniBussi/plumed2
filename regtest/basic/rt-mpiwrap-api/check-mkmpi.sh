@@ -22,6 +22,9 @@ printf '%s\n' "$@" > "$ARGUMENT_LOG"
 printf '%s\n' "$0" > "$COMPILER_LOG"
 output=
 while (($#)); do
+  if [[ "${1##*/}" = main.c ]]; then
+    cmp "$1" "$PLUMED_ROOT/src/main/main.cpp"
+  fi
   if [[ "$1" == -o ]]; then output=$2; shift; fi
   shift
 done
@@ -66,7 +69,7 @@ fi
 for mode in shared runtime; do
   "$ROOT/scripts/mkmpi.sh" --executable --link "$mode" \
     --compiler "$TASK_DIR/compiler dir/mpicc" --out "$output"
-  grep -Fx -- "$PLUMED_ROOT/src/main/main.cpp" "$ARGUMENT_LOG" >/dev/null
+  grep -E -- '/main\.c$' "$ARGUMENT_LOG" >/dev/null
   grep -Fx -- '-D__PLUMED_HAS_MPI=1' "$ARGUMENT_LOG" >/dev/null
   if grep -E -- '^-std=|^-x$' "$ARGUMENT_LOG" >/dev/null; then
     echo 'mkmpi forced an executable language mode' >&2; exit 1
@@ -90,7 +93,7 @@ for invalid in runtime other; do
 done
 # Isolate discovery from MPI installations on the developer's PATH.
 mkdir "$TASK_DIR/bin"
-for program in bash basename cat dirname mktemp mv rm uname; do
+for program in bash basename cat cmp cp dirname mktemp mv rm uname; do
   ln -s "$(command -v "$program")" "$TASK_DIR/bin/$program"
 done
 for name in mpicc mpicxx env-cxx; do
@@ -111,10 +114,10 @@ check_default "$TASK_DIR/compiler dir/mpicc" \
 (cd "$TASK_DIR" && check_default "$TASK_DIR/compiler dir/mpicc" MPICC="compiler dir/mpicc")
 check_default "$TASK_DIR/bin/env-cxx" MPICC=/missing/mpicc MPICXX=env-cxx
 check_default "$TASK_DIR/bin/mpicc"
-# Executable mode prefers the MPI C++ driver without changing provider discovery.
+# Executable mode uses the same C-first compiler preference as provider mode.
 env PATH="$TASK_DIR/bin" MPICC=mpicc MPICXX=env-cxx \
   "$ROOT/scripts/mkmpi.sh" --executable --out "$output"
-test "$(cat "$COMPILER_LOG")" = "$TASK_DIR/bin/env-cxx"
+test "$(cat "$COMPILER_LOG")" = "$TASK_DIR/bin/mpicc"
 rm "$TASK_DIR/bin/mpicc"
 check_default "$TASK_DIR/bin/mpicxx"
 # Explicit selection must take precedence over all defaults.

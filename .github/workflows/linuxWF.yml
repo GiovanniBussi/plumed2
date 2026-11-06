@@ -330,7 +330,7 @@ jobs:
         fi
         sudo apt-get update -qq
         sudo apt-get install -y openmpi-bin libopenmpi-dev
-        plumed mkmpi --executable --compiler /usr/bin/mpic++.openmpi \
+        plumed mkmpi --executable --compiler /usr/bin/mpicc.openmpi \
           --out "$RUNNER_TEMP/plumed-openmpi-host"
         export PLUMED_CLI_PROGRAM_NAME="$RUNNER_TEMP/plumed-openmpi-host"
         export PLUMED_MPIRUN=/usr/bin/mpiexec.openmpi
@@ -427,7 +427,7 @@ jobs:
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y openmpi-bin libopenmpi-dev
-        plumed mkmpi --executable --compiler /usr/bin/mpic++.openmpi \
+        plumed mkmpi --executable --compiler /usr/bin/mpicc.openmpi \
           --out "$RUNNER_TEMP/plumed-openmpi-host"
     - name: Run the full regression suite through the MPI host
       run: |
