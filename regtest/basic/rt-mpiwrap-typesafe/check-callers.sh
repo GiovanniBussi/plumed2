@@ -47,5 +47,6 @@ cat > "$task/common.cpp" <<HEADER
 #endif
 int main() { return sizeof(MPI_Comm) == 0; }
 HEADER
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -Wno-unused-parameter -D__PLUMED_MPIWRAP \
-  -fsyntax-only "$task/common.cpp"
+# Match normal non-OpenACC builds: the included headers contain acc pragmas.
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-pragmas \
+  -D__PLUMED_MPIWRAP -fsyntax-only "$task/common.cpp"
