@@ -8,6 +8,9 @@ task=$(mktemp -d "${TMPDIR:-/tmp}/plumed-conda-packaging.XXXXXX")
 trap 'rm -rf "$task"' EXIT
 export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 export OMPI_MCA_rmaps_base_oversubscribe=1
+# Keep MPI smoke tests on software transports in CI containers. MPICH's UCX
+# netmod otherwise probes host RDMA devices (including Azure MANA interfaces).
+export UCX_TLS=${UCX_TLS:-tcp,self}
 unset PLUMED_KERNEL PLUMED_LIB PLUMED_ROOT PLUMED_INCLUDEDIR PLUMED_PROGRAM_NAME
 unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
 

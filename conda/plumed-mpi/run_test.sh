@@ -8,6 +8,9 @@ unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
 # Allow two ranks in small/root-owned CI containers.
 export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 export OMPI_MCA_rmaps_base_oversubscribe=1
+# Keep MPI smoke tests on software transports in CI containers. MPICH's UCX
+# netmod otherwise probes host RDMA devices (including Azure MANA interfaces).
+export UCX_TLS=${UCX_TLS:-tcp,self}
 
 export MPICH_CC="$CC" OMPI_CC="$CC"
 "$PREFIX/bin/mpicc" ${CPPFLAGS:-} ${CFLAGS:-} native-host.c -I"$PREFIX/include" \
