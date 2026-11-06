@@ -695,7 +695,7 @@ no new kernel symbol-table entry or public object type.
 | --- | --- |
 | `configure.ac`, generated `configure` | Discover native MPI as before; include embedded tMPI by default in serial builds, with an explicit opt-out. Run it only through the explicit launcher. Define the wrapper infrastructure independently of runtime selection. No capacity configure options or module `.on`/`.off` manipulation. |
 | `CMakeLists.txt` | Enable the wrapper and optional embedded Win32/POSIX thread backend; retain registration objects with each platform's linker syntax. Existing Windows configuration remains supported. |
-| `src/.gitignore` | Track the imported flat runtime sources and provenance record using the existing module-ignore conventions. |
+| `src/.gitignore`, `src/{mpiwrap,thread_mpi}/.gitignore` | Use the existing per-module ignore conventions to track sources, generator/import tools and metadata while ignoring build artifacts. |
 | `src/{core,generic,tools}/Makefile` | Declare the new module/header dependencies for normal builds and installed headers. |
 | `src/config/Makefile` | Export native-provider compiler/link flags for `mkmpi`; regenerate options when this Makefile changes. The provider uses a C ABI and does not link a C++ PLUMED runtime. |
 | `src/maketools/update-config-txt.sh` | Separate configured real-MPI and internal-tMPI capabilities while retaining combined `has mpi`. |
