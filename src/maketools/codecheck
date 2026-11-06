@@ -110,9 +110,8 @@ fi
     # if PLMD_CPPCHECK_BUILD_DIR is set, cppcheck stores there the results of each file and only
     # re-analyses the files whose code, or the code of one of the headers they include, changed
     # (the hash also includes the cppcheck version, the options and the inline suppressions).
-    # A build dir also enables the whole-program checks (unusedFunction and the ctu* ones), which
-    # cppcheck otherwise skips with -j: their messages are discarded below, so that the report is
-    # the same with or without the build dir.
+    # Whole-program unusedFunction and ctu* reports are discarded below. Do not enable that
+    # extra analysis just because a build dir is present; keep the per-file checks unchanged.
     # src and plugins get separate directories since cppcheck names its files after the basename
     # of the sources.
     builddir_src=()
@@ -122,9 +121,22 @@ fi
       builddir_src=(--cppcheck-build-dir="${PLMD_CPPCHECK_BUILD_DIR}/src")
       builddir_plugins=(--cppcheck-build-dir="${PLMD_CPPCHECK_BUILD_DIR}/plugins")
     fi
-    # we discard configurations introduced in small_vector because they are many and
-    # get included in many files. Opt-in host/native adapters are built by
-    # the focused provider checks, rather than enabled in ordinary kernel code.
+    # Keep checking header bodies, but do not multiply every source's configurations by
+    # vendored feature switches. Exclusions match path prefixes, not module names:
+    # plugin-local plumed links and absolute inputs need matching paths.
+    config_excludes=()
+    for header in small_vector/ thread_mpi/; do
+      for prefix in "" ../ plumed/ "${basedir}/src/" "${basedir}/src/include/plumed/" \
+        ../plugins/*/src/plumed/ "${basedir}"/plugins/*/src/plumed/; do
+        if [[ -e "${prefix}${header}" ]]; then
+          config_excludes+=(--config-exclude="${prefix}${header}")
+        fi
+      done
+    done
+    # Both configure and CMake always enable the wrapper frontend. State that explicitly
+    # to check provider-mode source bodies without inventing frontend-disabled builds.
+    # Opt-in host/native adapters are built by the focused provider checks, rather
+    # than enabled in ordinary kernel code.
     function docheck(){
       # With cppcheck 2.16.1 and later you can get a report already in sarif format and put it on the CI alongside the old style of output
       # setting up a function to not repeat the arguments
@@ -134,12 +146,14 @@ fi
         -UGMX_CYGWIN -UF77_NO_UNDERSCORE -U_GLIBCXX_DEBUG -DNDEBUG -U__PLUMED_PBC_WHILE \
         -U__PLUMED_HAS_ASMJIT \
         -U__PLUMED_HAS_KENREF \
-        -UPLUMED_MPIW_HOST_ADAPTER -UPLUMED_MPIW_NATIVE_ADAPTER \
+        -UPLUMED_MPIW_HOST_ADAPTER -UPLUMED_MPIW_NATIVE_ADAPTER -UPLUMED_MPIW_ABI_ONLY \
+        -D__PLUMED_MPIWRAP=1 \
         -D__PLUMED_WRAPPER_CXX_EXPLICIT=explicit \
-        --config-exclude=small_vector/ \
+        "${config_excludes[@]}" \
         -i vesin.cpp \
         --template='[{file}:{line}] ({severity}) :{id}: {message}' \
-        --enable=all --suppress=missingIncludeSystem --inline-suppr --force \
+        --enable=warning,style,performance,portability,information --max-ctu-depth=0 \
+        --suppress=missingIncludeSystem --inline-suppr --force --showtime=file-total \
 	"$@"
     }
     # These imported modules already have their diagnostics discarded below.
