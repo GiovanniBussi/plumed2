@@ -68,6 +68,9 @@ for mode in shared runtime; do
     --compiler "$TASK_DIR/compiler dir/mpicc" --out "$output"
   grep -Fx -- "$PLUMED_ROOT/src/main/main.cpp" "$ARGUMENT_LOG" >/dev/null
   grep -Fx -- '-D__PLUMED_HAS_MPI=1' "$ARGUMENT_LOG" >/dev/null
+  if grep -E -- '^-std=|^-x$' "$ARGUMENT_LOG" >/dev/null; then
+    echo 'mkmpi forced an executable language mode' >&2; exit 1
+  fi
   if grep -Fx -- '-shared' "$ARGUMENT_LOG" >/dev/null; then
     echo 'mkmpi linked its executable as a provider library' >&2; exit 1
   fi

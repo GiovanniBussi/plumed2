@@ -26,7 +26,9 @@ standard or language-selection flags are added. Configured shared-library
 flags are reused. Extra flags are individual arguments without shell evaluation.
 The generated provider uses the selected MPI runtime and no PLUMED library.
 
-Executable mode uses C++11 and the standard main, including --mpi/--no-mpi.
+Executable mode uses the compiler default and the standard main, including
+--mpi/--no-mpi. That source requires C++11 or newer; use --cflag -std=c++11
+if the compiler defaults to an older mode.
 It injects host MPI into provider-capable kernels; native-MPI kernels ignore
 injection. Shared mode links the current libplumed. Runtime mode embeds the
 public loader; PLUMED_KERNEL overrides the default kernel selected at build
@@ -152,7 +154,7 @@ if [[ "$executable" = yes ]]; then
     echo 'mkmpi: cannot locate the current PLUMED kernel library' >&2
     exit 1
   fi
-  main_flags=(-std=c++11 -D__PLUMED_HAS_MPI=1)
+  main_flags=(-D__PLUMED_HAS_MPI=1)
   main_link_flags=()
   if [[ "$link_mode" = shared ]]; then
     if [[ ! -r "$library_dir/lib${program_name}.${soext:-so}" ]]; then

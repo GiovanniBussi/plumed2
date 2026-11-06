@@ -282,8 +282,10 @@ by the force setting. Already published callbacks are never replaced.
 
 `mkmpi --executable` recompiles the exact `src/main/main.cpp` used for the normal
 PLUMED executable. The source is also installed, so the original checkout is not
-needed. Executable mode uses C++11 and prefers `$MPICXX`, `$MPICC`, `mpicxx`, then
-`mpicc`; choose an MPI C++ driver when specifying `--compiler`.
+needed. Executable mode leaves the language standard at the compiler default
+and prefers `$MPICXX`, `$MPICC`, `mpicxx`, then `mpicc`; choose an MPI C++ driver
+when specifying `--compiler`. The current main requires C++11 or newer. If a
+compiler defaults to an older mode, add `--cflag -std=c++11` (or a newer mode).
 
 ```sh
 plumed mkmpi --executable --compiler /absolute/path/to/mpicxx --out plumed-mpi
