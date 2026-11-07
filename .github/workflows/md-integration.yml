@@ -84,3 +84,7 @@ jobs:
   gromacs:
     needs: plumed
     uses: ./.github/workflows/md-gromacs.yml
+
+  lammps:
+    needs: plumed
+    uses: ./.github/workflows/md-lammps.yml

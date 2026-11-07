@@ -2,7 +2,8 @@
 
 The `MD integration` workflow builds serial PLUMED once on Ubuntu 24.04 and
 macOS 15 (Apple Silicon). Each installation is shared as an artifact with three
-GROMACS jobs on the same OS. Both PLUMED and GROMACS have OpenMP enabled.
+GROMACS jobs and two LAMMPS jobs on the same OS. PLUMED and both MD engines have
+OpenMP enabled.
 Artifacts preserve installed symlinks and permissions and use the same absolute
 installation prefix in producer and consumer jobs. They are not shared between
 operating systems or architectures.
@@ -49,11 +50,11 @@ Before merging:
    ordinary CI on every branch. The existing jobs themselves are unchanged.
 3. Confirm a manual MD workflow run and the normal CI both pass.
 
-The reusable `md-gromacs.yml` is called by the parent after the PLUMED artifacts
-are ready. Further engines can have separate reusable workflows sharing those
-artifacts. LAMMPS and AMBER injection/header edits should be local to their test
-scripts, rather than new entries in the distributed `plumed patch` collection.
-They are not implemented here.
+The reusable `md-gromacs.yml` and `md-lammps.yml` are called by the parent after
+the PLUMED artifacts are ready. Further engines can have separate reusable
+workflows sharing those artifacts. LAMMPS and future AMBER injection/header
+edits stay local to these tests, rather than adding entries to the distributed
+`plumed patch` collection. AMBER is not implemented here.
 
 ## Numerical and injection checks
 
@@ -120,5 +121,69 @@ When launching Ubuntu's packaged MPICH with Open MPI, also pass
 to `tmpi`, `openmpi` or `mpich`, and optionally `CC`, `CXX`, `MD_BUILD_JOBS`.
 Real MPI additionally requires `MD_MPICC` and `MD_MPICXX`; Apple Clang OpenMP
 requires `MD_LIBOMP` pointing to a prefix containing `include/omp.h` and
-`lib/libomp.dylib`. `setup-gromacs.sh` is the GitHub-runner dependency setup and
-writes selected paths to `GITHUB_ENV`/`GITHUB_PATH`.
+`lib/libomp.dylib`. The shared `setup-mpi.sh` is the GitHub-runner dependency
+setup and writes selected paths to `GITHUB_ENV`/`GITHUB_PATH`. `check-mpi.sh`
+compiles/runs the native MPI probe before either engine is built.
+
+## LAMMPS
+
+LAMMPS is pinned to stable release `stable_30Sep2026_update1`, commit
+`098ffdefa525cabc82272925de02e9884f58c657`. The matrix runs Open MPI and MPICH on
+both operating systems, using the same serial PLUMED artifacts as GROMACS.
+LAMMPS does not have a GROMACS-style thread-MPI backend.
+
+The test copies the installed current `Plumed.h` to the LAMMPS source root.
+The small test-only `lammps/injection.patch` changes `fix_plumed.cpp` to include
+that copy, enables `PLUMED_MPIW_HOST_ADAPTER`, and calls `injectMPIImplementation`
+immediately after creating the PLUMED object. No other LAMMPS code is changed.
+CI verifies that reversing the patch restores all tracked sources. CMake uses
+the installed PLUMED runtime wrapper (`PLUMED_MODE=runtime`), disables downloading
+another PLUMED, and enables LAMMPS's `OPENMP` and `PLUMED` packages.
+
+The runner generates a 256-atom periodic FCC argon crystal with fixed IDs and
+zero initial velocities. IDs are assigned before decomposition so they do not
+depend on how many ranks read the system. A 20-step trajectory uses the threaded
+`lj/cut/omp` pair style, selected explicitly with `-sf omp -pk omp N`. A harmonic
+restraint between atoms 1 and 2 has target 3.5 angstrom and force constant
+0.1 eV/angstrom squared. PLUMED uses matching angstrom/eV/ps units.
+
+As for GROMACS, each job tests 1, 2 and 4 MPI ranks with one OpenMP thread, then
+4 ranks with two threads each, and a four-rank baseline without PLUMED. The
+MPI compiler overrides and nonexistent provider path rule out automatic provider
+discovery as a substitute for injection. After every simulation the runner
+checks LAMMPS's processor grid and MPI/OpenMP counts. It also checks the rank
+and thread counts received by PLUMED and verifies that the threaded pair style
+was active. Singleton worlds therefore cannot silently pass.
+
+Checks cover all 21 frames: ordered time steps and atom IDs, finite values,
+distance measured independently from the native trajectory, analytical bias
+and generalized force, and rank/hybrid consistency of all positions and forces.
+The first frame is compared with the no-PLUMED baseline to verify the actual
+force increment on both restrained atoms and zero increments on every other
+atom. `ENERGY` is compared with LAMMPS's native potential; `fix_modify plumed
+energy no` keeps this native potential independent of the bias. Tolerances are
+`2e-10` for distance/bias/generalized force, `2e-9` eV for native energy and
+rank comparisons of COLVAR, `2e-8` for rank comparisons of positions/forces,
+and `2e-9` eV/angstrom for the force increments. Inputs, exact commands, native
+logs, atom trajectories and `summary.json` are retained and uploaded.
+
+To build locally, first copy the current header and apply the test patch:
+
+```sh
+cp /path/to/plumed/include/plumed/wrapper/Plumed.h /path/to/lammps/Plumed.h
+patch -d /path/to/lammps -p1 < .ci/md-integration/lammps/injection.patch
+BACKEND=mpich MD_MPICXX=/path/to/mpicxx \
+  bash .ci/md-integration/build-lammps.sh /path/to/lammps /path/to/build /path/to/plumed
+python3 .ci/md-integration/lammps/check.py --backend mpich \
+  --lmp /path/to/build/lmp --launcher /path/to/mpiexec \
+  --kernel /path/to/libplumedKernel.dylib --results /tmp/lammps-mpich-results
+```
+
+Use `--backend openmpi` for Open MPI and `.so` for the kernel on Linux. The
+same Apple Clang OpenMP settings (`MD_LIBOMP`) and Ubuntu MPICH launcher
+workaround (`--launcher-kind openmpi`, `UCX_TLS=tcp,sm,self`) apply as described
+above. `--check-only` validates existing outputs without launching MPI again.
+
+The complete local matrix passed on Apple Silicon with MPICH 5.0.1 and Open MPI
+5.0.10 against a serial OpenMP-enabled PLUMED kernel, including the four-rank,
+two-thread case and native force/energy comparisons.

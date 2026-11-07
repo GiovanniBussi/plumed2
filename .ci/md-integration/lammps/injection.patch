@@ -1,0 +1,15 @@
+diff --git a/src/PLUMED/fix_plumed.cpp b/src/PLUMED/fix_plumed.cpp
+index 1774748..682927f 100644
+--- a/src/PLUMED/fix_plumed.cpp
++++ b/src/PLUMED/fix_plumed.cpp
+@@ -37 +37,4 @@
+-#include "plumed/wrapper/Plumed.h"
++#if !defined(MPI_STUBS)
++#define PLUMED_MPIW_HOST_ADAPTER 1
++#endif
++#include "../../Plumed.h"
+@@ -67,0 +71,4 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
++#if !defined(MPI_STUBS)
++  p->cmd("injectMPIImplementation", plumed_mpi_implementation());
++#endif
++

@@ -39,23 +39,14 @@ jobs:
           python-version: '3.12'
 
       - name: Install build tools and the selected MPI
-        run: bash .ci/md-integration/setup-gromacs.sh
+        run: bash .ci/md-integration/setup-mpi.sh
 
       - name: Verify the native MPI world before building GROMACS
         if: matrix.mpi != 'tmpi'
         run: |
           mkdir -p "$RUNNER_TEMP/md-logs"
-          "$MD_MPICXX" regtest/basic/rt-mpiwrap-api/mpi-native-probe.cpp \
-            -o "$RUNNER_TEMP/md-native-probe"
-          python - <<'PY' 2>&1 | tee "$RUNNER_TEMP/md-logs/native-mpi.log"
-          import os
-          import subprocess
-          command = [os.environ["MD_MPIEXEC"]]
-          if os.environ["MD_LAUNCHER_KIND"] == "openmpi":
-              command += ["--oversubscribe", "--bind-to", "none"]
-          command += ["-n", "4", os.environ["RUNNER_TEMP"] + "/md-native-probe", "4"]
-          subprocess.run(command, check=True, timeout=60)
-          PY
+          bash .ci/md-integration/check-mpi.sh \
+            2>&1 | tee "$RUNNER_TEMP/md-logs/native-mpi.log"
 
       - uses: actions/download-artifact@v7
         with:

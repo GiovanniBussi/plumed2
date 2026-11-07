@@ -7,7 +7,7 @@ case "$BACKEND" in tmpi|openmpi|mpich) ;; *) exit 2 ;; esac
 
 if [[ "$RUNNER_OS" == Linux ]]; then
   sudo apt-get update -qq
-  packages=(gawk ninja-build)
+  packages=(gawk ninja-build pkg-config)
   case "$BACKEND" in
     openmpi) packages+=(openmpi-bin libopenmpi-dev) ;;
     mpich) packages+=(mpich libmpich-dev openmpi-bin) ;;
@@ -31,7 +31,7 @@ if [[ "$RUNNER_OS" == Linux ]]; then
     echo 'MD_LAUNCHER_KIND=openmpi' >> "$GITHUB_ENV"
   fi
 else
-  brew install gawk ninja libomp
+  brew install gawk ninja libomp pkgconf
   echo 'CC=/usr/bin/clang' >> "$GITHUB_ENV"
   echo 'CXX=/usr/bin/clang++' >> "$GITHUB_ENV"
   echo "MD_LIBOMP=$(brew --prefix libomp)" >> "$GITHUB_ENV"
