@@ -818,10 +818,13 @@ typedef struct {
 
 typedef struct {
   /** Pointer to data */
+  // C API aggregate initialized by callers; preserve C compatibility.
+  // cppcheck-suppress uninitMemberVarNoCtor
   const void* ptr;
   /** Number of elements (in case pointing to an array) */
   __PLUMED_WRAPPER_STD size_t nelem;
   /** Shape (scanned up to a zero value is found) */
+  // cppcheck-suppress uninitMemberVarNoCtor
   const __PLUMED_WRAPPER_STD size_t* shape;
   /**
     sum of:
@@ -849,12 +852,15 @@ typedef struct {
   */
   __PLUMED_WRAPPER_STD size_t flags;
   /** Optional information, not used yet  */
+  // cppcheck-suppress uninitMemberVarNoCtor
   const void* opt;
 } plumed_safeptr;
 
 /* local structure */
 typedef struct plumed_error_filesystem_path {
   __PLUMED_WRAPPER_STD size_t numbytes;
+  // C API aggregate initialized by callers; preserve C compatibility.
+  // cppcheck-suppress uninitMemberVarNoCtor
   void* ptr;
 } plumed_error_filesystem_path;
 
@@ -2619,6 +2625,8 @@ private:
     __PLUMED_WRAPPER_SAFEPTR_EMPTY(FILE,5)
 
     /// Return the contained plumed_safeptr
+    // Preserve this by-value wrapper API.
+    // cppcheck-suppress returnByReference
     plumed_safeptr get_safeptr() const __PLUMED_WRAPPER_CXX_NOEXCEPT {
       return safeptr;
     }

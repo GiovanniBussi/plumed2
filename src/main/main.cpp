@@ -69,6 +69,8 @@ int main(int argc,char**argv) {
 // end block deletes p also in case an exception occurs
   } catch(...) {
 // exception is rethrown and results in a call to terminate
+    // Preserve the established process-level exception behavior after cleanup.
+    // cppcheck-suppress throwInEntryPoint
     throw;
   }
 
