@@ -23,12 +23,13 @@ requirements:
     - llvm-openmp  # [osx]
     - make
   host:
-    - fftw
+    - fftw * nompi_*
     - libblas
     - liblapack
     - llvm-openmp  # [osx]
     - zlib
   run:
+    - fftw * nompi_*
     - gawk
     - llvm-openmp  # [osx]
 
@@ -36,6 +37,9 @@ test:
   commands:
     - plumed info --root
     - plumed info --long-version
+    - plumed --has-thread-mpi
+    - "! plumed config has real_mpi"
+    - test ! -f "$PREFIX/lib/libplumed-mpi-provider$SHLIB_EXT"
     - plumed-patch -h
     - plumed config has external_blas external_lapack fftw zlib
     - $PREFIX/lib/plumed/plumed-runtime -h
