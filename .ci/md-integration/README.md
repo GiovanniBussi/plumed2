@@ -9,6 +9,10 @@ installation prefix in producer and consumer jobs. They are not shared between
 operating systems or architectures.
 Linux jobs add the private installation's `lib` directory to `LD_LIBRARY_PATH`
 before using the installed executable, including after downloading the artifact.
+OpenMP flags are passed both when compiling and linking the kernel. Before
+uploading an artifact, `check-kernel.sh` loads it from a plain C executable
+without MPI/OpenMP link flags. This catches missing runtime dependencies that
+an OpenMP-enabled MD host could otherwise hide.
 
 All source versions are pinned in [`versions.json`](versions.json). The installed PLUMED patcher applies,
 reverts and reapplies the distributed `gromacs-2026.0` patch. The revert must

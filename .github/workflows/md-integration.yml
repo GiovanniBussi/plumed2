@@ -44,6 +44,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/md-logs"
           if [[ "$RUNNER_OS" == Linux ]]; then
             export CC=gcc CXX=g++ CXXFLAGS='-O2 -fopenmp'
+            export LDFLAGS='-fopenmp'
           else
             export CC=/usr/bin/clang CXX=/usr/bin/clang++
             export CXXFLAGS="-O2 -Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
@@ -62,6 +63,10 @@ jobs:
             export LD_LIBRARY_PATH="$HOME/plumed-md/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           fi
           "$HOME/plumed-md/bin/plumed" config show > "$RUNNER_TEMP/md-logs/plumed-config.txt"
+          # Sander does not load OpenMP itself. The kernel must declare its
+          # dependencies rather than obtaining them from an OpenMP-enabled MD.
+          bash .ci/md-integration/check-kernel.sh "$HOME/plumed-md" \
+            2>&1 | tee "$RUNNER_TEMP/md-logs/kernel-load.log"
           # tar preserves executability and symlinks across artifact upload.
           # All jobs of one OS use this same installation prefix.
           tar -C "$HOME" -czf "$RUNNER_TEMP/plumed-md.tar.gz" plumed-md

@@ -129,7 +129,8 @@ def run_case(
     (case / "run.log").write_text(log.stdout)
     if log.returncode:
         raise RuntimeError(
-            f"{label} exited with {log.returncode}; see {case / 'run.log'}"
+            f"{label} exited with {log.returncode}; see {case / 'run.log'}\n"
+            + "\n".join(log.stdout.splitlines()[-60:])
         )
 
     mdout = (case / "mdout").read_text(errors="replace")
