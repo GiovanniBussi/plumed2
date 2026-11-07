@@ -17,11 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
-        mpi: [openmpi, mpich]
+        mpi: [openmpi, mpich, serial]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       BACKEND: ${{ matrix.mpi }}
+      MD_ENGINE_MODE: ${{ matrix.mpi == 'serial' && 'serial' || 'mpi' }}
       PLUMED_STACK_TRACE: yes
       OMP_DYNAMIC: 'FALSE'
     steps:
@@ -43,9 +44,12 @@ jobs:
           path: lammps
 
       - name: Install build tools and the selected MPI
-        run: bash .ci/md-integration/setup-mpi.sh
+        run: |
+          mkdir -p "$RUNNER_TEMP/md-logs"
+          bash .ci/md-integration/setup-mpi.sh
 
       - name: Verify the native MPI world before building LAMMPS
+        if: matrix.mpi != 'serial'
         run: |
           mkdir -p "$RUNNER_TEMP/md-logs"
           bash .ci/md-integration/check-mpi.sh \
@@ -80,17 +84,20 @@ jobs:
           bash .ci/md-integration/build-lammps.sh lammps "$RUNNER_TEMP/lammps-build" \
             "$HOME/plumed-md" 2>&1 | tee "$RUNNER_TEMP/md-logs/lammps-build.log"
 
-      - name: Validate host MPI injection and numerical results
+      - name: Validate PLUMED and numerical results
         run: |
           if [[ "$RUNNER_OS" == macOS ]]; then
             kernel="$HOME/plumed-md/lib/libplumedKernel.dylib"
           else
             kernel="$HOME/plumed-md/lib/libplumedKernel.so"
           fi
-          python .ci/md-integration/lammps/check.py --backend "$BACKEND" \
-            --lmp "$RUNNER_TEMP/lammps-build/lmp" --kernel "$kernel" \
-            --launcher "$MD_MPIEXEC" --launcher-kind "$MD_LAUNCHER_KIND" \
-            --results "$RUNNER_TEMP/md-results" \
+          check_args=(--backend "$BACKEND" --mode "$MD_ENGINE_MODE"
+            --lmp "$RUNNER_TEMP/lammps-build/lmp" --kernel "$kernel"
+            --results "$RUNNER_TEMP/md-results")
+          if [[ "$MD_ENGINE_MODE" == mpi ]]; then
+            check_args+=(--launcher "$MD_MPIEXEC" --launcher-kind "$MD_LAUNCHER_KIND")
+          fi
+          python .ci/md-integration/lammps/check.py "${check_args[@]}" \
             2>&1 | tee "$RUNNER_TEMP/md-logs/validation.log"
           cat "$RUNNER_TEMP/md-logs/validation.log" >> "$GITHUB_STEP_SUMMARY"
 

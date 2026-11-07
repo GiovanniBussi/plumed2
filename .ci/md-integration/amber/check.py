@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise AmberTools sander MPI injection against a serial PLUMED kernel."""
+"""Exercise AmberTools sander against a serial PLUMED kernel."""
 
 from __future__ import annotations
 
@@ -80,11 +80,14 @@ def run_case(
     if enabled:
         shutil.copy2(args.fixture_dir / "plumed.dat", case / "plumed.dat")
 
-    command = [args.launcher]
-    if args.launcher_kind == "openmpi":
-        command += ["--oversubscribe", "--bind-to", "none", "-n", str(nprocs)]
+    if args.mode == "serial":
+        command = []
     else:
-        command += ["-n", str(nprocs)]
+        command = [args.launcher]
+        if args.launcher_kind == "openmpi":
+            command += ["--oversubscribe", "--bind-to", "none", "-n", str(nprocs)]
+        else:
+            command += ["-n", str(nprocs)]
     command += [
         str(args.sander),
         "-O",
@@ -110,11 +113,17 @@ def run_case(
         PLUMED_KERNEL=str(args.kernel)
         if enabled
         else "/definitely/not/a/plumed-kernel",
-        PLUMED_MPI_WRAPPER="/definitely/not/a/plumed-mpi-provider",
-        PLUMED_MPI_WRAPPER_FORCE="0",
         MPICC="/usr/bin/false",
         MPICXX="/usr/bin/false",
     )
+    if args.mode == "mpi":
+        env.update(
+            PLUMED_MPI_WRAPPER="/definitely/not/a/plumed-mpi-provider",
+            PLUMED_MPI_WRAPPER_FORCE="0",
+        )
+    else:
+        env.pop("PLUMED_MPI_WRAPPER", None)
+        env.pop("PLUMED_MPI_WRAPPER_FORCE", None)
     log = subprocess.run(
         command,
         cwd=case,
@@ -134,11 +143,16 @@ def run_case(
         )
 
     mdout = (case / "mdout").read_text(errors="replace")
-    amber_ranks = re.findall(r"Running AMBER/MPI version on\s+(\d+)\s+nodes?\b", mdout)
-    if amber_ranks != [str(nprocs)]:
-        raise RuntimeError(
-            f"{label}: Amber reported native rank counts {amber_ranks}, expected exactly {nprocs}"
+    if args.mode == "mpi":
+        amber_ranks = re.findall(
+            r"Running AMBER/MPI version on\s+(\d+)\s+nodes?\b", mdout
         )
+        if amber_ranks != [str(nprocs)]:
+            raise RuntimeError(
+                f"{label}: Amber reported native rank counts {amber_ranks}, expected exactly {nprocs}"
+            )
+    elif "Running AMBER/MPI version" in mdout:
+        raise RuntimeError(f"{label}: serial sander printed the MPI engine banner")
     coords = read_mdcrd(case / "mdcrd")
     forces = read_mdcrd(case / "mdfrc")
     final = read_restart(case / "restart.rst")
@@ -246,10 +260,11 @@ def check_force_increment(active: dict, baseline: dict, initial: list[float]) ->
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--launcher-kind", choices=("openmpi", "mpich"), required=True)
-    parser.add_argument("--launcher", type=Path, required=True)
+    parser.add_argument("--mode", choices=("mpi", "serial"), default="mpi")
+    parser.add_argument("--launcher-kind", choices=("openmpi", "mpich"))
+    parser.add_argument("--launcher", type=Path)
     parser.add_argument(
-        "--sander", type=Path, required=True, help="Patched sander.MPI executable"
+        "--sander", type=Path, required=True, help="Built sander executable"
     )
     parser.add_argument(
         "--kernel", type=Path, required=True, help="Serial PLUMED libplumedKernel"
@@ -278,12 +293,17 @@ def main() -> int:
         help="Rank counts to test (default: 1 2 4; use 1 for singleton smoke testing)",
     )
     args = parser.parse_args()
+    if args.mode == "mpi" and (args.launcher is None or args.launcher_kind is None):
+        parser.error("MPI mode requires --launcher and --launcher-kind")
     args.topology_dir = (
         args.amber_source
         / "AmberTools/test/paramfit/simplex_perfect_fit_NMA/prmtop_creation"
     )
-    args.ranks = sorted(set(args.ranks))
-    for path in (args.launcher, args.sander, args.kernel):
+    args.ranks = [1] if args.mode == "serial" else sorted(set(args.ranks))
+    paths = [args.sander, args.kernel]
+    if args.launcher is not None:
+        paths.append(args.launcher)
+    for path in paths:
         if not path.exists():
             parser.error(f"Path does not exist: {path}")
     if args.results.exists():
@@ -352,7 +372,7 @@ def main() -> int:
     if displacement < 0.001:
         raise RuntimeError("PLUMED restraint did not change the final coordinates")
     summary = {
-        "active_ranks": args.ranks,
+        "mode": args.mode,
         "frames_per_run": len(reference["colvar"]),
         "max_biased_vs_baseline_displacement_angstrom": displacement,
         "initial_distance_nm": reference["colvar"][0][1],
@@ -360,6 +380,10 @@ def main() -> int:
         "initial_force_squared": reference["colvar"][0][3],
         "max_initial_atomic_force_error_kcal_per_mol_angstrom": force_error,
     }
+    if args.mode == "mpi":
+        summary["active_ranks"] = args.ranks
+    else:
+        summary["execution"] = "serial"
     (args.results / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
     return 0

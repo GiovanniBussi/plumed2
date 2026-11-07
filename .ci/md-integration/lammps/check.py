@@ -13,7 +13,8 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parent
-CASES = [(1, 1), (2, 1), (4, 1), (4, 2)]
+MPI_CASES = [(1, 1), (2, 1), (4, 1), (4, 2)]
+SERIAL_CASES = [(1, 1), (1, 2)]
 NATOMS = 256
 SPACING = 5.26
 NSTEPS = 20
@@ -88,17 +89,23 @@ def read_dump(path):
     return [atoms for _, atoms in frames]
 
 
-def check_execution(directory, ranks, threads, biased):
+def check_execution(directory, ranks, threads, biased, mode):
     log = (directory / "log.lammps").read_text()
-    grids = re.findall(r"(\d+) by (\d+) by (\d+) MPI processor grid", log)
-    require(
-        len(grids) == 1 and math.prod(map(int, grids[0])) == ranks,
-        f"{directory.name}: LAMMPS did not use {ranks} MPI ranks",
-    )
-    require(
-        re.search(rf"with {ranks} MPI tasks x {threads} OpenMP threads\b", log),
-        f"{directory.name}: LAMMPS rank/thread count mismatch",
-    )
+    if mode == "mpi":
+        grids = re.findall(r"(\d+) by (\d+) by (\d+) MPI processor grid", log)
+        require(
+            len(grids) == 1 and math.prod(map(int, grids[0])) == ranks,
+            f"{directory.name}: LAMMPS did not use {ranks} MPI ranks",
+        )
+        require(
+            re.search(rf"with {ranks} MPI tasks x {threads} OpenMP threads\b", log),
+            f"{directory.name}: LAMMPS rank/thread count mismatch",
+        )
+    else:
+        require(
+            re.search(rf"using {threads} OpenMP thread\(s\) per MPI task\b", log),
+            f"{directory.name}: serial LAMMPS OpenMP thread count mismatch",
+        )
     require("lj/cut/omp" in log, f"{directory.name}: threaded pair style not active")
     if biased:
         log = (directory / "PLUMED.OUT").read_text()
@@ -116,12 +123,13 @@ def invoke(args, ranks, threads, biased, directory):
     directory.mkdir()
     for name in ("argon.data", "in.lammps", "plumed.dat"):
         shutil.copy2(args.results / name, directory / name)
-    command = [str(args.launcher)]
-    if (args.launcher_kind or args.backend) == "openmpi":
-        command += ["--oversubscribe", "--bind-to", "none"]
+    command = []
+    if args.mode == "mpi":
+        command = [str(args.launcher)]
+        if (args.launcher_kind or args.backend) == "openmpi":
+            command += ["--oversubscribe", "--bind-to", "none"]
+        command += ["-n", str(ranks)]
     command += [
-        "-n",
-        str(ranks),
         str(args.lmp),
         "-sf",
         "omp",
@@ -144,8 +152,12 @@ def invoke(args, ranks, threads, biased, directory):
         MPICC="/usr/bin/false",
         MPICXX="/usr/bin/false",
     )
-    env.pop("PLUMED_MPI_WRAPPER_FORCE", None)
-    env["PLUMED_MPI_WRAPPER"] = str(args.results / "must-not-load-provider")
+    if args.mode == "mpi":
+        env.pop("PLUMED_MPI_WRAPPER_FORCE", None)
+        env["PLUMED_MPI_WRAPPER"] = str(args.results / "must-not-load-provider")
+    else:
+        env.pop("PLUMED_MPI_WRAPPER", None)
+        env.pop("PLUMED_MPI_WRAPPER_FORCE", None)
     with (directory / "stdout.log").open("w") as log:
         result = subprocess.run(
             command,
@@ -208,19 +220,29 @@ def check_results(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("openmpi", "mpich"), required=True)
+    parser.add_argument("--mode", choices=("mpi", "serial"), default="mpi")
+    parser.add_argument(
+        "--backend", choices=("openmpi", "mpich", "serial"), required=True
+    )
     parser.add_argument("--lmp", type=Path, required=True)
-    parser.add_argument("--launcher", type=Path, required=True)
+    parser.add_argument("--launcher", type=Path)
     parser.add_argument("--launcher-kind", choices=("openmpi", "mpich"))
     parser.add_argument("--kernel", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
-    for name in ("lmp", "launcher", "kernel"):
+    if args.mode == "mpi" and args.launcher is None:
+        parser.error("MPI mode requires --launcher")
+    if (args.mode == "serial") != (args.backend == "serial"):
+        parser.error("--mode serial and --backend serial must be used together")
+    for name in ("lmp", "kernel"):
         path = getattr(args, name).resolve()
         require(path.is_file(), f"{name} not found: {path}")
         setattr(args, name, path)
+    if args.launcher is not None:
+        args.launcher = args.launcher.resolve()
+        require(args.launcher.is_file(), f"launcher not found: {args.launcher}")
     args.results = args.results.resolve()
     if not args.check_only:
         args.results.mkdir(parents=True, exist_ok=False)
@@ -241,13 +263,16 @@ def main():
         "cases": {},
     }
     reference = None
-    for ranks, threads in CASES:
-        label = f"r{ranks}-omp{threads}"
+    cases = MPI_CASES if args.mode == "mpi" else SERIAL_CASES
+    for ranks, threads in cases:
+        label = (
+            f"r{ranks}-omp{threads}" if args.mode == "mpi" else f"serial-omp{threads}"
+        )
         print(f"Checking {label}", flush=True)
         directory = args.results / label
         if not args.check_only:
             invoke(args, ranks, threads, True, directory)
-        check_execution(directory, ranks, threads, True)
+        check_execution(directory, ranks, threads, True, args.mode)
         colvar, frames = check_results(directory)
         if reference is None:
             reference = colvar, frames
@@ -270,18 +295,27 @@ def main():
             f"{label}: max COLVAR/position/force deltas = {delta_colvar:.3g}/{delta_atoms:.3g}"
         )
         summary["cases"][label] = {
-            "ranks": ranks,
+            "mode": args.mode,
             "threads": threads,
             "max_colvar_delta": delta_colvar,
             "max_atom_delta": delta_atoms,
         }
+        if args.mode == "mpi":
+            summary["cases"][label]["ranks"] = ranks
 
-    baseline = args.results / "baseline-r4-omp1"
+    baseline_ranks = 4 if args.mode == "mpi" else 1
+    baseline_label = (
+        f"baseline-r{baseline_ranks}-omp1"
+        if args.mode == "mpi"
+        else "baseline-serial-omp1"
+    )
+    baseline = args.results / baseline_label
     if not args.check_only:
-        invoke(args, 4, 1, False, baseline)
-    check_execution(baseline, 4, 1, False)
+        invoke(args, baseline_ranks, 1, False, baseline)
+    check_execution(baseline, baseline_ranks, 1, False, args.mode)
     native = read_dump(baseline / "atoms.dump")[0]
-    biased = read_dump(args.results / "r4-omp1/atoms.dump")[0]
+    biased_label = f"r{baseline_ranks}-omp1" if args.mode == "mpi" else "serial-omp1"
+    biased = read_dump(args.results / biased_label / "atoms.dump")[0]
     displacement = [b - a for a, b in zip(biased[0][:3], biased[1][:3])]
     distance = math.sqrt(sum(x * x for x in displacement))
     expected_force = [KAPPA * (distance - TARGET) * x / distance for x in displacement]
@@ -294,9 +328,14 @@ def main():
     require(force_error < 2e-9, f"incorrect atom force increment: {force_error}")
     summary["max_force_increment_error"] = force_error
     (args.results / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(
-        "PASS: injection, MPI/OpenMP counts, analytic bias/forces, native ENERGY, and rank/hybrid comparisons"
-    )
+    if args.mode == "mpi":
+        print(
+            "PASS: injection, MPI/OpenMP counts, analytic bias/forces, native ENERGY, and rank/hybrid comparisons"
+        )
+    else:
+        print(
+            "PASS: serial execution, OpenMP counts, analytic bias/forces, native ENERGY, and thread comparisons"
+        )
 
 
 if __name__ == "__main__":

@@ -1,9 +1,10 @@
 # MD integration CI
 
 The `MD integration` workflow builds serial PLUMED once on Ubuntu 24.04 and
-macOS 15 (Apple Silicon). Each installation is shared as an artifact with three
-GROMACS jobs, two LAMMPS jobs and two AmberTools sander jobs on the same OS.
-PLUMED, GROMACS and LAMMPS have OpenMP enabled; sander uses one thread per rank.
+macOS 15 (Apple Silicon). Each installation is shared as an artifact with the
+GROMACS MPI matrix and with two MPI plus one serial job for each of LAMMPS and
+AmberTools sander. PLUMED, GROMACS and LAMMPS have OpenMP enabled; sander uses
+one thread per rank or runs as a serial executable.
 Artifacts preserve installed symlinks and permissions and use the same absolute
 installation prefix in producer and consumer jobs. They are not shared between
 operating systems or architectures.
@@ -159,9 +160,10 @@ compiles/runs the native MPI probe before either engine is built.
 
 ## LAMMPS
 
-LAMMPS's stable release is selected by the manifest. The matrix runs Open MPI and MPICH on
-both operating systems, using the same serial PLUMED artifacts as GROMACS.
-LAMMPS does not have a GROMACS-style thread-MPI backend.
+LAMMPS's stable release is selected by the manifest. The matrix runs Open MPI,
+MPICH, and a true non-MPI serial build on both operating systems, using the
+same serial PLUMED artifacts as GROMACS. LAMMPS does not have a GROMACS-style
+thread-MPI backend.
 
 The test copies the installed current `Plumed.h` to the LAMMPS source root.
 The small test-only `lammps/injection.patch` changes `fix_plumed.cpp` to include
@@ -221,15 +223,28 @@ The complete local matrix passed on Apple Silicon with MPICH 5.0.1 and Open MPI
 5.0.10 against a serial OpenMP-enabled PLUMED kernel, including the four-rank,
 two-thread case and native force/energy comparisons.
 
+The serial build sets `MD_ENGINE_MODE=serial` and `BUILD_MPI=OFF`. Its runner
+executes the binary directly, tests one and two OpenMP threads, and checks the
+serial PLUMED setup, analytic bias/forces, native energy, and no-PLUMED baseline.
+It does not launch MPI or report an MPI rank count.
+
+```sh
+MD_ENGINE_MODE=serial bash .ci/md-integration/build-lammps.sh \
+  /path/to/lammps /path/to/build /path/to/plumed
+python3 .ci/md-integration/lammps/check.py --backend serial --mode serial \
+  --lmp /path/to/build/lmp --kernel /path/to/libplumedKernel.dylib \
+  --results /tmp/lammps-serial-results
+```
+
 ## AmberTools sander
 
 The AmberTools source archive and SHA256 are selected by `versions.json`.
-`md-amber.yml` builds `sander.MPI` with Open MPI and MPICH on both operating
-systems and uses the same serial PLUMED artifacts as the other engines.
-Only the `sander.MPI` target is built; Python, CUDA, automatic source updates
-and Amber's own test installation are disabled. CMake 3 is used for Amber's
-bundled dependencies. These jobs use one thread per rank, without claiming
-hybrid OpenMP coverage for sander.
+`md-amber.yml` builds `sander.MPI` with Open MPI and MPICH, plus the ordinary
+non-MPI `sander` target in serial jobs, on both operating systems. All use the
+same serial PLUMED artifacts as the other engines. Python, CUDA, automatic
+source updates and Amber's own test installation are disabled. CMake 3 is used
+for Amber's bundled dependencies. MPI jobs use one thread per rank; serial jobs
+run without an MPI launcher or synthetic rank count.
 
 The test separately replaces `AmberTools/src/sander/Plumed.h` with the installed
 header. The small `amber/injection.patch` contains only a C helper, its Fortran
@@ -262,9 +277,12 @@ coordinates, forces and restart files, requiring no additional Python packages.
 Sander evaluates the initial PLUMED step twice, so COLVAR has six rows with
 times 0, 0, 0.001, 0.002, 0.003 and 0.004 ps.
 
-For 1, 2 and 4 ranks, the runner checks native Amber and PLUMED rank counts,
-finite/complete output, analytic harmonic bias and squared generalized force,
-and rank consistency of COLVAR, positions and forces. Separate `plumed=0`
+For MPI jobs at 1, 2 and 4 ranks, the runner checks native Amber and PLUMED rank
+counts, finite/complete output, analytic harmonic bias and squared generalized
+force, and rank consistency of COLVAR, positions and forces. Serial jobs invoke
+`sander` directly, verify the absence of the AMBER/MPI banner, and require
+PLUMED's serial setup and analytic CV/bias/force checks. Both modes run separate
+`plumed=0`
 baselines use an invalid kernel path and must not load PLUMED or create COLVAR.
 The first biased/native force difference is checked on every atom against the
 analytic restraint force, with conversion from PLUMED's kJ/mol/nm to Amber's
@@ -294,3 +312,14 @@ Use `--launcher-kind openmpi` for Open MPI (also for Ubuntu's MPICH/PMIx
 workaround), and `.so` for the kernel on Linux. The default matrix tests all
 three rank counts; `--ranks 1` limits a local smoke run to one rank. Real MPI
 launchers must run outside any sandbox that restricts process-manager sockets.
+
+For a serial build, omit MPI wrappers and launchers:
+
+```sh
+MD_ENGINE_MODE=serial CC=cc CXX=c++ FC=gfortran \
+  bash .ci/md-integration/build-amber.sh /path/to/amber /path/to/build
+python3 .ci/md-integration/amber/check.py --mode serial \
+  --amber-source /path/to/amber \
+  --sander /path/to/build/AmberTools/src/sander/sander \
+  --kernel /path/to/libplumedKernel.dylib --results /tmp/amber-serial-results
+```

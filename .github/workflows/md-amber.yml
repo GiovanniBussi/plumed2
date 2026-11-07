@@ -17,11 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
-        mpi: [openmpi, mpich]
+        mpi: [openmpi, mpich, serial]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
       BACKEND: ${{ matrix.mpi }}
+      MD_ENGINE_MODE: ${{ matrix.mpi == 'serial' && 'serial' || 'mpi' }}
       PLUMED_STACK_TRACE: yes
       OMP_NUM_THREADS: '1'
       PLUMED_NUM_THREADS: '1'
@@ -38,22 +39,28 @@ jobs:
 
       - name: Install build tools and the selected MPI
         run: |
+          mkdir -p "$RUNNER_TEMP/md-logs"
           bash .ci/md-integration/setup-mpi.sh
           # AmberTools' bundled dependencies still use CMake 3 policies.
           python -m pip install 'cmake>=3.31,<4'
           if [[ "$RUNNER_OS" == Linux ]]; then
             sudo apt-get install -y gfortran bison flex tcsh libopenblas-dev zlib1g-dev libbz2-dev
             echo 'FC=gfortran' >> "$GITHUB_ENV"
-            echo "MD_MPIFC=/usr/bin/mpifort.$BACKEND" >> "$GITHUB_ENV"
+            if [[ "$MD_ENGINE_MODE" == mpi ]]; then
+              echo "MD_MPIFC=/usr/bin/mpifort.$BACKEND" >> "$GITHUB_ENV"
+            fi
           else
             brew install gcc bison flex
             echo "FC=$(brew --prefix gcc)/bin/gfortran" >> "$GITHUB_ENV"
-            formula=open-mpi
-            if [[ "$BACKEND" == mpich ]]; then formula=mpich; fi
-            echo "MD_MPIFC=$(brew --prefix "$formula")/bin/mpifort" >> "$GITHUB_ENV"
+            if [[ "$MD_ENGINE_MODE" == mpi ]]; then
+              formula=open-mpi
+              if [[ "$BACKEND" == mpich ]]; then formula=mpich; fi
+              echo "MD_MPIFC=$(brew --prefix "$formula")/bin/mpifort" >> "$GITHUB_ENV"
+            fi
           fi
 
       - name: Verify the native MPI world before building sander
+        if: matrix.mpi != 'serial'
         run: |
           mkdir -p "$RUNNER_TEMP/md-logs"
           bash .ci/md-integration/check-mpi.sh \
@@ -110,22 +117,28 @@ jobs:
           patch -d ambertools -p1 < .ci/md-integration/amber/injection.patch
           cp .ci/md-integration/amber/injection.patch "$RUNNER_TEMP/md-logs/amber.patch"
 
-      - name: Build AmberTools sander with its native MPI
+      - name: Build AmberTools sander
         run: |
           bash .ci/md-integration/build-amber.sh ambertools "$RUNNER_TEMP/amber-build" \
             2>&1 | tee "$RUNNER_TEMP/md-logs/amber-build.log"
 
-      - name: Validate injection and numerical results
+      - name: Validate PLUMED and numerical results
         run: |
           if [[ "$RUNNER_OS" == macOS ]]; then
             kernel="$HOME/plumed-md/lib/libplumedKernel.dylib"
           else
             kernel="$HOME/plumed-md/lib/libplumedKernel.so"
           fi
+          if [[ "$MD_ENGINE_MODE" == serial ]]; then
+            sander="$RUNNER_TEMP/amber-build/AmberTools/src/sander/sander"
+            mode_args=(--mode serial)
+          else
+            sander="$RUNNER_TEMP/amber-build/AmberTools/src/sander/sander.MPI"
+            mode_args=(--mode mpi --launcher "$MD_MPIEXEC" --launcher-kind "$MD_LAUNCHER_KIND")
+          fi
           python .ci/md-integration/amber/check.py \
             --amber-source "$GITHUB_WORKSPACE/ambertools" \
-            --sander "$RUNNER_TEMP/amber-build/AmberTools/src/sander/sander.MPI" \
-            --launcher "$MD_MPIEXEC" --launcher-kind "$MD_LAUNCHER_KIND" \
+            --sander "$sander" "${mode_args[@]}" \
             --kernel "$kernel" --results "$RUNNER_TEMP/md-results" \
             2>&1 | tee "$RUNNER_TEMP/md-logs/validation.log"
           cat "$RUNNER_TEMP/md-logs/validation.log" >> "$GITHUB_STEP_SUMMARY"

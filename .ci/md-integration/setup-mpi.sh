@@ -2,8 +2,8 @@
 # Install one host MPI per job and record its exact compiler/launcher paths.
 set -euo pipefail
 
-: "${BACKEND:?Set BACKEND to tmpi, openmpi, or mpich}"
-case "$BACKEND" in tmpi|openmpi|mpich) ;; *) exit 2 ;; esac
+: "${BACKEND:?Set BACKEND to serial, tmpi, openmpi, or mpich}"
+case "$BACKEND" in serial|tmpi|openmpi|mpich) ;; *) exit 2 ;; esac
 
 if [[ "$RUNNER_OS" == Linux ]]; then
   sudo apt-get update -qq
@@ -15,7 +15,7 @@ if [[ "$RUNNER_OS" == Linux ]]; then
   sudo apt-get install -y "${packages[@]}"
   echo 'CC=gcc' >> "$GITHUB_ENV"
   echo 'CXX=g++' >> "$GITHUB_ENV"
-  if [[ "$BACKEND" != tmpi ]]; then
+  if [[ "$BACKEND" == openmpi || "$BACKEND" == mpich ]]; then
     echo "MD_MPICC=/usr/bin/mpicc.$BACKEND" >> "$GITHUB_ENV"
     if [[ "$BACKEND" == openmpi ]]; then
       echo 'MD_MPICXX=/usr/bin/mpic++.openmpi' >> "$GITHUB_ENV"
@@ -35,7 +35,7 @@ else
   echo 'CC=/usr/bin/clang' >> "$GITHUB_ENV"
   echo 'CXX=/usr/bin/clang++' >> "$GITHUB_ENV"
   echo "MD_LIBOMP=$(brew --prefix libomp)" >> "$GITHUB_ENV"
-  if [[ "$BACKEND" != tmpi ]]; then
+  if [[ "$BACKEND" == openmpi || "$BACKEND" == mpich ]]; then
     formula=open-mpi
     other=mpich
     if [[ "$BACKEND" == mpich ]]; then
