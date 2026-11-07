@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   lammps:
-    name: LAMMPS 30Sep2026 update 1 (${{ matrix.os }}, ${{ matrix.mpi }}, OpenMP)
+    name: LAMMPS (${{ matrix.os }}, ${{ matrix.mpi }}, OpenMP)
     strategy:
       fail-fast: false
       matrix:
@@ -27,16 +27,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Check out LAMMPS 30 September 2026 update 1
-        uses: actions/checkout@v6
-        with:
-          repository: lammps/lammps
-          ref: 098ffdefa525cabc82272925de02e9884f58c657
-          path: lammps
-
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
+      - name: Read the pinned LAMMPS version
+        id: version
+        run: python .ci/md-integration/version.py lammps --github-output
+
+      - name: Check out LAMMPS ${{ steps.version.outputs.version }}
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.version.outputs.repository }}
+          ref: ${{ steps.version.outputs.ref }}
+          path: lammps
 
       - name: Install build tools and the selected MPI
         run: bash .ci/md-integration/setup-mpi.sh

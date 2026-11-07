@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   gromacs:
-    name: GROMACS 2026.4 (${{ matrix.os }}, ${{ matrix.mpi }}, OpenMP)
+    name: GROMACS (${{ matrix.os }}, ${{ matrix.mpi }}, OpenMP)
     strategy:
       fail-fast: false
       matrix:
@@ -27,16 +27,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Check out GROMACS 2026.4
-        uses: actions/checkout@v6
-        with:
-          repository: gromacs/gromacs
-          ref: 6c69f720aa7378fddfee67f99d51aff21ccfb0a2
-          path: gromacs
-
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
+      - name: Read the pinned GROMACS version
+        id: version
+        run: python .ci/md-integration/version.py gromacs --github-output
+
+      - name: Check out GROMACS ${{ steps.version.outputs.version }}
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.version.outputs.repository }}
+          ref: ${{ steps.version.outputs.ref }}
+          path: gromacs
 
       - name: Install build tools and the selected MPI
         run: bash .ci/md-integration/setup-mpi.sh
@@ -64,16 +68,18 @@ jobs:
 
       - name: Patch GROMACS and verify unpatching
         working-directory: gromacs
+        env:
+          PATCH_ENGINE: ${{ steps.version.outputs.patch }}
         run: |
           # Exercise the installed patcher and installed Plumed.h, then prove
           # that unpatching restores all tracked source files exactly.
-          plumed patch -p --runtime -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/patch.log" 2>&1
+          plumed patch -p --runtime -e "$PATCH_ENGINE" > "$RUNNER_TEMP/md-logs/patch.log" 2>&1
           cmp Plumed.h "$HOME/plumed-md/include/plumed/wrapper/Plumed.h"
-          plumed patch -r -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/unpatch.log" 2>&1
+          plumed patch -r -e "$PATCH_ENGINE" > "$RUNNER_TEMP/md-logs/unpatch.log" 2>&1
           git diff --exit-code
           test ! -e Plumed.h && test ! -L Plumed.h
           test ! -e Plumed.inc && test ! -e Plumed.cmake
-          plumed patch -p --runtime -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/repatch.log" 2>&1
+          plumed patch -p --runtime -e "$PATCH_ENGINE" > "$RUNNER_TEMP/md-logs/repatch.log" 2>&1
           git diff > "$RUNNER_TEMP/md-logs/gromacs.patch"
 
       - name: Build CPU-only GROMACS with OpenMP

@@ -2,16 +2,15 @@
 
 The `MD integration` workflow builds serial PLUMED once on Ubuntu 24.04 and
 macOS 15 (Apple Silicon). Each installation is shared as an artifact with three
-GROMACS jobs and two LAMMPS jobs on the same OS. PLUMED and both MD engines have
-OpenMP enabled.
+GROMACS jobs, two LAMMPS jobs and two AmberTools sander jobs on the same OS.
+PLUMED, GROMACS and LAMMPS have OpenMP enabled; sander uses one thread per rank.
 Artifacts preserve installed symlinks and permissions and use the same absolute
 installation prefix in producer and consumer jobs. They are not shared between
 operating systems or architectures.
 Linux jobs add the private installation's `lib` directory to `LD_LIBRARY_PATH`
 before using the installed executable, including after downloading the artifact.
 
-GROMACS is pinned to 2026.4, commit
-`6c69f720aa7378fddfee67f99d51aff21ccfb0a2`. The installed PLUMED patcher applies,
+All source versions are pinned in [`versions.json`](versions.json). The installed PLUMED patcher applies,
 reverts and reapplies the distributed `gromacs-2026.0` patch. The revert must
 restore the tracked GROMACS sources exactly and remove the top-level wrapper
 files. The patched build uses the installed current `Plumed.h`. GROMACS's bundled
@@ -50,11 +49,40 @@ Before merging:
    ordinary CI on every branch. The existing jobs themselves are unchanged.
 3. Confirm a manual MD workflow run and the normal CI both pass.
 
-The reusable `md-gromacs.yml` and `md-lammps.yml` are called by the parent after
+The reusable `md-gromacs.yml`, `md-lammps.yml` and `md-amber.yml` are called by the parent after
 the PLUMED artifacts are ready. Further engines can have separate reusable
 workflows sharing those artifacts. LAMMPS and future AMBER injection/header
 edits stay local to these tests, rather than adding entries to the distributed
-`plumed patch` collection. AMBER is not implemented here.
+`plumed patch` collection.
+
+## Updating engine versions
+
+Edit **only `versions.json` to change a source pin**. The workflows read it
+through `version.py`; no commit SHA, download URL or archive checksum is duplicated
+in workflow files. Git engines record a readable release/tag and its exact
+40-character commit SHA. AmberTools records its official archive URL and SHA256.
+The GROMACS entry also selects the compatible distributed PLUMED patch.
+
+For GROMACS or LAMMPS, fetch the new release in a local engine checkout, then
+use `git rev-parse 'RELEASE_TAG^{commit}'` to obtain its commit (including for
+annotated tags). Update `version`, `tag` and `ref` together. For AmberTools,
+download the new archive and use `shasum -a 256 ARCHIVE` to update `url`,
+`version` and `sha256`. Keep exact hashes rather than moving branch references.
+
+Inspect an entry locally with, for example:
+
+```sh
+python3 .ci/md-integration/version.py gromacs
+```
+
+Before accepting an update, run the MD integration workflow and inspect every
+backend's numerical summary. The jobs apply/reverse/reapply the relevant patch,
+so source changes that require adapting a hook fail visibly. Update the small
+test-only LAMMPS/Amber patch if its injection point moved; a GROMACS major release
+may need a new distributed patch. Also check any fixture paths inside Amber's
+archive and keep its C-only injection hook minimal. Uploads retain logs and
+results for diagnosis. Version updates intentionally do not regenerate PLUMED's
+embedded thread-MPI module: that has its own importer and version policy.
 
 ## Numerical and injection checks
 
@@ -127,15 +155,16 @@ compiles/runs the native MPI probe before either engine is built.
 
 ## LAMMPS
 
-LAMMPS is pinned to stable release `stable_30Sep2026_update1`, commit
-`098ffdefa525cabc82272925de02e9884f58c657`. The matrix runs Open MPI and MPICH on
+LAMMPS's stable release is selected by the manifest. The matrix runs Open MPI and MPICH on
 both operating systems, using the same serial PLUMED artifacts as GROMACS.
 LAMMPS does not have a GROMACS-style thread-MPI backend.
 
 The test copies the installed current `Plumed.h` to the LAMMPS source root.
 The small test-only `lammps/injection.patch` changes `fix_plumed.cpp` to include
 that copy, enables `PLUMED_MPIW_HOST_ADAPTER`, and calls `injectMPIImplementation`
-immediately after creating the PLUMED object. No other LAMMPS code is changed.
+after creating the PLUMED object and querying its API. Older kernels receive
+one main-rank warning to use the same MPI library as LAMMPS or upgrade PLUMED;
+their original communicator setup continues. No other LAMMPS code is changed.
 CI verifies that reversing the patch restores all tracked sources. CMake uses
 the installed PLUMED runtime wrapper (`PLUMED_MODE=runtime`), disables downloading
 another PLUMED, and enables LAMMPS's `OPENMP` and `PLUMED` packages.
@@ -187,3 +216,77 @@ above. `--check-only` validates existing outputs without launching MPI again.
 The complete local matrix passed on Apple Silicon with MPICH 5.0.1 and Open MPI
 5.0.10 against a serial OpenMP-enabled PLUMED kernel, including the four-rank,
 two-thread case and native force/energy comparisons.
+
+## AmberTools sander
+
+The AmberTools source archive and SHA256 are selected by `versions.json`.
+`md-amber.yml` builds `sander.MPI` with Open MPI and MPICH on both operating
+systems and uses the same serial PLUMED artifacts as the other engines.
+Only the `sander.MPI` target is built; Python, CUDA, automatic source updates
+and Amber's own test installation are disabled. CMake 3 is used for Amber's
+bundled dependencies. These jobs use one thread per rank, without claiming
+hybrid OpenMP coverage for sander.
+
+The test separately replaces `AmberTools/src/sander/Plumed.h` with the installed
+header. The small `amber/injection.patch` contains only a C helper, its Fortran
+declaration and a call after global-object creation. Existing `plumed=1` handling
+guards that initialization, and the helper checks that the global object is
+valid and supports API 11 before injecting. Older kernels retain their original
+communicator setup. There are **no Amber CMake changes**.
+
+The C source enables injection when its compiler can find `mpi.h`; using `cc`
+with matching include/link flags works as well as using `mpicc`. If header
+detection is unavailable or `mpi.h` is absent, compilation emits a warning and
+the helper returns zero without accessing PLUMED. Fortran then writes a warning
+to Amber's output on the master rank and proceeds with the original interface.
+This path does not inject an MPI implementation: PLUMED must use the same MPI
+library as sander through its existing native/provider configuration. Compilers
+without `__has_include` can explicitly define `PLUMED_MPIW_HOST_ADAPTER` when
+the matching C MPI headers and libraries are available. An MPI-enabled adapter
+still needs the native MPI C symbols at link time; the tested MPI Fortran
+libraries already supply the matching `libmpi` dependency.
+Separate helper statuses distinguish missing C adapter support, an older
+kernel API, and an invalid global object. Amber's master rank reports the
+corresponding warning; the older-API warning recommends upgrading the kernel
+rather than recompiling sander. A successful injection produces no warning.
+
+`NMA.prmtop` and `NMA.inpcrd` are read directly from the pinned archive's
+`AmberTools/test/paramfit/simplex_perfect_fit_NMA/prmtop_creation` fixture. The small
+12-atom NMA system runs five steps in vacuum with a distance restraint on atoms
+1 and 2 (`AT=0.2` nm, `KAPPA=1000` kJ/mol/nm squared). Inputs write ASCII
+coordinates, forces and restart files, requiring no additional Python packages.
+Sander evaluates the initial PLUMED step twice, so COLVAR has six rows with
+times 0, 0, 0.001, 0.002, 0.003 and 0.004 ps.
+
+For 1, 2 and 4 ranks, the runner checks native Amber and PLUMED rank counts,
+finite/complete output, analytic harmonic bias and squared generalized force,
+and rank consistency of COLVAR, positions and forces. Separate `plumed=0`
+baselines use an invalid kernel path and must not load PLUMED or create COLVAR.
+The first biased/native force difference is checked on every atom against the
+analytic restraint force, with conversion from PLUMED's kJ/mol/nm to Amber's
+kcal/mol/angstrom. The force tolerance, `0.0011` kcal/mol/angstrom, covers two
+native dumps rounded to three decimals. A nonzero final coordinate change
+also checks that the bias affects dynamics. Injection runs block provider
+discovery exactly as the other engines do. Inputs, native logs, force and
+coordinate trajectories, command lines and numerical summaries are uploaded.
+
+For a local build, copy the new header and apply the small test patch, then use
+ordinary compilers and the matching MPI wrappers:
+
+```sh
+cp /path/to/plumed/include/plumed/wrapper/Plumed.h /path/to/amber/AmberTools/src/sander/Plumed.h
+patch -d /path/to/amber -p1 < .ci/md-integration/amber/injection.patch
+CC=cc CXX=c++ FC=gfortran MD_MPICC=/path/to/mpicc \
+  MD_MPICXX=/path/to/mpicxx MD_MPIFC=/path/to/mpifort \
+  bash .ci/md-integration/build-amber.sh /path/to/amber /path/to/build
+python3 .ci/md-integration/amber/check.py --launcher-kind mpich \
+  --amber-source /path/to/amber \
+  --launcher /path/to/mpiexec \
+  --sander /path/to/build/AmberTools/src/sander/sander.MPI \
+  --kernel /path/to/libplumedKernel.dylib --results /tmp/amber-mpich-results
+```
+
+Use `--launcher-kind openmpi` for Open MPI (also for Ubuntu's MPICH/PMIx
+workaround), and `.so` for the kernel on Linux. The default matrix tests all
+three rank counts; `--ranks 1` limits a local smoke run to one rank. Real MPI
+launchers must run outside any sandbox that restricts process-manager sockets.

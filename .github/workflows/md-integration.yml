@@ -88,3 +88,7 @@ jobs:
   lammps:
     needs: plumed
     uses: ./.github/workflows/md-lammps.yml
+
+  amber:
+    needs: plumed
+    uses: ./.github/workflows/md-amber.yml
