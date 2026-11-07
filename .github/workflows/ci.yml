@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+    # TEMPORARY: exercise only MD integration on this development branch.
+    # Remove together with md-integration.yml's push trigger before merging.
+    branches-ignore: [mpiw-md-integration]
   pull_request:
   # Nightly run of the whole CI on master. It catches changes in the compilers, runner images and
   # external libraries CI installs on the day they happen, when nothing in PLUMED changed, and it is

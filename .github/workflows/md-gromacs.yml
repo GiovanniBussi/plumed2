@@ -1,0 +1,123 @@
+name: GROMACS integration
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gromacs:
+    name: GROMACS 2026.4 (${{ matrix.os }}, ${{ matrix.mpi }}, OpenMP)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        mpi: [tmpi, openmpi, mpich]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      BACKEND: ${{ matrix.mpi }}
+      PLUMED_STACK_TRACE: yes
+      OMP_DYNAMIC: 'FALSE'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check out GROMACS 2026.4
+        uses: actions/checkout@v6
+        with:
+          repository: gromacs/gromacs
+          ref: 6c69f720aa7378fddfee67f99d51aff21ccfb0a2
+          path: gromacs
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools and the selected MPI
+        run: bash .ci/md-integration/setup-gromacs.sh
+
+      - name: Verify the native MPI world before building GROMACS
+        if: matrix.mpi != 'tmpi'
+        run: |
+          mkdir -p "$RUNNER_TEMP/md-logs"
+          "$MD_MPICXX" regtest/basic/rt-mpiwrap-api/mpi-native-probe.cpp \
+            -o "$RUNNER_TEMP/md-native-probe"
+          python - <<'PY' 2>&1 | tee "$RUNNER_TEMP/md-logs/native-mpi.log"
+          import os
+          import subprocess
+          command = [os.environ["MD_MPIEXEC"]]
+          if os.environ["MD_LAUNCHER_KIND"] == "openmpi":
+              command += ["--oversubscribe", "--bind-to", "none"]
+          command += ["-n", "4", os.environ["RUNNER_TEMP"] + "/md-native-probe", "4"]
+          subprocess.run(command, check=True, timeout=60)
+          PY
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: plumed-md-${{ matrix.os }}
+          path: ${{ runner.temp }}
+
+      - name: Restore the serial PLUMED installation
+        run: |
+          tar -C "$HOME" -xzf "$RUNNER_TEMP/plumed-md.tar.gz"
+          echo "$HOME/plumed-md/bin" >> "$GITHUB_PATH"
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            echo "LD_LIBRARY_PATH=$HOME/plumed-md/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          fi
+          mkdir -p "$RUNNER_TEMP/md-logs"
+
+      - name: Patch GROMACS and verify unpatching
+        working-directory: gromacs
+        run: |
+          # Exercise the installed patcher and installed Plumed.h, then prove
+          # that unpatching restores all tracked source files exactly.
+          plumed patch -p --runtime -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/patch.log" 2>&1
+          cmp Plumed.h "$HOME/plumed-md/include/plumed/wrapper/Plumed.h"
+          plumed patch -r -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/unpatch.log" 2>&1
+          git diff --exit-code
+          test ! -e Plumed.h && test ! -L Plumed.h
+          test ! -e Plumed.inc && test ! -e Plumed.cmake
+          plumed patch -p --runtime -e gromacs-2026.0 > "$RUNNER_TEMP/md-logs/repatch.log" 2>&1
+          git diff > "$RUNNER_TEMP/md-logs/gromacs.patch"
+
+      - name: Build CPU-only GROMACS with OpenMP
+        run: |
+          bash .ci/md-integration/build-gromacs.sh gromacs "$RUNNER_TEMP/gromacs-build" \
+            2>&1 | tee "$RUNNER_TEMP/md-logs/gromacs-build.log"
+
+      - name: Validate host MPI injection and numerical results
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            kernel="$HOME/plumed-md/lib/libplumedKernel.dylib"
+          else
+            kernel="$HOME/plumed-md/lib/libplumedKernel.so"
+          fi
+          args=()
+          if [[ "$BACKEND" == tmpi ]]; then
+            gmx="$RUNNER_TEMP/gromacs-build/bin/gmx"
+          else
+            gmx="$RUNNER_TEMP/gromacs-build/bin/gmx_mpi"
+            args+=(--launcher "$MD_MPIEXEC" --launcher-kind "$MD_LAUNCHER_KIND")
+          fi
+          python .ci/md-integration/gromacs/check.py --backend "$BACKEND" \
+            --gmx "$gmx" --kernel "$kernel" "${args[@]}" \
+            --results "$RUNNER_TEMP/md-results" \
+            2>&1 | tee "$RUNNER_TEMP/md-logs/validation.log"
+          cat "$RUNNER_TEMP/md-logs/validation.log" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve build logs, inputs, and numerical results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-${{ matrix.os }}-${{ matrix.mpi }}
+          path: |
+            ${{ runner.temp }}/md-logs
+            ${{ runner.temp }}/md-results
+            ${{ runner.temp }}/gromacs-build/CMakeCache.txt
+            ${{ runner.temp }}/gromacs-build/CMakeFiles/CMakeConfigureLog.yaml
+          retention-days: 7
