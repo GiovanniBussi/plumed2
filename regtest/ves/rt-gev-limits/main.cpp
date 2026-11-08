@@ -53,7 +53,9 @@ int main() {
   // Coordinate translation can round an interior point onto the support
   // boundary. Preserve its density rather than feeding zero to log1p.
   require(translated_positive->getValue({std::nextafter(-1.0,0.0)})==0.0,"translated positive shape near endpoint is invalid");
-  const double interior=std::nextafter(0.0,-1.0);
+  // Optimized Intel builds may flush subnormal inputs to zero. A normal
+  // input still loses its distance from the endpoint during translation.
+  const double interior=-std::numeric_limits<double>::min();
   require(translated_exponential->getValue({interior})==1.0,"translated shape -1 near endpoint has an incorrect limit");
   const double large=translated_singular->getValue({interior});
   const double expected_large=0.5/std::sqrt(-interior);
