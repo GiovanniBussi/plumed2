@@ -59,6 +59,14 @@ Python or a native host. ``PLUMED_ROOT``, ``PLUMED_INCLUDEDIR`` and
 ``PLUMED_HTMLDIR`` retain their normal installed meanings. HTML manuals are not
 bundled; ``plumed info --user-doc`` falls back to the online manual.
 
+The runtime is staged with the normal ``make install DESTDIR=...`` command.
+This also installs the Fortran interfaces, Make/CMake exports, pkg-config
+metadata and shell launchers. Wheel packaging adds licensing information,
+``build-info.txt`` and ``lib/plumed/install-manifest.json``. Tests check every
+native-installed file against this manifest, including exact resource contents
+and executable permissions. Native library contents may change during wheel
+repair, which adjusts their dependencies for distribution.
+
 Data-file ownership
 -------------------
 

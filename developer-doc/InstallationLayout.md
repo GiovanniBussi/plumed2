@@ -181,5 +181,14 @@ from their own installed locations. On macOS installed libraries use relative
 install names by default; `--enable-absolute-install-name` explicitly restores
 absolute names. On Linux installed images carry relative run paths for PLUMED's
 own libraries; `--enable-rpath` controls additional external dependency paths.
+Make/CMake and pkg-config link flags supply a consumer run path for the resolved
+library directory. An external MD package can instead supply its own loader
+policy when relocating its executables and shared dependencies together.
+
+Python wheels use this same `make install DESTDIR=...` procedure and copy the
+complete resulting prefix into `plumed/runtime`. There is no separate list of
+files or header-rewriting implementation for wheels. A manifest of the native
+installation is checked after wheel packaging and relocation; this catches
+future installed files omitted by packaging, including new top-level directories.
 
 

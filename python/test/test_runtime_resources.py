@@ -1,5 +1,7 @@
 """Discover a wheel's private installation through Python and native clients."""
 
+import hashlib
+import json
 import os
 from pathlib import Path
 import shlex
@@ -71,6 +73,14 @@ class TestRuntimeResources(unittest.TestCase):
             "src/config/compile_options.sh",
             "src/colvar/Template.cpp",
             "src/main/main.cpp",
+            "src/lib/Plumed.inc.shared",
+            "src/lib/Plumed.cmake.shared",
+            "fortran/plumed.f90",
+            "fortran/plumed_f08.f90",
+            "json/syntax.json",
+            "installation.id",
+            "modulefile",
+            "plumed-runtime",
             "vim/syntax/plumed.vim",
             "build-info.txt",
         ):
@@ -85,9 +95,35 @@ class TestRuntimeResources(unittest.TestCase):
         self.assertNotIn("link_uninstalled=", options)
         self.assertNotIn("link_libs_uninstalled=", options)
 
+    def test_normal_install_manifest(self):
+        """Packaging retains every file emitted by the native installer."""
+        manifest = json.loads((self.root / "install-manifest.json").read_text())
+        self.assertIn("lib/plumed/src/main/main.cpp", manifest)
+        self.assertIn("lib/pkgconfig/plumed.pc", manifest)
+        self.assertIn("bin/plumed-config", manifest)
+        for relative, expected in manifest.items():
+            with self.subTest(file=relative):
+                path = self.prefix / relative
+                self.assertTrue(path.is_file(), relative)
+                self.assertFalse(path.is_symlink(), relative)
+                self.assertEqual(
+                    bool(path.stat().st_mode & 0o111), expected["executable"]
+                )
+                # Wheel repair changes native load commands. Text, headers,
+                # archives and other resources must retain their exact bytes.
+                if expected["sha256"] is not None:
+                    self.assertEqual(
+                        hashlib.sha256(path.read_bytes()).hexdigest(),
+                        expected["sha256"],
+                    )
+
     def test_python_and_native_discovery(self):
         """Kernel discovery works without environment help from the launcher."""
-        for command in (None, [str(self.prefix / "bin" / "plumed")]):
+        for command in (
+            None,
+            [str(self.prefix / "bin" / "plumed")],
+            [str(self.root / "plumed-runtime")],
+        ):
             with self.subTest(command=command):
                 self.assertEqual(self.query("--root", command=command), self.root)
                 self.assertEqual(
@@ -125,16 +161,22 @@ class TestRuntimeResources(unittest.TestCase):
 
     def test_script_resources(self):
         """A native command finds installed scripts and their configuration data."""
-        result = subprocess.run(
+        for command in (
             [str(self.prefix / "bin/plumed"), "--no-mpi", "config", "show"],
-            env=self.env,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            result.stdout, (self.root / "src/config/config.txt").read_text()
-        )
+            [str(self.prefix / "bin/plumed-config"), "show"],
+            [str(self.root / "plumed-config"), "show"],
+        ):
+            with self.subTest(command=command):
+                result = subprocess.run(
+                    command,
+                    env=self.env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(
+                    result.stdout, (self.root / "src/config/config.txt").read_text()
+                )
 
     def test_load_from_python(self):
         """LOAD finds installed scripts, headers and link flags from Python."""
@@ -204,6 +246,36 @@ with plumed.Plumed() as instance:
                 self.query("--include-dir", command=[str(executable)]),
                 self.prefix / "include",
             )
+            if shutil.which("make") is not None:
+                # Use only the installed export for linking, so missing loader
+                # flags cannot be hidden by the explicit rpath used above.
+                export = self.root / "src/lib/Plumed.inc.shared"
+                makefile = directory / "consumer.mk"
+                makefile.write_text(
+                    "include " + str(export).replace(" ", "\\ ") + "\n"
+                    "all:\n\t"
+                    + shlex.join(
+                        [
+                            *compiler,
+                            "-std=c99",
+                            "-I" + str(self.prefix / "include/plumed"),
+                            str(source),
+                            "-o",
+                            str(executable),
+                        ]
+                    )
+                    + " $(PLUMED_LOAD)\n"
+                )
+                subprocess.run(
+                    ["make", "-f", str(makefile)],
+                    env=self.env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(
+                    self.query("--root", command=[str(executable)]), self.root
+                )
 
 
 if __name__ == "__main__":

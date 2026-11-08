@@ -12,7 +12,9 @@ backend-path = ["."]
 build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp315-*"]
 skip = ["*-win32", "*-manylinux_i686", "*-musllinux*"]
 # {package} is the extracted sdist; {project} is the directory where cibuildwheel runs
+test-requires = ["setuptools>=68"]
 test-command = [
+    "python {package}/test/test_build_backend.py",
     "python {package}/test/test_action_description_generators.py",
     "python {package}/test/test_vim_make.py",
     "python {package}/test/test_install_relocation.py",
