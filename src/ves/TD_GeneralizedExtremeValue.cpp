@@ -24,6 +24,9 @@
 
 #include "core/ActionRegister.h"
 
+#include <cmath>
+#include <limits>
+
 
 namespace PLMD {
 namespace ves {
@@ -169,25 +172,47 @@ double TD_GeneralizedExtremeValue::GEVdiagonal(const std::vector<double>& argume
   double value = 1.0;
   for(unsigned int k=0; k<argument.size(); k++) {
     double arg=(argument[k]-center[k])/scale[k];
-    double tx;
-    if(shape_[k]!=0.0) {
-      if( shape_[k]>0 && argument[k] <= (center[k]-scale[k]/shape[k]) ) {
+    double log_tx;
+    if(shape[k]!=0.0) {
+      const double boundary=center[k]-scale[k]/shape[k];
+      if(shape[k]>0 && argument[k]<=boundary) {
         return 0.0;
       }
-      if( shape_[k]<0 && argument[k] > (center[k]-scale[k]/shape[k]) ) {
+      if(shape[k]<0 && argument[k]>boundary) {
         return 0.0;
       }
-      // at the boundary of the support 1+arg*shape can be slightly negative because of rounding
-      // (e.g. if the compiler uses a fused multiply-add), and pow would give nan
-      const double base=1.0+arg*shape[k];
-      if(base<=0.0) {
-        return 0.0;
+      if(shape[k]<0 && argument[k]==boundary) {
+        // The density at the upper endpoint has three different limits.
+        // Handle them explicitly: fused arithmetic can otherwise make
+        // 1+arg*shape slightly negative at the nominal endpoint.
+        if(shape[k]==-1.0) {
+          value *= normalization[k];
+          continue;
+        }
+        return shape[k]>-1.0 ? 0.0 : std::numeric_limits<double>::infinity();
       }
-      tx = pow( base, -1.0/shape[k] );
+      const double shaped_arg=arg*shape[k];
+      if(shaped_arg>-1.0) {
+        // log1p retains accuracy as the shape approaches zero (the Gumbel limit).
+        log_tx = -std::log1p(shaped_arg)/shape[k];
+      } else {
+        // Translation can round an interior point onto or beyond the boundary.
+        // Recover the positive support factor from its physical distance to
+        // that boundary. Separate logarithms also avoid underflowing the factor.
+        const double log_base=std::log(std::abs(argument[k]-boundary))
+                              +std::log(std::abs(shape[k]))-std::log(scale[k]);
+        log_tx = -log_base/shape[k];
+      }
     } else {
-      tx = exp(-arg);
+      log_tx = -arg;
     }
-    value *= normalization[k] * pow(tx,shape[k]+1.0) * exp(-tx);
+    // A coordinate transformation can overflow even for a finite argument.
+    // In this tail the limiting density is zero; avoid inf-inf below.
+    if(log_tx==std::numeric_limits<double>::infinity()) {
+      return 0.0;
+    }
+    // Evaluate the density in the log domain to avoid inf*0 in the lower tail.
+    value *= normalization[k] * std::exp((shape[k]+1.0)*log_tx-std::exp(log_tx));
   }
   return value;
 }
