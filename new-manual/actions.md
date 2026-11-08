@@ -149,7 +149,7 @@ the three distances are calculated by different processors/threads.
 Unless you disable it by using the option `--disable-mpi` during configuration, PLUMED will search for an MPI installation during configuration.
 If an MPI installation is found then PLUMED will build with MPI when you run make. To run a PLUMED [driver](driver.md) calculation with this build, use:
 
-```plumed
+```bash
 mpirun -np 4 plumed driver --ixyz traj.xyz
 ``` 
 
@@ -159,7 +159,7 @@ actions in which case any MPI parallelism in that action is turned off.
 A serial build normally includes internal thread-MPI, unless configured with `--disable-thread-mpi`.
 Launch it explicitly to run four ranks as threads on one node:
 
-```plumed
+```bash
 plumed --tmpi-threads 4 driver --ixyz traj.xyz
 ```
 
@@ -168,7 +168,7 @@ Ordinary serial execution does not activate thread-MPI. Actions that change the 
 A serial kernel can also use a real MPI library provided by its host application.
 To build an MPI command-line host for an existing serial installation, use an MPI compiler from the desired runtime:
 
-```plumed
+```bash
 plumed mkmpi --executable --compiler /path/to/mpicc -o plumed-mpi
 mpirun -np 4 ./plumed-mpi driver --ixyz traj.xyz
 ```
