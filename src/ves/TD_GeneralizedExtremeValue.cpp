@@ -24,6 +24,9 @@
 
 #include "core/ActionRegister.h"
 
+#include <cmath>
+#include <limits>
+
 
 namespace PLMD {
 namespace ves {
@@ -169,19 +172,32 @@ double TD_GeneralizedExtremeValue::GEVdiagonal(const std::vector<double>& argume
   double value = 1.0;
   for(unsigned int k=0; k<argument.size(); k++) {
     double arg=(argument[k]-center[k])/scale[k];
-    double tx;
-    if(shape_[k]!=0.0) {
-      if( shape_[k]>0 && argument[k] <= (center[k]-scale[k]/shape[k]) ) {
+    double log_tx;
+    if(shape[k]!=0.0) {
+      const double boundary=center[k]-scale[k]/shape[k];
+      if(shape[k]>0 && argument[k]<=boundary) {
         return 0.0;
       }
-      if( shape_[k]<0 && argument[k] > (center[k]-scale[k]/shape[k]) ) {
+      if(shape[k]<0 && argument[k]>boundary) {
         return 0.0;
       }
-      tx = pow( (1.0+arg*shape[k]), -1.0/shape[k] );
+      if(shape[k]<0 && argument[k]==boundary) {
+        // The density at the upper endpoint has three different limits.
+        // Handle them explicitly: fused arithmetic can otherwise make
+        // 1+arg*shape slightly negative at the nominal endpoint.
+        if(shape[k]==-1.0) {
+          value *= normalization[k];
+          continue;
+        }
+        return shape[k]>-1.0 ? 0.0 : std::numeric_limits<double>::infinity();
+      }
+      // log1p retains accuracy as the shape approaches zero (the Gumbel limit).
+      log_tx = -std::log1p(arg*shape[k])/shape[k];
     } else {
-      tx = exp(-arg);
+      log_tx = -arg;
     }
-    value *= normalization[k] * pow(tx,shape[k]+1.0) * exp(-tx);
+    // Evaluate the density in the log domain to avoid inf*0 in the lower tail.
+    value *= normalization[k] * std::exp((shape[k]+1.0)*log_tx-std::exp(log_tx));
   }
   return value;
 }
