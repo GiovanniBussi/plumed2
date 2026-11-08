@@ -21,6 +21,7 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
 #include "TargetDistribution.h"
+#include "VesTools.h"
 
 #include "core/ActionRegister.h"
 
@@ -299,7 +300,11 @@ double TD_Uniform::getValue(const std::vector<double>& argument) const {
   double value = 1.0;
   for(unsigned int k=0; k<getDimension(); k++) {
     double tmp;
-    if(argument[k] < minima_[k]) {
+    // Grid arithmetic can put a nominal endpoint just outside the interval.
+    // Keep its integration weight instead of treating it as a zero-density bin.
+    if(VesTools::isInsideInterval(argument[k],minima_[k],maxima_[k])) {
+      tmp = 1.0;
+    } else if(argument[k] < minima_[k]) {
       tmp = GaussianSwitchingFunc(argument[k],minima_[k],sigma_min_[k]);
     } else if(argument[k] > maxima_[k]) {
       tmp = GaussianSwitchingFunc(argument[k],maxima_[k],sigma_max_[k]);

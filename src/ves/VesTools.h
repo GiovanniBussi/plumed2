@@ -27,6 +27,8 @@
 #include <iomanip>
 #include <limits>
 #include <vector>
+#include <algorithm>
+#include <cmath>
 
 #include "core/ActionSet.h"
 
@@ -39,6 +41,8 @@ namespace ves {
 
 class VesTools {
 public:
+  // Include endpoints displaced by floating-point grid arithmetic.
+  static bool isInsideInterval(const double arg, const double min, const double max);
   // Convert double into a string with more digits
   static void convertDbl2Str(const double value,std::string& str, unsigned int precision);
   static void convertDbl2Str(const double value,std::string& str);
@@ -53,6 +57,18 @@ public:
   template<typename T> static std::vector<T> getPointersFromLabels(const std::vector<std::string>&, const ActionSet&, std::string&);
 
 };
+
+inline
+bool VesTools::isInsideInterval(const double arg, const double min, const double max) {
+  if(arg>=min && arg<=max) {
+    return true;
+  }
+  // Scaling by the interval as well as its location also covers cancellation
+  // in grid coordinates near zero. This is only a roundoff tolerance.
+  const double tolerance = 4.0*std::numeric_limits<double>::epsilon()
+                           * std::max({std::abs(min),std::abs(max),max-min});
+  return min-arg<=tolerance && arg-max<=tolerance;
+}
 
 inline
 void VesTools::convertDbl2Str(const double value,std::string& str, unsigned int precision) {

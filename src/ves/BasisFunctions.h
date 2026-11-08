@@ -23,6 +23,7 @@
 #define __PLUMED_ves_BasisFunctions_h
 
 #include "core/Action.h"
+#include "VesTools.h"
 
 #include <vector>
 #include <string>
@@ -314,31 +315,18 @@ void BasisFunctions::setLabels(const std::vector<std::string>& bf_labels_in) {
 inline
 double BasisFunctions::translateArgument(const double arg, bool& inside_interval) const {
   // NOTE: only works for symmetric intrinsic intervals
-  inside_interval=true;
-  double argT = (arg-interval_mean_)*argT_derivf_;
-  if(argT < interval_intrinsic_min_) {
-    inside_interval=false;
-    argT=interval_intrinsic_min_;
-  } else if(argT > interval_intrinsic_max_) {
-    inside_interval=false;
-    argT=interval_intrinsic_max_;
-  }
-  return argT;
+  const double bounded_arg = checkIfArgumentInsideInterval(arg,inside_interval);
+  const double argT = (bounded_arg-interval_mean_)*argT_derivf_;
+  // Test the physical interval before translating: the transformation itself
+  // can round an endpoint outside the intrinsic interval.
+  return std::clamp(argT,interval_intrinsic_min_,interval_intrinsic_max_);
 }
 
 
 inline
 double BasisFunctions::checkIfArgumentInsideInterval(const double arg, bool& inside_interval) const {
-  inside_interval=true;
-  double argT = arg;
-  if(arg < interval_min_) {
-    inside_interval=false;
-    argT=interval_min_;
-  } else if(arg > interval_max_) {
-    inside_interval=false;
-    argT=interval_max_;
-  }
-  return argT;
+  inside_interval=VesTools::isInsideInterval(arg,interval_min_,interval_max_);
+  return std::clamp(arg,interval_min_,interval_max_);
 }
 
 
