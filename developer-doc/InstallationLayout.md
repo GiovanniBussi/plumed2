@@ -185,6 +185,15 @@ Make/CMake and pkg-config link flags supply a consumer run path for the resolved
 library directory. An external MD package can instead supply its own loader
 policy when relocating its executables and shared dependencies together.
 
+The pkg-config metadata uses standard quoting around paths. Some `pkgconf`
+implementations pre-escape `${pcfiledir}` before expanding it inside quotes;
+in a prefix containing spaces they can therefore emit literal backslashes in
+compiler flags. This also occurs with a minimal non-PLUMED `.pc` file. The
+relocation tests check ordinary prefixes with either implementation and report
+this external-tool limitation separately for whitespace prefixes. Kernel,
+shell and Make/CMake discovery do not depend on pkg-config and continue to be
+tested with spaces in their installation paths.
+
 Python wheels use this same `make install DESTDIR=...` procedure and copy the
 complete resulting prefix into `plumed/runtime`. There is no separate list of
 files or header-rewriting implementation for wheels. A manifest of the native

@@ -21,17 +21,56 @@ SOURCE = (
 
 class TestDirectoryOffsets(unittest.TestCase):
     def test_compiler_abi(self):
-        """Installed plugin flags preserve either libstdc++ string ABI."""
+        """Use the actual library ABI, including manylinux's forced old ABI."""
         compiler = shlex.split(os.environ.get("CXX", "c++"))
         if shutil.which(compiler[0]) is None:
             self.skipTest("C++ compiler unavailable")
-        for abi in ("0", "1"):
-            flag = "-D_GLIBCXX_USE_CXX11_ABI=" + abi
-            result = subprocess.check_output(
-                ["sh", str(SOURCE / "src/maketools/cxx-abi"), *compiler, flag],
-                text=True,
-            )
-            self.assertEqual(result.strip(), flag)
+        definitions = subprocess.check_output(
+            [*compiler, "-x", "c++", "-dM", "-E", "-"],
+            input="#include <string>\n",
+            text=True,
+        )
+        prefix = "#define _GLIBCXX_USE_CXX11_ABI "
+        abi = next(
+            (
+                line[len(prefix) :].strip()
+                for line in definitions.splitlines()
+                if line.startswith(prefix)
+            ),
+            None,
+        )
+        self.assertIn(abi, (None, "0", "1"))
+        result = subprocess.check_output(
+            ["sh", str(SOURCE / "src/maketools/cxx-abi"), *compiler], text=True
+        )
+        expected = "" if abi is None else "-D_GLIBCXX_USE_CXX11_ABI=" + abi
+        self.assertEqual(result.strip(), expected)
+
+    def test_compiler_abi_from_system_header(self):
+        """GCC can split a system-header macro expansion across line markers."""
+        compiler = shlex.split(os.environ.get("CXX", "c++"))
+        if shutil.which(compiler[0]) is None:
+            self.skipTest("C++ compiler unavailable")
+        with tempfile.TemporaryDirectory(prefix="plumed ABI header ") as directory:
+            for abi in (None, "0", "1"):
+                with self.subTest(abi=abi):
+                    header = (
+                        "#pragma GCC system_header\n#undef _GLIBCXX_USE_CXX11_ABI\n"
+                    )
+                    if abi is not None:
+                        header += "#define _GLIBCXX_USE_CXX11_ABI " + abi + "\n"
+                    (Path(directory) / "string").write_text(header)
+                    result = subprocess.check_output(
+                        [
+                            "sh",
+                            str(SOURCE / "src/maketools/cxx-abi"),
+                            *compiler,
+                            "-I" + directory,
+                        ],
+                        text=True,
+                    )
+                    expected = "" if abi is None else "-D_GLIBCXX_USE_CXX11_ABI=" + abi
+                    self.assertEqual(result.strip(), expected)
 
     def test_custom_directories(self):
         """Configure directories are lexical paths, not existing build directories."""
@@ -140,10 +179,44 @@ class TestMetadataOffsets(unittest.TestCase):
         )
 
     def test_pkgconfig_arguments(self):
+        """Custom directory offsets work with either pkg-config implementation."""
+        with tempfile.TemporaryDirectory(prefix="plumed-pc-", dir="/tmp") as directory:
+            self.check_pkgconfig_arguments(Path(directory) / "prefix")
+
+    def test_pkgconfig_arguments_with_spaces(self):
+        """Keep whitespace coverage when the external parser can represent it."""
         if not shutil.which("pkg-config"):
             self.skipTest("pkg-config unavailable")
         directory = self.prefix / "lib64/pkgconfig"
         directory.mkdir(parents=True)
+        # pkgconf currently pre-escapes pcfiledir, leaving literal backslashes
+        # when it is expanded inside quotes. Check a minimal, independent .pc
+        # file first so that this tool limitation cannot hide a PLUMED error.
+        probe = directory / "quoting-probe.pc"
+        probe.write_text(
+            "Name: quoting-probe\nDescription: quoting probe\nVersion: 1\n"
+            'Cflags: -I"${pcfiledir}"\n'
+        )
+        output = subprocess.check_output(
+            ["pkg-config", "--cflags", "quoting-probe"],
+            env={**os.environ, "PKG_CONFIG_PATH": str(directory)},
+            text=True,
+        )
+        flags = shlex.split(output)
+        if (
+            len(flags) != 1
+            or not flags[0].startswith("-I")
+            or Path(flags[0][2:]).resolve() != directory.resolve()
+        ):
+            self.skipTest("pkg-config misquotes pcfiledir containing spaces")
+        self.check_pkgconfig_arguments(self.prefix)
+
+    def check_pkgconfig_arguments(self, prefix):
+        """Verify paths and consumer run paths after shell tokenisation."""
+        if not shutil.which("pkg-config"):
+            self.skipTest("pkg-config unavailable")
+        directory = prefix / "lib64/pkgconfig"
+        directory.mkdir(parents=True, exist_ok=True)
         text = (SOURCE / "src/lib/pkgconfig.in").read_text()
         for name, value in {
             "pc_to_prefix": "../..",
@@ -169,8 +242,14 @@ class TestMetadataOffsets(unittest.TestCase):
         libraries = [
             Path(flag[2:]).resolve() for flag in flags if flag.startswith("-L")
         ]
-        self.assertEqual(includes, [self.prefix.resolve() / "sdk/include"])
-        self.assertEqual(libraries, [self.prefix.resolve() / "lib64"])
+        rpaths = [
+            Path(flag[len("-Wl,-rpath,") :]).resolve()
+            for flag in flags
+            if flag.startswith("-Wl,-rpath,")
+        ]
+        self.assertEqual(includes, [prefix.resolve() / "sdk/include"])
+        self.assertEqual(libraries, [prefix.resolve() / "lib64"])
+        self.assertEqual(rpaths, [prefix.resolve() / "lib64"])
 
     def test_shell_launcher_symlink(self):
         binary = self.prefix / "tools/bin/plumed-test-config"
@@ -262,7 +341,6 @@ class TestInstalledDiscovery(unittest.TestCase):
             [*compiler, *flags, "-c", "config.cpp", "-o", "config.o"],
             cwd=build,
             check=True,
-            capture_output=True,
             text=True,
         )
         cls.host = build / "static-host"
@@ -278,7 +356,6 @@ class TestInstalledDiscovery(unittest.TestCase):
             ],
             cwd=build,
             check=True,
-            capture_output=True,
             text=True,
         )
         cls.library = build / (
@@ -288,6 +365,9 @@ class TestInstalledDiscovery(unittest.TestCase):
             [
                 *compiler,
                 "-std=c++17",
+                # Every source in a shared probe needs PIC on Linux, including
+                # export.cpp compiled during this link command.
+                "-fPIC",
                 "-dynamiclib" if sys.platform == "darwin" else "-shared",
                 "export.cpp",
                 "config.o",
@@ -297,7 +377,6 @@ class TestInstalledDiscovery(unittest.TestCase):
             ],
             cwd=build,
             check=True,
-            capture_output=True,
             text=True,
         )
 
