@@ -92,7 +92,7 @@ jobs:
         # GB on Mar 8, 2024
         #brew update > /dev/null
         brew install gawk
-        ./configure --disable-dependency-tracking --prefix="$HOME/opt"
+        ./configure --enable-modules=all --disable-dependency-tracking --prefix="$HOME/opt"
         make -j 4
         make install
     - name: Check architecture and AsmJit availability
@@ -103,5 +103,4 @@ jobs:
       run: |
          # regtests run in their own tmp/ directories, so they can run concurrently
          make --no-print-directory -j 2 -C regtest
-         # these can fail for numerical reasons
          make -C regtest checkfail
