@@ -2,3 +2,12 @@ plumed_modules=ves
 type=driver
 arg="--plumed plumed.dat --noatoms"
 
+
+# Decimal halfway cases can round either way with fused arithmetic.
+# Allow one unit of printed precision in these files only.
+plumed_tolerance=(
+  "bf.derivs-outside.data:1e-3"
+  "bf.values-outside.data:1e-3"
+  "bf.values.data:1e-3"
+  "bf2.values.data:1e-3"
+)

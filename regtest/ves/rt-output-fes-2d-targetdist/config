@@ -1,3 +1,9 @@
 plumed_modules=ves
 type=driver
 arg="--plumed plumed.dat --trajectory-stride 500 --timestep 0.002 --igro conf.gro "
+
+# Decimal halfway cases can round either way with fused arithmetic.
+# Allow one unit of printed precision in these files only.
+plumed_tolerance=(
+  "fes.ves1.iter-10.data:1e-9"
+)
