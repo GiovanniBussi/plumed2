@@ -185,6 +185,11 @@ Make/CMake and pkg-config link flags supply a consumer run path for the resolved
 library directory. An external MD package can instead supply its own loader
 policy when relocating its executables and shared dependencies together.
 
+Make/CMake exports must be included in place, directly or through a symlink, rather
+than copying their contents into the consumer's Makefile: they use their own
+filename to find the installed libraries. Symlink targets are resolved before
+computing that location, as needed by the default MD patching procedure.
+
 The pkg-config metadata uses standard quoting around paths. Some `pkgconf`
 implementations pre-escape `${pcfiledir}` before expanding it inside quotes;
 in a prefix containing spaces they can therefore emit literal backslashes in

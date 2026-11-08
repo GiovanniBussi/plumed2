@@ -688,21 +688,21 @@ $(PLUMED_LIBDIR)Plumed.inc.shared: $(PLUMED_LIBDIR)Plumed.inc
 $(PLUMED_LIBDIR)Plumed.cmake.runtime: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, runtime-linking version
 	@echo "# PLUMED: runtime installation" > $@
-	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
+	@grep -E "^get_filename_component\((_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_RUNTIME $< | sed 's/PLUMED_RUNTIME_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.static: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, static version
 	@echo "# PLUMED: static installation" > $@
-	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
+	@grep -E "^get_filename_component\((_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_STATIC $< | sed 's/PLUMED_STATIC_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.shared: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, shared version
 	@echo "# PLUMED: shared installation" > $@
-	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
+	@grep -E "^get_filename_component\((_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_SHARED $< | sed 's/PLUMED_SHARED_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 

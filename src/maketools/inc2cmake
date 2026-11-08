@@ -3,7 +3,10 @@
 awk '{
   if($1 ~ /^_PLUMED_INSTALL_/) next
   if($1=="PLUMED_LIBRARY_DIR" && $2==":=") {
-    print "get_filename_component(PLUMED_LIBRARY_DIR \"${CMAKE_CURRENT_LIST_DIR}/../../..\" ABSOLUTE)"
+    # MD patches can symlink the export outside the installation.
+    print "get_filename_component(_PLUMED_INSTALL_FILE \"${CMAKE_CURRENT_LIST_FILE}\" REALPATH)"
+    print "get_filename_component(_PLUMED_INSTALL_DIRECTORY \"${_PLUMED_INSTALL_FILE}\" DIRECTORY)"
+    print "get_filename_component(PLUMED_LIBRARY_DIR \"${_PLUMED_INSTALL_DIRECTORY}/../../..\" ABSOLUTE)"
     next
   }
   gsub(/\$\(PLUMED_LIBRARY_DIR\)/,"${PLUMED_LIBRARY_DIR}")

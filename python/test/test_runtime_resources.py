@@ -214,6 +214,31 @@ with plumed.Plumed() as instance:
                 text=True,
             )
 
+    def test_cmake_export_symlink(self):
+        """The generated linking variants retain discovery through MD patch links."""
+        if not shutil.which("cmake"):
+            self.skipTest("CMake unavailable")
+        with tempfile.TemporaryDirectory(prefix="plumed CMake export ") as tmp:
+            directory = Path(tmp)
+            for mode in ("runtime", "shared"):
+                with self.subTest(mode=mode):
+                    export = directory / ("Plumed.cmake." + mode)
+                    export.symlink_to(self.root / "src/lib" / export.name)
+                    script = directory / "consumer.cmake"
+                    script.write_text(
+                        'include("' + str(export) + '")\n'
+                        'message(STATUS "RESULT=${PLUMED_LIBRARY_DIR}")\n'
+                    )
+                    output = subprocess.check_output(
+                        ["cmake", "-P", str(script)], env=self.env, text=True
+                    )
+                    result = next(
+                        line.removeprefix("-- RESULT=")
+                        for line in output.splitlines()
+                        if line.startswith("-- RESULT=")
+                    )
+                    self.assertEqual(Path(result).resolve(), self.prefix / "lib")
+
     def test_native_client(self):
         """The installed main and headers build a host using the bundled kernel."""
         compiler = shlex.split(os.environ.get("CC", "cc"))

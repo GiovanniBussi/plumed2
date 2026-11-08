@@ -4,8 +4,13 @@
 _PLUMED_INSTALL_EMPTY :=
 _PLUMED_INSTALL_SPACE := $(_PLUMED_INSTALL_EMPTY) $(_PLUMED_INSTALL_EMPTY)
 _PLUMED_INSTALL_QUOTE = '$(subst ','"'"',$(1))'
-_PLUMED_INSTALL_PATH := $(shell candidate=$(call _PLUMED_INSTALL_QUOTE,$(MAKEFILE_LIST)); while ! test -f "$$candidate"; do next=$${candidate\#* }; test "$$next" != "$$candidate" || exit 1; candidate=$$next; done; printf '%s' "$$candidate")
-_PLUMED_INSTALL_PATH := $(if $(filter /%,$(_PLUMED_INSTALL_PATH)),$(_PLUMED_INSTALL_PATH),$(CURDIR)/$(_PLUMED_INSTALL_PATH))
+# Expand the hash after Make parses the assignment. A backslash inside the
+# shell function survives expansion and breaks POSIX ${candidate#pattern}.
+_PLUMED_INSTALL_HASH := \#
+_PLUMED_INSTALL_PATH := $(shell candidate=$(call _PLUMED_INSTALL_QUOTE,$(MAKEFILE_LIST)); while ! test -f "$$candidate"; do next=$${candidate$(_PLUMED_INSTALL_HASH)* }; test "$$next" != "$$candidate" || exit 1; candidate=$$next; done; printf '%s' "$$candidate")
+# MD patches may include a symlink to this export outside the installation.
+# Resolve its target before deriving libdir, including relative symlink chains.
+_PLUMED_INSTALL_PATH := $(shell candidate=$(call _PLUMED_INSTALL_QUOTE,$(_PLUMED_INSTALL_PATH)); while test -L "$$candidate"; do directory=$$(dirname "$$candidate"); candidate=$$(readlink "$$candidate") || exit 1; case "$$candidate" in (/*) ;; (*) candidate="$$directory/$$candidate";; esac; done; directory=$$(cd -P "$$(dirname "$$candidate")" && pwd) || exit 1; printf '%s/%s' "$$directory" "$$(basename "$$candidate")")
 _PLUMED_INSTALL_ENCODED := $(subst $(_PLUMED_INSTALL_SPACE),%20,$(subst %,%25,$(_PLUMED_INSTALL_PATH)))
 _PLUMED_INSTALL_DIRECTORY := $(abspath $(dir $(_PLUMED_INSTALL_ENCODED))/../../..)
 PLUMED_LIBRARY_DIR := $(subst %25,%,$(subst %20,$(_PLUMED_INSTALL_SPACE),$(_PLUMED_INSTALL_DIRECTORY)))

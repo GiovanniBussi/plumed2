@@ -110,17 +110,54 @@ class TestMetadataOffsets(unittest.TestCase):
         return path
 
     def test_make_include(self):
+        """Make's shell function must work with POSIX sh, including dash."""
+        self.check_make_include(self.makefile())
+
+    def test_make_include_symlink(self):
+        """The default MD patch uses a symlink outside the installed prefix."""
+        target = self.makefile()
+        directory = Path(self.temporary.name) / "MD host"
+        directory.mkdir()
+        intermediate = directory / "export-link"
+        intermediate.symlink_to(os.path.relpath(target, directory))
+        link = directory / "Plumed.inc"
+        link.symlink_to(intermediate.name)
+        self.check_make_include(link)
+
+    def check_make_include(self, path):
         if not shutil.which("make"):
             self.skipTest("make unavailable")
-        include = str(self.makefile()).replace(" ", "\\ ")
+        include = str(path).replace(" ", "\\ ")
         makefile = Path(self.temporary.name) / "consumer.mk"
         makefile.write_text(
             "include " + include + '\nall:\n\t@printf "%s\\n" "$(PLUMED_LIBRARY_DIR)"\n'
         )
-        result = subprocess.check_output(["make", "-s", "-f", str(makefile)], text=True)
-        self.assertEqual(Path(result.strip()), self.prefix / "lib64")
+        # macOS ships GNU Make 3.81, which removes a backslash that Make 4
+        # preserves inside $(shell ...). Exercise both when available.
+        for make in ("make", "gmake"):
+            if shutil.which(make) is None:
+                continue
+            for shell in ("sh", "bash", "dash"):
+                executable = shutil.which(shell)
+                if executable is None:
+                    continue
+                with self.subTest(make=make, shell=shell):
+                    result = subprocess.check_output(
+                        [make, "-s", "-f", str(makefile), "SHELL=" + executable],
+                        text=True,
+                    )
+                    self.assertEqual(
+                        Path(result.strip()).resolve(), self.prefix.resolve() / "lib64"
+                    )
 
     def test_cmake_include(self):
+        self.check_cmake_include(symlink=False)
+
+    def test_cmake_include_symlink(self):
+        """CMake MD patches also link to the installed export by default."""
+        self.check_cmake_include(symlink=True)
+
+    def check_cmake_include(self, symlink):
         if not shutil.which("cmake"):
             self.skipTest("CMake unavailable")
         makefile = self.makefile()
@@ -133,13 +170,17 @@ class TestMetadataOffsets(unittest.TestCase):
             text=True,
         )
         cmakefile.write_text(result.stdout)
+        if symlink:
+            link = Path(self.temporary.name) / "Plumed.cmake"
+            link.symlink_to(os.path.relpath(cmakefile, link.parent))
+            cmakefile = link
         script = Path(self.temporary.name) / "consumer.cmake"
         script.write_text(
             'include("' + str(cmakefile) + '")\n'
             'message(STATUS "RESULT=${PLUMED_LIBRARY_DIR}")\n'
         )
         output = subprocess.check_output(["cmake", "-P", str(script)], text=True)
-        self.assertIn("RESULT=" + str(self.prefix / "lib64"), output)
+        self.assertIn("RESULT=" + str(self.prefix.resolve() / "lib64"), output)
 
     def test_modulefile_symlink(self):
         if not shutil.which("tclsh"):

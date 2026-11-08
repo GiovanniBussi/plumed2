@@ -295,12 +295,17 @@ case "$type" in
     echo "CXX_SRC=$plumed_src" > Makefile
   fi
   if test "$plumed_link" = runtime ; then
-    cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.runtime" ../../../scripts/exe.make >> Makefile
+    plumed_make_mode=runtime
   elif test "$plumed_language" = fortran || test "$plumed_language" = fortran08 || test "$plumed_language" = c || test "$plumed_language" = c++98 || test "$plumed_language" = c++11 || test "$plumed_language" = c++14 || test "$plumed_link" = shared ; then
-    cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.shared" ../../../scripts/exe.make >> Makefile
+    plumed_make_mode=shared
   else
-    cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.static" ../../../scripts/exe.make >> Makefile
+    plumed_make_mode=static
   fi
+  $plumed_nompi info --configuration >> Makefile
+  # Installed exports locate libdir from their own filename in MAKEFILE_LIST.
+  # Include them in place, as MD patches do, rather than copying their contents.
+  printf 'include %s/src/lib/Plumed.inc.%s\n' "${root// /\\ }" "$plumed_make_mode" >> Makefile
+  cat ../../../scripts/exe.make >> Makefile
   if test "$plumed_language" = fortran || test "$plumed_language" = fortran08 ; then
     if make print-fortran | grep "FC=$" 1>/dev/null ; then
       echo "NOT_APPLICABLE (FC NOT FOUND)"
