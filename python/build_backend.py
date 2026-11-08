@@ -35,9 +35,9 @@ BUILD_INPUT_FILES = (
     "sourceme.sh.in",
     "stamp-h.in",
 )
-BUILD_INPUT_DIRS = ("src", "json", "scripts", "patches", "vim")
+BUILD_INPUT_DIRS = ("src", "json", "scripts", "patches", "vim", "fortran")
 # build products that might be present in a developer tree
-BUILD_PRODUCTS = ("*.o", "*.d", "*.on", "*.off")
+BUILD_PRODUCTS = ("*.o", "*.d", "*.on", "*.off", "*.mod", "*.smod")
 
 
 def _verbose() -> bool:
