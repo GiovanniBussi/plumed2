@@ -41,12 +41,13 @@ SUBROUTINE TEST3D()
   IMPLICIT NONE
   TYPE(PLUMED) :: create_a_new_instance
   TYPE(PLUMED) :: p
-  ! here, the temporary object returned by create_a_new_instance() is not destroyed correctly
-  ! therefore, there is a leak
+  ! Function-result finalization depends on compiler and version; this test
+  ! keeps the explicit reference-count workaround for implementations where
+  ! the temporary result is not finalized as expected.
   p=create_a_new_instance()
   call p%cmd("init")
-  ! this is the recommended workaround: it will decrease the number of references until there is just one
-  ! it should work with all compilers (those with the bug, and those without)
+  ! Use decref(1) only when this code knows that exactly one owning reference
+  ! should remain; do not discard legitimate shared references.
   call p%decref(1)
 END SUBROUTINE TEST3D
 
