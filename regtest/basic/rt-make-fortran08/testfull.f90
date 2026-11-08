@@ -21,7 +21,7 @@ real(c_double), pointer :: forces_ptr(:,:)
 real(c_double), pointer :: box_ptr(:,:)
 real(c_double), pointer :: virial_ptr(:,:)
 
-integer(c_int), target :: ene,stopflag
+integer(c_int), target :: ene,stopflag,api_version
 real(c_double) :: bias
 open(10,file="error_codes_full")
 
@@ -34,6 +34,20 @@ write(10,*)error%code
 call pl%finalize()
 
 call plumed_create(pl)
+
+! Raw C pointers retain explicit const metadata even without type/shape metadata.
+api_version=-123
+call pl%cmd_const_ptr("getApiVersion",c_loc(api_version),error=error)
+if(error%code/=20300) stop 1
+if(api_version/=-123) stop 2
+call pl%cmd_ptr("getApiVersion",c_loc(api_version),error=error)
+if(error%code/=0.or.api_version<=0) stop 3
+! Typed pointer overloads must retain the same mutable/const distinction.
+api_version=-123
+call pl%cmd_const_ptr("getApiVersion",api_version,error=error)
+if(error%code/=20300.or.api_version/=-123) stop 4
+call pl%cmd_ptr("getApiVersion",api_version,error=error)
+if(error%code/=0.or.api_version<=0) stop 5
 
 natoms=10
 ALLOCATE(positions(3,10))
@@ -61,7 +75,8 @@ enddo
 stopflag=0
 ene=1
 bias=-10
-call pl%cmd_const_ptr("setNatoms",c_loc(natoms)) ! dummy test
+call pl%cmd_const_ptr("setNatoms",c_loc(natoms),error=error)
+if(error%code/=0) stop 6
 call pl%cmd_val("setNatoms",1*natoms)
 call pl%cmd("init")
 call pl%cmd_ptr("setStopFlag",stopflag)
