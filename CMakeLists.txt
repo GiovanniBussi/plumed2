@@ -204,4 +204,5 @@ install(CODE "
   plumed_write_pkgconfig(plumed \"\${CMAKE_INSTALL_PREFIX}\" \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}\" \"${_libdir}\" \"${PLUMED_VERSION_LONG}\" \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig/plumed.pc\")
 ")
 install(DIRECTORY ${PLUMED_SRC}/patches ${PLUMED_SRC}/scripts DESTINATION ${PLUMED_INSTALL_PROGRAM_DIR})
-install(FILES ${PLUMED_SRC}/fortran/plumed.f90 ${PLUMED_SRC}/fortran/plumed_f08.f90 DESTINATION ${PLUMED_INSTALL_PROGRAM_DIR}/fortran)
+install(FILES ${PLUMED_SRC}/fortran/plumed.f90 ${PLUMED_SRC}/fortran/plumed_f08.f90
+  ${PLUMED_SRC}/fortran/PlumedFortran.cmake ${PLUMED_SRC}/fortran/README.md DESTINATION ${PLUMED_INSTALL_PROGRAM_DIR}/fortran)

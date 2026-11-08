@@ -91,3 +91,42 @@ directory to the consumer's module search path. Fortran `.mod` files are
 compiler-specific, so use the consumer's compiler and do not share them across
 compiler builds.
 
+For CMake consumers (CMake 3.16 or newer), the installed `Plumed.cmake` variant
+provides `plumed_add_fortran_bindings`. Include the appropriate package file and create
+one wrapper target for the modules the application uses:
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+project(my_application LANGUAGES Fortran)
+include("/path/to/Plumed.cmake.shared")
+add_executable(my_application main.f90)
+plumed_add_fortran_bindings(plumed_fortran_bindings MODULES F08)
+# For both modules instead: MODULES LEGACY F08
+
+target_link_libraries(my_application PRIVATE plumed_fortran_bindings)
+```
+
+The helper compiles the installed module source using the consumer's Fortran
+compiler and keeps generated `.mod` files in the consumer build tree. Link the
+wrapper target to the application and let CMake order compilation of sources
+that `USE` the module. Create the wrapper target once and reuse it; do not
+compile the same module source into multiple targets. Applications must enable
+Fortran in their CMake project. The helper defaults to `MODULES F08`. Use the
+corresponding `Plumed.cmake.shared`,
+`.static`, or `.runtime` file when supplied by the installation. Runtime
+linking retains the existing requirement to make the kernel discoverable, for
+example through `PLUMED_KERNEL`. Static linking requires compatible C++ and
+Fortran compiler runtimes. The helper preserves the chosen configuration
+without changing those runtime policies.
+
+When a static kernel was built with a different compiler family, the Fortran
+link driver can select an incompatible C++ exception runtime. A consumer can
+enable CXX and select the kernel's C++ linker explicitly:
+
+```cmake
+enable_language(CXX)
+set_property(TARGET my_application PROPERTY LINKER_LANGUAGE CXX)
+```
+
+Use the matching C++ compiler and ensure its executable can locate the Fortran
+runtime libraries. The helper leaves this toolchain decision to the consumer.

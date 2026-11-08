@@ -358,6 +358,7 @@ endif
 	mkdir -p "$(DESTDIR)$(libdir)/$(program_name)/fortran"
 	cp ../../fortran/plumed.f90 "$(DESTDIR)$(libdir)/$(program_name)/fortran/"
 	cp ../../fortran/plumed_f08.f90 "$(DESTDIR)$(libdir)/$(program_name)/fortran/"
+	cp ../../fortran/PlumedFortran.cmake ../../fortran/README.md "$(DESTDIR)$(libdir)/$(program_name)/fortran/"
 # making everything visible:
 	chmod -R go+rX,go-w "$(DESTDIR)$(libdir)/$(program_name)"
 	chmod -R go+rX,go-w "$(DESTDIR)$(includedir)/$(program_name)"
@@ -613,9 +614,10 @@ endif
 	@echo "PLUMED_FORTRAN08= "$(realpath .)/../../fortran/plumed_f08.f90 >> $@
 endif
 
-$(PLUMED_LIBDIR)Plumed.cmake: $(PLUMED_LIBDIR)Plumed.inc
+$(PLUMED_LIBDIR)Plumed.cmake: $(PLUMED_LIBDIR)Plumed.inc ../../fortran/PlumedFortran.cmake
 	@echo Building Plumed.cmake
 	@../maketools/inc2cmake < $(PLUMED_LIBDIR)Plumed.inc > $@
+	@echo 'include("$${CMAKE_CURRENT_LIST_DIR}/../../fortran/PlumedFortran.cmake")' >> $@
 
 $(PLUMED_LIBDIR)Plumed.inc.runtime: $(PLUMED_LIBDIR)Plumed.inc
 	@echo Building Plumed.inc, runtime-linking version
@@ -640,18 +642,21 @@ $(PLUMED_LIBDIR)Plumed.cmake.runtime: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo "# PLUMED: runtime installation" > $@
 	@grep PLUMED_RUNTIME $< | sed 's/PLUMED_RUNTIME_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
+	@echo 'include("$${CMAKE_CURRENT_LIST_DIR}/../../fortran/PlumedFortran.cmake")' >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.static: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, static version
 	@echo "# PLUMED: static installation" > $@
 	@grep PLUMED_STATIC $< | sed 's/PLUMED_STATIC_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
+	@echo 'include("$${CMAKE_CURRENT_LIST_DIR}/../../fortran/PlumedFortran.cmake")' >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.shared: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, shared version
 	@echo "# PLUMED: shared installation" > $@
 	@grep PLUMED_SHARED $< | sed 's/PLUMED_SHARED_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
+	@echo 'include("$${CMAKE_CURRENT_LIST_DIR}/../../fortran/PlumedFortran.cmake")' >> $@
 
 
 # Individual dependencies
