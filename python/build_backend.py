@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import platform
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -37,7 +36,18 @@ BUILD_INPUT_FILES = (
 )
 BUILD_INPUT_DIRS = ("src", "json", "scripts", "patches", "vim")
 # build products that might be present in a developer tree
-BUILD_PRODUCTS = ("*.o", "*.d", "*.on", "*.off")
+BUILD_PRODUCTS = (
+    "*.o",
+    "*.d",
+    "*.on",
+    "*.off",
+    "*.a",
+    "*.so",
+    "*.dylib",
+    "*.dll",
+    "*.exe",
+    "installation.id",
+)
 
 
 def _verbose() -> bool:
@@ -104,6 +114,19 @@ def _source_root() -> Path:
     return staged if staged.is_dir() else PYTHON_ROOT.parent
 
 
+def _ignore_build_inputs(directory, names):
+    """Exclude native build products from source archives and cache inputs."""
+    ignored = set(shutil.ignore_patterns(*BUILD_PRODUCTS)(directory, names))
+    if Path(directory).parts[-2:] == ("src", "lib"):
+        ignored.update(
+            name
+            for name in names
+            if name in {"install", "plumed"}
+            or (name.startswith("plumed-") and not Path(name).suffix)
+        )
+    return ignored
+
+
 def _copy_build_inputs(source: Path, destination: Path) -> None:
     destination.mkdir(parents=True)
     for filename in BUILD_INPUT_FILES:
@@ -113,7 +136,7 @@ def _copy_build_inputs(source: Path, destination: Path) -> None:
             source / dirname,
             destination / dirname,
             symlinks=True,
-            ignore=shutil.ignore_patterns(*BUILD_PRODUCTS),
+            ignore=_ignore_build_inputs,
         )
     # the source distribution does not contain this link (see _copy_sdist_source)
     include_link = destination / "src" / "include" / "plumed"
@@ -144,11 +167,14 @@ def _runtime_cache_key(source: Path, modules: list[str]) -> str:
     digest.update(Path(__file__).read_bytes())
     paths = [source / name for name in BUILD_INPUT_FILES]
     for dirname in BUILD_INPUT_DIRS:
-        paths.extend(
-            path
-            for path in (source / dirname).rglob("*")
-            if not any(path.match(pattern) for pattern in BUILD_PRODUCTS)
-        )
+        for directory, directories, files in os.walk(source / dirname):
+            ignored = _ignore_build_inputs(directory, [*directories, *files])
+            directories[:] = [name for name in directories if name not in ignored]
+            paths.extend(
+                Path(directory) / name
+                for name in [*directories, *files]
+                if name not in ignored
+            )
     for path in sorted(paths):
         digest.update(str(path.relative_to(source)).encode() + b"\0")
         if path.is_symlink():
@@ -261,7 +287,18 @@ def _copy_runtime(source: Path, modules: list[str]) -> None:
         if origin.is_file():
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(origin, target)
-    _relocate_compile_options(runtime_root / "src" / "config" / "compile_options.sh")
+    options = runtime_root / "src" / "config" / "compile_options.sh"
+    # make install removes build-tree commands from this same file.
+    options.write_text(
+        "".join(
+            line
+            for line in options.read_text().splitlines(keepends=True)
+            if not line.startswith(("link_uninstalled=", "link_libs_uninstalled="))
+        )
+    )
+    shutil.copy2(
+        source / "src/config/installation.id", runtime_root / "installation.id"
+    )
 
     license_dir = RUNTIME_PACKAGE / "licenses"
     license_dir.mkdir(parents=True, exist_ok=True)
@@ -291,57 +328,6 @@ def _copy_runtime(source: Path, modules: list[str]) -> None:
     _generate_vim(runtime_root, runtime_bin / "plumed")
 
 
-def _relocate_compile_options(path: Path) -> None:
-    """Make compile_options.sh (used by plumed mklib and LOAD) work in the wheel.
-
-    - The kernel is linked from the installed wheel instead of the build tree
-      (mklib evaluates the commands with PLUMED_ROOT set to lib/plumed).
-      Remove build-tree link commands, as make install does.
-    - The plugin records an rpath to the kernel, and on Linux the kernel is
-      linked with --no-as-needed: toolchains defaulting to --as-needed (e.g.
-      Ubuntu) must retain it as a dependency even for plugins using no symbols.
-      From Python the kernel is loaded with RTLD_LOCAL, so a plugin that does
-      not list it as a dependency cannot resolve PLUMED symbols.
-    - manylinux compilers use the old libstdc++ string ABI, which plugins
-      compiled with a newer compiler must use as well.
-    """
-    kernel_dir = '"$PLUMED_ROOT"/..'
-    link_flags = f"-Wl,-rpath,{kernel_dir}"
-    if sys.platform.startswith("linux"):
-        link_flags = "-Wl,--no-as-needed " + link_flags
-    lines = []
-    for line in path.read_text().splitlines():
-        if line.startswith(("link_uninstalled=", "link_libs_uninstalled=")):
-            continue
-        # Rewrite installed linking commands (link_shared has no kernel).
-        if line.startswith("link_") and "libplumedKernel." in line:
-            line, count = re.subn(
-                r"\S*/(libplumedKernel\.(?:so|dylib))",
-                lambda match: f"{link_flags} {kernel_dir}/{match.group(1)}",
-                line,
-            )
-            if count != 1:
-                raise RuntimeError(f"cannot relocate the kernel in {line}")
-        elif line.startswith("compile='") and _uses_old_cxx_abi(line):
-            line = line.rstrip()[:-1].rstrip() + " -D_GLIBCXX_USE_CXX11_ABI=0'"
-        lines.append(line)
-    path.write_text("\n".join(lines) + "\n")
-
-
-def _uses_old_cxx_abi(compile_line: str) -> bool:
-    if not sys.platform.startswith("linux"):
-        return False
-    compiler = shlex.split(compile_line[len("compile='") :].split(" -c ")[0])
-    probe = subprocess.run(
-        [*compiler, "-x", "c++", "-E", "-"],
-        input="#include <string>\n_GLIBCXX_USE_CXX11_ABI\n",
-        capture_output=True,
-        text=True,
-    )
-    lines = [line.strip() for line in probe.stdout.splitlines() if line.strip()]
-    return probe.returncode == 0 and bool(lines) and lines[-1] == "0"
-
-
 def _generate_vim(runtime_root: Path, executable: Path) -> None:
     """Generate all editor syntax and help files with one PLUMED invocation.
 
@@ -369,10 +355,10 @@ def _check_linux_run_paths(runtime_lib: Path, runtime_bin: Path) -> None:
     # path neither the loader nor auditwheel can find it inside the wheel.
     for binary in (runtime_lib / "libplumed.so", runtime_bin / "plumed"):
         dynamic = subprocess.check_output(["readelf", "-d", str(binary)], text=True)
-        if "$ORIGIN/../lib" not in dynamic:
+        expected = "$ORIGIN/../lib" if binary.parent == runtime_bin else "$ORIGIN"
+        if expected not in dynamic:
             raise RuntimeError(
-                f"{binary.name} was linked without the $ORIGIN/../lib run path:\n"
-                + dynamic
+                f"{binary.name} was linked without the {expected} run path:\n" + dynamic
             )
 
 
@@ -476,8 +462,7 @@ def _compile_runtime(source_root: Path, modules: list[str]) -> None:
             "--disable-external-molfile-plugins",
             "--disable-zlib",
             "--disable-rpath",
-            "CXXFLAGS="
-            + (os.environ.get("CXXFLAGS", "") + " -O2 -D__PLUMED_PIP_BUNDLE").strip(),
+            "CXXFLAGS=" + (os.environ.get("CXXFLAGS", "") + " -O2").strip(),
             "CFLAGS=" + (os.environ.get("CFLAGS", "") + " -O2").strip(),
         ]
         if sys.platform == "darwin":

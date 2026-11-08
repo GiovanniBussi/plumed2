@@ -2,12 +2,20 @@
 
 # Manually add here dependencies and conflicts
 
-# this is the path for libraries
-set libdir "@_libdir_@"
-# this is the path for binaries
-set bindir "@_bindir_@"
-# this is the path for include files
-set includedir "@_includedir_@"
+# file normalize does not resolve a symlink in the final path component.
+# Follow it explicitly so a symlink from a separate modules tree also works.
+set plumedfile [file normalize [info script]]
+while {[file type $plumedfile] eq "link"} {
+  set target [file readlink $plumedfile]
+  if {[file pathtype $target] ne "absolute"} {
+    set target [file join [file dirname $plumedfile] $target]
+  }
+  set plumedfile [file normalize $target]
+}
+set plumedroot [file dirname $plumedfile]
+set libdir [file normalize [file join $plumedroot ".."]]
+set bindir [file normalize [file join $plumedroot "@_root_to_bin_@"]]
+set includedir [file normalize [file join $plumedroot "@_root_to_include_@"]]
 # this is the extension for dynamic libraries
 # if set to empty, switches off plumed library
 set soext  "@_SOEXT_@"

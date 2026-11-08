@@ -1421,13 +1421,12 @@ Optional Features:
                           yes
   --enable-rpath          enable store rpath, default: no
   --enable-absolute-soname
-                          enable store absolute soname (Linux only - this is
-                          the default behavior on OSX). Only enable for
-                          testing!, default: no
+                          enable store absolute soname (Linux only; disables
+                          library relocation). Only enable for testing!,
+                          default: no
   --enable-absolute-install-name
-                          enable store absolute relative (OSX only - disable
-                          to have a behavior similar to Linux). Only disable
-                          for testing!, default: yes
+                          enable store absolute install names (OSX only;
+                          disables library relocation), default: no
   --enable-loader-path    enable use @loader_path to find
                           libplumedKernel.dylib (OSX only), default: yes
   --enable-bsymbolic      enable use -Bsymbolic flag in making shared
@@ -2773,7 +2772,7 @@ if test "${enable_absolute_install_name+set}" = set; then :
              (*)   as_fn_error $? "wrong argument to --enable-absolute-install-name" "$LINENO" 5 ;;
   esac
 else
-  case "yes" in
+  case "no" in
              (yes) absolute_install_name=true ;;
              (no)  absolute_install_name=false ;;
   esac
@@ -10905,15 +10904,10 @@ $as_echo "$as_me: enabling absolute soname. Full path will be hardcoded in plume
   fi
 fi
 
-if test "$absolute_install_name" = false ; then
-  if test "$SOEXT" = "so" ; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: --disable-absolute-install-name has no effect on Linux" >&5
-$as_echo "$as_me: WARNING: --disable-absolute-install-name has no effect on Linux" >&2;}
-  else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: enabling relative install_name. You will have to set DYLD_LIBRARY_PATH yor plumed libraries to be found at runtime" >&5
-$as_echo "$as_me: enabling relative install_name. You will have to set DYLD_LIBRARY_PATH yor plumed libraries to be found at runtime" >&6;}
+if test "$absolute_install_name" = false && test "$SOEXT" = "dylib" ; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: enabling relative install_name. Consumers must provide a run path for the installed library" >&5
+$as_echo "$as_me: enabling relative install_name. Consumers must provide a run path for the installed library" >&6;}
     use_absolute_soname=no
-  fi
 fi
 
 

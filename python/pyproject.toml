@@ -15,6 +15,7 @@ skip = ["*-win32", "*-manylinux_i686", "*-musllinux*"]
 test-command = [
     "python {package}/test/test_action_description_generators.py",
     "python {package}/test/test_vim_make.py",
+    "python {package}/test/test_install_relocation.py",
     "python {package}/test/test_input_builder.py",
     "python {package}/test/test_io.py",
     "python {package}/test/test_runtime_resources.py",

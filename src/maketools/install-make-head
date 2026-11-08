@@ -1,0 +1,11 @@
+# MAKEFILE_LIST has no quoting for spaces. Find its existing final filename
+# before encoding whitespace for dir/abspath. Quote the list as shell data,
+# then remove leading filenames until the current include can be opened.
+_PLUMED_INSTALL_EMPTY :=
+_PLUMED_INSTALL_SPACE := $(_PLUMED_INSTALL_EMPTY) $(_PLUMED_INSTALL_EMPTY)
+_PLUMED_INSTALL_QUOTE = '$(subst ','"'"',$(1))'
+_PLUMED_INSTALL_PATH := $(shell candidate=$(call _PLUMED_INSTALL_QUOTE,$(MAKEFILE_LIST)); while ! test -f "$$candidate"; do next=$${candidate\#* }; test "$$next" != "$$candidate" || exit 1; candidate=$$next; done; printf '%s' "$$candidate")
+_PLUMED_INSTALL_PATH := $(if $(filter /%,$(_PLUMED_INSTALL_PATH)),$(_PLUMED_INSTALL_PATH),$(CURDIR)/$(_PLUMED_INSTALL_PATH))
+_PLUMED_INSTALL_ENCODED := $(subst $(_PLUMED_INSTALL_SPACE),%20,$(subst %,%25,$(_PLUMED_INSTALL_PATH)))
+_PLUMED_INSTALL_DIRECTORY := $(abspath $(dir $(_PLUMED_INSTALL_ENCODED))/../../..)
+PLUMED_LIBRARY_DIR := $(subst %25,%,$(subst %20,$(_PLUMED_INSTALL_SPACE),$(_PLUMED_INSTALL_DIRECTORY)))

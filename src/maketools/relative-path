@@ -1,0 +1,25 @@
+#!/bin/sh
+# Print the lexical path from directory $1 to directory $2. Both arguments must
+# be expanded absolute configure paths; neither directory needs to exist yet.
+# Do not use realpath: DESTDIR installs and cross builds have no target tree.
+case "$1" in /*) ;; *) echo "relative-path: absolute source directory required" >&2; exit 1 ;; esac
+case "$2" in /*) ;; *) echo "relative-path: absolute destination directory required" >&2; exit 1 ;; esac
+awk -v from="$1" -v to="$2" '
+function components(path, parts, splitpath, count, i, used) {
+  count=split(path,splitpath,"/"); used=0
+  for(i=1;i<=count;i++) {
+    if(splitpath[i]=="" || splitpath[i]==".") continue
+    if(splitpath[i]=="..") { if(used>0) used-- }
+    else parts[++used]=splitpath[i]
+  }
+  return used
+}
+BEGIN {
+  n=components(from,a); m=components(to,b); first=1
+  while(first<=n && first<=m && a[first]==b[first]) first++
+  result=""
+  for(i=first;i<=n;i++) result=result "../"
+  for(i=first;i<=m;i++) result=result b[i] "/"
+  sub(/\/$/,"",result)
+  print (result=="" ? "." : result)
+}'

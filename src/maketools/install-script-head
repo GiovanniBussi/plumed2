@@ -1,0 +1,23 @@
+#! /usr/bin/env bash
+# Locate a generated launcher through its real file, including symlinks.
+plumed_script=${BASH_SOURCE[0]}
+while [[ -L "$plumed_script" ]]; do
+  plumed_script_dir=$(cd -P "$(dirname "$plumed_script")" && pwd) || exit 1
+  plumed_script=$(readlink "$plumed_script") || exit 1
+  [[ "$plumed_script" = /* ]] || plumed_script="$plumed_script_dir/$plumed_script"
+done
+plumed_script_dir=$(cd -P "$(dirname "$plumed_script")" && pwd) || exit 1
+# Shell tools are installed both in bindir and in the PLUMED resource root.
+plumed_install_root=$plumed_script_dir
+if [[ ! -r "$plumed_install_root/installation.id" ]]; then
+  plumed_install_root="$plumed_script_dir/@BIN_TO_ROOT@"
+fi
+if [[ ! -r "$plumed_install_root/installation.id" ]]; then
+  plumed_install_root='@ROOT@'
+fi
+export PLUMED_IS_INSTALLED=yes
+export PLUMED_ROOT="${PLUMED_ROOT-$plumed_install_root}"
+export PLUMED_INCLUDEDIR="${PLUMED_INCLUDEDIR-$plumed_install_root/@ROOT_TO_INCLUDE@}"
+export PLUMED_HTMLDIR="${PLUMED_HTMLDIR-$plumed_install_root/@ROOT_TO_HTML@}"
+export PLUMED_PROGRAM_NAME="${PLUMED_PROGRAM_NAME-@NAME@}"
+export PLUMED_VERSION='@VERSION@'

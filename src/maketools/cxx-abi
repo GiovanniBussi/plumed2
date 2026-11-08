@@ -1,0 +1,6 @@
+#!/bin/sh
+# Preserve a libstdc++ compiler's default string ABI when users compile plugins
+# with a different compiler after installation. libc++ needs no such flag.
+printf '#include <string>\nPLUMED_CXX_ABI=_GLIBCXX_USE_CXX11_ABI\n' |
+  "$@" -x c++ -E - 2>/dev/null |
+  awk '/^PLUMED_CXX_ABI=[01]$/ {sub(/^PLUMED_CXX_ABI=/, ""); print "-D_GLIBCXX_USE_CXX11_ABI=" $0}'

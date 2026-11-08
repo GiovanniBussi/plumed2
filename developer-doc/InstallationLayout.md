@@ -21,14 +21,16 @@ As a result, plumed routines and scripts can be entered in three ways:
 - entering the shared library from another code (typically an MD code).
 
 This is achieved in the following way:
-- `plumed-*` scripts contains hardcoded environment variables pointing at the correct paths when they are launched.
+- installed `plumed-*` scripts locate themselves (following symlinks) and derive the configured directories from that location.
 - `plumed` executable and `libplumed.so` have access to methods (in the config namespace)
   to access to the paths and locate resources.
 
-\warning
-Since paths are hardcoded, plumed executable and library are de facto not relocatable.
-It is however possible to use them after relocation provided that some environment
-variables are set as discussed below.
+Installed executables, kernels and supporting files can be relocated together.
+Configure directory variables are expanded before computing relative offsets,
+so this also supports custom `libdir`, `includedir`, `bindir`, `htmldir` and
+program names. Moving directories independently requires preserving their
+relative relationship or keeping the original configured locations available.
+Build-tree resource paths retain the behavior described below.
 
 As an example, the `PLUMED_ROOT` variable is defined to tell to the plumed scripts where to find
 most of the plumed-related files. Similarly, from C++ you can use \ref config::getPlumedRoot() to retrieve
@@ -68,9 +70,24 @@ When using plumed after it has been installed, these paths will be set to the va
 - `PLUMED_HTMLDIR=/usr/local/share/doc/plumed`
 - `PLUMED_PROGRAM_NAME=plumed`
 
-These paths are hardcoded in `plumed` executable and in `plumed-*` scripts when they are installed.
-Notice that these value can be customized at configure step using standard arguments to ./configure.
-When using an installed copy of plumed one can override the hard code values by setting the variables
+These examples show the defaults; all directories can be customized using the
+standard arguments to `./configure`. The configured absolute paths remain as
+fallbacks, but installed kernels first discover their resources automatically.
+The installer writes `installation.id`, a fingerprint of the configuration,
+version and public headers, next to the installed scripts. A shared kernel
+checks beside its library. A static kernel also checks configured locations
+under ancestors of the containing executable or plugin. Candidates must carry
+the same fingerprint, so neighboring installations of another build are skipped.
+If an independently installed static MD host cannot locate its resources there,
+the same search is performed using directories on `PATH`, before using the
+configured fallback. No resource environment variables are required for moving
+an installation together with its host.
+
+Image locations are captured at load time, so changing the working directory
+after loading a kernel through a relative filename does not break discovery.
+The same installed configuration object supports shared and static kernels.
+
+When using an installed copy of plumed one can override these values by setting the variables
 `PLUMED_ROOT`, `PLUMED_INCLUDEDIR` ,`PLUMED_HTMLDIR`, and `PLUMED_PROGRAM_NAME` before launching plumed.
 
 Notice that to enforce a consistent behavior of scripts and plumed executable the same logic needed to
@@ -149,14 +166,20 @@ The `plumed` executable and the library files are put in `buildroot/src/lib`.
 Then, the "to be installed" versions
 of the executable and library files are produced and located in `buildroot/src/lib/install`. These are different from
 those located in `buildroot/src/lib` in that they include the `buildroot/src/config/ConfigInstall.o` object so as
-to hardcode the proper paths.
+to provide installed discovery, relative directory offsets and configured fallbacks.
 
 When `make install` is invoked, the makefile checks if the objects in `buildroot/src/lib/install` should be updated
 and, if necessary, recompiles them. If not, it just copies all the material in place. Notice that all the resulting
 files are real files (no symlinks). This is a novelty with respect to PLUMED 2.1 and allows for a proper implementation
 of the DESTDIR feature required by unix distributions.
 
-Using the standard behavior explained in the autoconf documentation, it is possible to change the paths
-for plumed install either during configure (with `--prefix`) or by setting `prefix` during `make install`.
+Choose installation paths during configure, for example with `--prefix` and
+`--libdir`. Use `make install DESTDIR=/staging` to stage that same installation;
+changing `prefix` at install time is not supported. Generated shell launchers,
+Make/CMake exports, pkg-config files and the modulefile derive their directories
+from their own installed locations. On macOS installed libraries use relative
+install names by default; `--enable-absolute-install-name` explicitly restores
+absolute names. On Linux installed images carry relative run paths for PLUMED's
+own libraries; `--enable-rpath` controls additional external dependency paths.
 
 

@@ -16,11 +16,36 @@ ifneq ($(MAKECMDGOALS),clean)
   -include ../../Makefile.conf
 endif
 
+# Expand configure's directory variables first, then compute lexical offsets.
+# These also cover lib64, multiarch directories and paths outside prefix.
+ifdef GCCDEP
+BIN_TO_LIB := $(shell sh ../maketools/relative-path '$(bindir)' '$(libdir)')
+BIN_TO_ROOT := $(shell sh ../maketools/relative-path '$(bindir)' '$(libdir)/$(program_name)')
+ROOT_TO_INCLUDE := $(shell sh ../maketools/relative-path '$(libdir)/$(program_name)' '$(includedir)')
+ROOT_TO_HTML := $(shell sh ../maketools/relative-path '$(libdir)/$(program_name)' '$(htmldir)')
+ROOT_TO_BIN := $(shell sh ../maketools/relative-path '$(libdir)/$(program_name)' '$(bindir)')
+PC_TO_PREFIX := $(shell sh ../maketools/relative-path '$(libdir)/pkgconfig' '$(prefix)')
+PC_TO_EXEC_PREFIX := $(shell sh ../maketools/relative-path '$(libdir)/pkgconfig' '$(exec_prefix)')
+PC_TO_INCLUDE := $(shell sh ../maketools/relative-path '$(libdir)/pkgconfig' '$(includedir)')
+endif
+
 ifeq ($(SOEXT),dylib)
   SONAME_OPTION:=-Wl,-install_name
 else
   PYTHON_EXTRA_LDFLAGS:=
   SONAME_OPTION:=-Wl,-soname
+endif
+
+# Relative install names allow consumers to supply their own run path.
+ifeq ($(PLUMED_INSTALL),Install)
+ifeq ($(SOEXT),so)
+# Always locate PLUMED's own libraries relative to their installed images.
+# --enable-rpath continues to control additional external dependency paths.
+  INSTALL_LIBRARY_RUNPATH=-Wl,-rpath,'$$ORIGIN'
+  INSTALL_MAIN_RUNPATH=-Wl,-rpath,'$$ORIGIN/$(BIN_TO_LIB)'
+  INSTALL_RUNTIME_RUNPATH=-Wl,-rpath,'$$ORIGIN/..'
+  LDSHARED := $(CXX) $(INSTALL_LIBRARY_RUNPATH) $(filter-out $(CXX),$(LDSHARED))
+endif
 endif
 
 ifeq ($(use_absolute_soname),yes)
@@ -31,6 +56,14 @@ else
 endif
 else
   SONAME_INSTALL_PATH=
+endif
+
+ifeq ($(PLUMED_INSTALL),Install)
+ifeq ($(SOEXT),dylib)
+ifneq ($(use_absolute_soname),yes)
+  SONAME_INSTALL_PATH:=@rpath/
+endif
+endif
 endif
 
 # if machine dependent configuration has been found:
@@ -169,6 +202,8 @@ endif
            sed "s|@_bindir_@|$(bindir)|" | \
            sed "s|@_includedir_@|$(includedir)|" | \
            sed "s|@_use_absolute_soname_@|$(use_absolute_soname)|" \
+	   | sed "s|@_root_to_bin_@|$(ROOT_TO_BIN)|" \
+	   | sed "s|@_root_to_include_@|$(ROOT_TO_INCLUDE)|" \
 	   > install/modulefile
 	@cat pkgconfig.in | \
            sed "s|@_SOEXT_@|$(SOEXT)|" | \
@@ -180,6 +215,9 @@ endif
            sed "s|@_includedir_@|$(includedir)|" | \
            sed "s|@_prefix_@|$(prefix)|" | \
            sed "s|@_exec_prefix_@|$(exec_prefix)|" | \
+           sed "s|@_pc_to_prefix_@|$(PC_TO_PREFIX)|" | \
+           sed "s|@_pc_to_exec_prefix_@|$(PC_TO_EXEC_PREFIX)|" | \
+           sed "s|@_pc_to_include_@|$(PC_TO_INCLUDE)|" | \
            sed "s|@_VERSION_@|$(VERSION)|" | \
            sed "s|@_conflicts_@||" | \
            sed "s|@_cppflags_@||" | \
@@ -195,6 +233,9 @@ endif
            sed "s|@_includedir_@|$(includedir)|" | \
            sed "s|@_prefix_@|$(prefix)|" | \
            sed "s|@_exec_prefix_@|$(exec_prefix)|" | \
+           sed "s|@_pc_to_prefix_@|$(PC_TO_PREFIX)|" | \
+           sed "s|@_pc_to_exec_prefix_@|$(PC_TO_EXEC_PREFIX)|" | \
+           sed "s|@_pc_to_include_@|$(PC_TO_INCLUDE)|" | \
            sed "s|@_VERSION_@|$(VERSION)|" | \
            sed "s|@_conflicts_@||" | \
            sed "s|@_cppflags_@|$(shell ../maketools/purge-d $(CPPFLAGS))|" | \
@@ -210,6 +251,9 @@ endif
            sed "s|@_includedir_@|$(includedir)|" | \
            sed "s|@_prefix_@|$(prefix)|" | \
            sed "s|@_exec_prefix_@|$(exec_prefix)|" | \
+           sed "s|@_pc_to_prefix_@|$(PC_TO_PREFIX)|" | \
+           sed "s|@_pc_to_exec_prefix_@|$(PC_TO_EXEC_PREFIX)|" | \
+           sed "s|@_pc_to_include_@|$(PC_TO_INCLUDE)|" | \
            sed "s|@_VERSION_@|$(VERSION)|" | \
            sed "s|@_conflicts_@||" | \
            sed "s|@_cppflags_@||" | \
@@ -305,6 +349,7 @@ endif
 	grep -v -e "^link_uninstalled=" -e "^link_libs_uninstalled=" ../config/compile_options.sh > "$(DESTDIR)$(libdir)/$(program_name)/src/config/compile_options.sh"
 # copy config.txt file (we leave it in src/colvar/ for backward compatibility)
 	cp ../config/config.txt "$(DESTDIR)$(libdir)/$(program_name)/src/config/config.txt"
+	cp ../config/installation.id "$(DESTDIR)$(libdir)/$(program_name)/installation.id"
 ifeq ($(make_static_archive),yes)
 	cp install/lib$(program_name).a "$(DESTDIR)$(libdir)/"
 endif
@@ -500,19 +545,18 @@ lib-shared: $(PLUMED_KERNEL) $(PLUMED_SHARED_OBJ) $(PLUMED_MAIN_SHARED) $(PLUMED
            $(PLUMED_LIBDIR)Plumed.inc $(PLUMED_LIBDIR)Plumed.inc.runtime $(PLUMED_LIBDIR)Plumed.inc.shared \
            $(PLUMED_LIBDIR)Plumed.cmake $(PLUMED_LIBDIR)Plumed.cmake.runtime $(PLUMED_LIBDIR)Plumed.cmake.shared
 
-$(PLUMED_SCRIPTS_EXE):
+$(PLUMED_SCRIPTS_EXE): ../maketools/install-script-head Makefile ../../Makefile.conf
 	@echo "#! /usr/bin/env bash" > $@
 	@echo "echo 'NOTE: shell only version, useful when plumed is cross compiled' >&2" >> $@
 # The logic implemented here should be the same as in config/Config.inc.in
 # Please keep them consistent
 ifeq ($(PLUMED_INSTALL),Install)
-# If plumed is installed, single paths can be overridden using env vars
-	@echo "export PLUMED_IS_INSTALLED=yes" >> $@
-	@echo "export PLUMED_ROOT=\"\$${PLUMED_ROOT-$(libdir)/$(program_name)}\"" >> $@
-	@echo "export PLUMED_INCLUDEDIR=\"\$${PLUMED_INCLUDEDIR-$(includedir)}\"" >> $@
-	@echo "export PLUMED_HTMLDIR=\"\$${PLUMED_HTMLDIR=$(htmldir)}\"" >> $@
-	@echo "export PLUMED_PROGRAM_NAME=\"\$${PLUMED_PROGRAM_NAME-$(program_name)}\"" >> $@
-	@echo "export PLUMED_VERSION=$(VERSION)" >> $@
+	@sed -e 's|@BIN_TO_ROOT@|$(BIN_TO_ROOT)|g' \
+             -e 's|@ROOT@|$(libdir)/$(program_name)|g' \
+             -e 's|@ROOT_TO_INCLUDE@|$(ROOT_TO_INCLUDE)|g' \
+             -e 's|@ROOT_TO_HTML@|$(ROOT_TO_HTML)|g' \
+             -e 's|@NAME@|$(program_name)|g' \
+             -e 's|@VERSION@|$(VERSION)|g' ../maketools/install-script-head >> $@
 	@echo "source \"\$$PLUMED_ROOT\"/scripts/$(subst plumed-,,$(@F)).sh" >> $@
 else
 	@echo "export PLUMED_IS_INSTALLED=no" >> $@
@@ -559,10 +603,10 @@ $(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
 # I thus prefer to directly link PLUMED_KERNEL.
 # This makes Linux identical to OSX and is likely more portable.
 $(PLUMED_MAIN_SHARED): $(OBJ_MAIN) $(OBJ_WRAPPER) $(PLUMED_KERNEL)
-	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS) $(LD_MAIN_RUNPATH)
+	$(LD) $(INSTALL_MAIN_RUNPATH) $(LDFLAGS) $^ -o $@ $(LIBS) $(LD_MAIN_RUNPATH)
 ifeq ($(use_loader_path),yes)
 ifeq ($(PLUMED_INSTALL),Install)
-	install_name_tool -change "$(SONAME_INSTALL_PATH)$(notdir $(PLUMED_KERNEL))" "@loader_path/../$(notdir $(libdir))/$(notdir $(PLUMED_KERNEL))" $@
+	install_name_tool -change "$(SONAME_INSTALL_PATH)$(notdir $(PLUMED_KERNEL))" "@loader_path/$(BIN_TO_LIB)/$(notdir $(PLUMED_KERNEL))" $@
 else
 	install_name_tool -change "$(SONAME_INSTALL_PATH)$(notdir $(PLUMED_KERNEL))" "@loader_path/$(notdir $(PLUMED_KERNEL))" $@
 endif
@@ -571,7 +615,7 @@ endif
 
 $(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
 ifeq ($(PLUMED_INSTALL),Install)
-	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS) $(LD_MAIN_RUNPATH)
+	$(LD) $(INSTALL_RUNTIME_RUNPATH) $(LDFLAGS) $^ -o $@ $(LIBS) $(LD_MAIN_RUNPATH)
 ifeq ($(use_loader_path),yes)
 	install_name_tool -add_rpath "@loader_path/.." $@
 endif
@@ -581,24 +625,26 @@ endif
 
 ifeq ($(PLUMED_INSTALL),Install)
 
-$(PLUMED_LIBDIR)Plumed.inc:
+$(PLUMED_LIBDIR)Plumed.inc: Makefile ../../Makefile.conf ../maketools/install-make-head
 	@echo Building Plumed.inc
+	@cat ../maketools/install-make-head > $@
 ifdef AR_CR
-	@echo "PLUMED_RUNTIME_LOAD= \"$(libdir)/lib$(program_name)Wrapper.a\" $(LIBS) $(LDFLAGS)" > $@
+	@echo 'PLUMED_RUNTIME_LOAD= "$$(PLUMED_LIBRARY_DIR)/lib$(program_name)Wrapper.a" $(LIBS) $(LDFLAGS)' >> $@
 endif
 ifeq ($(make_static_archive),yes)
-	@echo "PLUMED_STATIC_LOAD= \"$(libdir)/lib$(program_name).a\" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)" >> $@
+	@echo 'PLUMED_STATIC_LOAD= "$$(PLUMED_LIBRARY_DIR)/lib$(program_name).a" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)' >> $@
 endif
-	@echo "PLUMED_SHARED_LOAD= \"$(libdir)/lib$(program_name).$(SOEXT)\" $(LIBS) $(LDFLAGS)" >> $@
-	@echo "PLUMED_RUNTIME_DEPENDENCIES="   >> $@
+# Consumers of relative library identities need a run path of their own.
+	@echo 'PLUMED_SHARED_LOAD= "$$(PLUMED_LIBRARY_DIR)/lib$(program_name).$(SOEXT)" -Wl,-rpath,"$$(PLUMED_LIBRARY_DIR)" $(LIBS) $(LDFLAGS)' >> $@
+	@echo 'PLUMED_RUNTIME_DEPENDENCIES=' >> $@
 ifeq ($(make_static_archive),yes)
-	@echo "PLUMED_STATIC_DEPENDENCIES= \"$(libdir)/lib$(program_name).a\"" >> $@
+	@echo 'PLUMED_STATIC_DEPENDENCIES= "$$(PLUMED_LIBRARY_DIR)/lib$(program_name).a"' >> $@
 endif
-	@echo "PLUMED_SHARED_DEPENDENCIES= \"$(libdir)/lib$(program_name).$(SOEXT)\""  >> $@
-	@echo "PLUMED_FORTRAN= \"$(libdir)/$(program_name)/fortran/plumed.f90\"" >> $@
-	@echo "PLUMED_FORTRAN08= \"$(libdir)/$(program_name)/fortran/plumed_f08.f90\"" >> $@
+	@echo 'PLUMED_SHARED_DEPENDENCIES= "$$(PLUMED_LIBRARY_DIR)/lib$(program_name).$(SOEXT)"' >> $@
+	@echo 'PLUMED_FORTRAN= "$$(PLUMED_LIBRARY_DIR)/$(program_name)/fortran/plumed.f90"' >> $@
+	@echo 'PLUMED_FORTRAN08= "$$(PLUMED_LIBRARY_DIR)/$(program_name)/fortran/plumed_f08.f90"' >> $@
 else
-Plumed.inc:
+Plumed.inc: Makefile ../../Makefile.conf
 	@echo Building Plumed.inc
 ifdef AR_CR
 	@echo "PLUMED_RUNTIME_LOAD=" $(realpath .)/libplumedWrapper.a $(LIBS) $(LDFLAGS) > $@
@@ -614,43 +660,49 @@ endif
 	@echo "PLUMED_FORTRAN08= "$(realpath .)/../../fortran/plumed_f08.f90 >> $@
 endif
 
-$(PLUMED_LIBDIR)Plumed.cmake: $(PLUMED_LIBDIR)Plumed.inc
+$(PLUMED_LIBDIR)Plumed.cmake: $(PLUMED_LIBDIR)Plumed.inc ../maketools/inc2cmake
 	@echo Building Plumed.cmake
 	@../maketools/inc2cmake < $(PLUMED_LIBDIR)Plumed.inc > $@
 
 $(PLUMED_LIBDIR)Plumed.inc.runtime: $(PLUMED_LIBDIR)Plumed.inc
 	@echo Building Plumed.inc, runtime-linking version
 	@echo "# PLUMED: runtime installation" > $@
+	@grep -E "^(_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_RUNTIME $< | sed 's/PLUMED_RUNTIME_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.inc.static: $(PLUMED_LIBDIR)Plumed.inc
 	@echo Building Plumed.inc, static version
 	@echo "# PLUMED: static installation" > $@
+	@grep -E "^(_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_STATIC $< | sed 's/PLUMED_STATIC_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.inc.shared: $(PLUMED_LIBDIR)Plumed.inc
 	@echo Building Plumed.inc, shared version
 	@echo "# PLUMED: shared installation" > $@
+	@grep -E "^(_PLUMED_INSTALL_|PLUMED_LIBRARY_DIR )" $< >> $@ || true
 	@grep PLUMED_SHARED $< | sed 's/PLUMED_SHARED_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.runtime: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, runtime-linking version
 	@echo "# PLUMED: runtime installation" > $@
+	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
 	@grep PLUMED_RUNTIME $< | sed 's/PLUMED_RUNTIME_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.static: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, static version
 	@echo "# PLUMED: static installation" > $@
+	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
 	@grep PLUMED_STATIC $< | sed 's/PLUMED_STATIC_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 
 $(PLUMED_LIBDIR)Plumed.cmake.shared: $(PLUMED_LIBDIR)Plumed.cmake
 	@echo Building Plumed.cmake, shared version
 	@echo "# PLUMED: shared installation" > $@
+	@grep "^get_filename_component(PLUMED_LIBRARY_DIR " $< >> $@ || true
 	@grep PLUMED_SHARED $< | sed 's/PLUMED_SHARED_/PLUMED_/' >> $@
 	@grep PLUMED_FORTRAN $< >> $@
 

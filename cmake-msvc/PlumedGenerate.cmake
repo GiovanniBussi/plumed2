@@ -146,6 +146,13 @@ function(plumed_generate_config src_root out_dir)
   set(htmldir "xxxxNAxxxx")
   set(includedir "xxxxNAxxxx")
   set(program_name "plumed")
+  # This generator builds a non-installed static kernel. Installed configure
+  # builds fill these offsets and the resource fingerprint in src/config.
+  set(INSTALL_ID "")
+  set(LIB_TO_ROOT ".")
+  set(PREFIX_TO_ROOT ".")
+  set(ROOT_TO_INCLUDE ".")
+  set(ROOT_TO_HTML ".")
   configure_file("${src_root}/src/config/Config.inc.in" "${out_dir}/Config.inc" @ONLY)
 
   # version.h (update-version.sh)

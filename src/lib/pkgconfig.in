@@ -1,13 +1,13 @@
-prefix=@_prefix_@
-exec_prefix=@_exec_prefix_@
-includedir=@_includedir_@
-libdir=@_libdir_@
+prefix=${pcfiledir}/@_pc_to_prefix_@
+exec_prefix=${pcfiledir}/@_pc_to_exec_prefix_@
+includedir=${pcfiledir}/@_pc_to_include_@
+libdir=${pcfiledir}/..
 
 Name: @_program_name_@
 Description: Plumed library @_extra_@
 URL: http://www.plumed.org
 Version: @_VERSION_@
-Cflags: -I${includedir} @_cppflags_@
-Libs: -L${libdir} -l@_program_name_@ @_libs_@
+Cflags: -I"${includedir}" @_cppflags_@
+Libs: -L"${libdir}" -Wl,-rpath,"${libdir}" -l@_program_name_@ @_libs_@
 Libs.private: @_private_libs_@
 Conflicts: @_conflicts_@

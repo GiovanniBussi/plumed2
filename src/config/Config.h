@@ -32,15 +32,22 @@ namespace config {
 std::string getSoExt();
 
 /// Return path to the root of the PLUMED package.
+/// Installed kernels first use the matching installation near their library,
+/// host executable or PATH, then the configured absolute fallback.
+/// PLUMED_ROOT overrides both; build-tree kernels retain their source root.
 std::string getPlumedRoot();
 
 /// Return path to documentation.
 /// User documentation is located in `getPlumedHtmldir()+"/user-doc/html/index.html"`
 /// Developer documentation is located in `getPlumedHtmldir()+"/developer-doc/html/index.html"`
+/// In an installation this follows the relocated root with its configured
+/// directory offset, independently of PLUMED_ROOT. PLUMED_HTMLDIR overrides it.
 std::string getPlumedHtmldir();
 
 /// Return path to the include directory.
 /// The header file for PLUMED wrapper is in `getPlumedIncludedir()+getPlumedProgramName()+"/wrapper/Plumed.h"`
+/// Installed header discovery is independent of PLUMED_ROOT and can be
+/// overridden with PLUMED_INCLUDEDIR.
 std::string getPlumedIncludedir();
 
 /// Return the name used for installing PLUMED.
@@ -67,10 +74,8 @@ std::string getEnvCommand();
 
 /// Return the content of `Makefile.conf` in a single string.
 /// Can be used to inspect the variables used to customize PLUMED.
-/// Notice that this reflects the content of the `Makefile.conf` file.
-/// Since some of the there defined variables can be overwritten at install
-/// (e.g., one can use `make install prefix=/new/path` to change the installation path)
-/// their values could be not faithful
+/// This reflects the original configure settings, including absolute paths;
+/// resource discovery after relocation does not rewrite this build record.
 std::string getMakefile();
 
 /// Return the short PLUMED version.

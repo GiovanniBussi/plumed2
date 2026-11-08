@@ -25,6 +25,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <vector>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #if defined(__PLUMED_HAS_DLOPEN) || defined(__PLUMED_HAS_DLADDR)
 #include <dlfcn.h>
 #endif
@@ -33,6 +38,124 @@ namespace PLMD {
 namespace config {
 
 namespace {
+/// Canonicalize an existing image path without throwing during library loading.
+std::filesystem::path imageDirectory(const std::filesystem::path& image) {
+  if(image.empty()) {
+    return {};
+  }
+  std::error_code error;
+  const auto path=std::filesystem::canonical(image,error);
+  return error ? std::filesystem::path{} :
+         path.parent_path();
+}
+
+/// Locate the host executable, also when dladdr is disabled or names a plugin.
+std::filesystem::path executableDirectory() {
+#ifdef __linux__
+  std::error_code error;
+  const auto path=std::filesystem::read_symlink("/proc/self/exe",error);
+  return error ? std::filesystem::path{} :
+         imageDirectory(path);
+#elif defined(__APPLE__)
+  uint32_t size=1024;
+  std::vector<char> path(size);
+  if(_NSGetExecutablePath(path.data(),&size)!=0) {
+    path.resize(size);
+    if(_NSGetExecutablePath(path.data(),&size)!=0) {
+      return {};
+    }
+  }
+  return imageDirectory(path.data());
+#else
+  return {};
+#endif
+}
+
+// Capture image locations when the kernel is loaded: dladdr can return a
+// relative filename which becomes invalid if an MD host later changes cwd.
+const std::vector<std::filesystem::path> installationAnchors=[] {
+  std::vector<std::filesystem::path> paths;
+  if(@ISINSTALLED@) {
+    paths.push_back(imageDirectory(getLibraryPath()));
+    paths.push_back(executableDirectory());
+  }
+  return paths;
+}();
+
+/// Accept only resources installed by this build, including matching headers.
+bool matchesInstallation(const std::filesystem::path& root) {
+  std::error_code error;
+  if(!std::filesystem::is_regular_file(root/"installation.id",error)) {
+    return false;
+  }
+  std::ifstream input(root/"installation.id");
+  std::string id;
+  return std::getline(input,id) && id=="@INSTALL_ID@";
+}
+
+/// Find this installation relative to a library, static host, or PATH entry.
+std::filesystem::path installationNear(std::filesystem::path directory) {
+  if(directory.empty()) {
+    return {};
+  }
+  // A shared kernel can live in a libdir outside the configured prefix.
+  auto candidate=(directory/"@LIB_TO_ROOT@").lexically_normal();
+  if(matchesInstallation(candidate)) {
+    return candidate;
+  }
+  // An embedded static kernel can instead be in bin/, lib/mdengine/, etc.
+  // Ascend directories, checking one configured location at each level;
+  // never scan the contents of lib/ or select another build's installation.
+  while(!directory.empty()) {
+    candidate=(directory/"@PREFIX_TO_ROOT@").lexically_normal();
+    if(matchesInstallation(candidate)) {
+      return candidate;
+    }
+    const auto parent=directory.parent_path();
+    if(parent==directory) {
+      break;
+    }
+    directory=parent;
+  }
+  return {};
+}
+
+/// Cache automatic discovery; explicit environment overrides remain dynamic.
+const std::filesystem::path& relocatedInstallation() {
+  static const auto root=[] {
+    for(const auto& anchor:installationAnchors) {
+      const auto candidate=installationNear(anchor);
+      if(!candidate.empty()) {
+        return candidate;
+      }
+    }
+    // A static MD executable need not share PLUMED's prefix. If that prefix
+    // moved independently, its bin directory can still be found through PATH.
+    const char* env=std::getenv("PATH");
+    std::string paths=env ? env : "";
+    while(!paths.empty()) {
+      const auto separator=paths.find(':');
+      const auto directory=paths.substr(0,separator);
+      if(!directory.empty()) {
+        std::error_code error;
+        const auto path=std::filesystem::canonical(directory,error);
+        if(!error) {
+          const auto candidate=installationNear(path);
+          if(!candidate.empty()) {
+            return candidate;
+          }
+        }
+      }
+      if(separator==std::string::npos) {
+        break;
+      }
+      paths.erase(0,separator+1);
+    }
+    return std::filesystem::path{};
+  }();
+  return root;
+}
+
 /// local tool that, given a string, returns a new string which is:
 /// - enclosed in single quotes (')
 /// - with all single quotes escaped
@@ -79,16 +202,9 @@ std::string getPlumedRoot() {
   char *env = std::getenv("PLUMED_ROOT");
   std::string ss;
   if( env == NULL) {
-#ifdef __PLUMED_PIP_BUNDLE
-    const std::string library=getLibraryPath();
-    if(!library.empty()) {
-      // Wheels use a private installation prefix: <prefix>/lib/plumed.
-      const std::filesystem::path candidate=std::filesystem::path(library).parent_path()/"plumed";
-      if(std::filesystem::exists(candidate/"scripts")) {
-        return candidate.string();
-      }
+    if(isInstalled() && !relocatedInstallation().empty()) {
+      return relocatedInstallation().string();
     }
-#endif
     ss=plumed_root();
   } else {
     ss=std::string( env );
@@ -103,6 +219,9 @@ std::string getPlumedHtmldir() {
   char *env = std::getenv("PLUMED_HTMLDIR");
   std::string ss;
   if( env == NULL) {
+    if(!relocatedInstallation().empty()) {
+      return (relocatedInstallation()/"@ROOT_TO_HTML@").lexically_normal().string();
+    }
     ss=plumed_htmldir();
   } else {
     ss=std::string( env );
@@ -117,16 +236,10 @@ std::string getPlumedIncludedir() {
   char *env = std::getenv("PLUMED_INCLUDEDIR");
   std::string ss;
   if( env == NULL) {
-#ifdef __PLUMED_PIP_BUNDLE
-    // Resolve headers independently of PLUMED_ROOT, as in a normal install.
-    const std::string library=getLibraryPath();
-    if(!library.empty()) {
-      const std::filesystem::path candidate=std::filesystem::path(library).parent_path().parent_path()/"include";
-      if(std::filesystem::exists(candidate/"plumed"/"wrapper"/"Plumed.h")) {
-        return candidate.string();
-      }
+    // Header and manual locations are independent of a PLUMED_ROOT override.
+    if(!relocatedInstallation().empty()) {
+      return (relocatedInstallation()/"@ROOT_TO_INCLUDE@").lexically_normal().string();
     }
-#endif
     ss=plumed_includedir();
   } else {
     ss=std::string( env );

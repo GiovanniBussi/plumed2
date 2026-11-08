@@ -345,8 +345,8 @@ PLUMED_CONFIG_ENABLE([shared],[shared libs],[yes])
 PLUMED_CONFIG_ENABLE([dependency-tracking],[dependency tracking],[yes])
 PLUMED_CONFIG_ENABLE([no-gnu-unique],[a flag to avoid gnu unique symbols],[yes])
 PLUMED_CONFIG_ENABLE([rpath],[store rpath],[no])
-PLUMED_CONFIG_ENABLE([absolute-soname],[store absolute soname (Linux only - this is the default behavior on OSX). Only enable for testing!],[no])
-PLUMED_CONFIG_ENABLE([absolute-install-name],[store absolute relative (OSX only - disable to have a behavior similar to Linux). Only disable for testing!],[yes])
+PLUMED_CONFIG_ENABLE([absolute-soname],[store absolute soname (Linux only; disables library relocation). Only enable for testing!],[no])
+PLUMED_CONFIG_ENABLE([absolute-install-name],[store absolute install names (OSX only; disables library relocation)],[no])
 PLUMED_CONFIG_ENABLE([loader-path],[use @loader_path to find libplumedKernel.dylib (OSX only)],[yes])
 PLUMED_CONFIG_ENABLE([bsymbolic],[use -Bsymbolic flag in making shared libraries (Linux only)],[yes])
 PLUMED_CONFIG_ENABLE([ld-r],[group object files],[yes])
@@ -1605,13 +1605,9 @@ if test "$absolute_soname" = true ; then
   fi
 fi
 
-if test "$absolute_install_name" = false ; then
-  if test "$SOEXT" = "so" ; then
-    AC_MSG_WARN([--disable-absolute-install-name has no effect on Linux])
-  else
-    AC_MSG_NOTICE([enabling relative install_name. You will have to set DYLD_LIBRARY_PATH yor plumed libraries to be found at runtime])
+if test "$absolute_install_name" = false && test "$SOEXT" = "dylib" ; then
+    AC_MSG_NOTICE([enabling relative install_name. Consumers must provide a run path for the installed library])
     use_absolute_soname=no
-  fi
 fi
 
 AC_SUBST(use_loader_path)

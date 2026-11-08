@@ -4,6 +4,10 @@ ifneq ($(MAKECMDGOALS),clean)
   -include ../../Makefile.conf
 endif
 
+ifeq ($(SOEXT),so)
+KERNEL_LINK_FLAGS=-Wl,--no-as-needed
+endif
+
 # sed script to edit program name defaults to do nothing
 ifndef program_transform_name
   program_transform_name=s,x,x,
@@ -11,7 +15,7 @@ endif
 
 .PHONY: all obj
 ifdef PLUMED_FORCE
-.PHONY: ConfigInstall.inc Config.inc version.h
+.PHONY: ConfigInstall.inc Config.inc version.h installation.id
 endif
 
 # default target
@@ -32,7 +36,15 @@ version.h:
 	@echo "Updating version.h"
 	@ ../maketools/update-version.sh version.h
 
-ConfigInstall.inc: Config.inc.in
+# A fingerprint lets statically embedded kernels recognize their own resources
+# near the host executable without selecting headers from another installation.
+INSTALL_HEADERS := $(sort $(foreach dir,config wrapper main $(shell ../maketools/find_modules.sh),$(wildcard ../$(dir)/*.h)))
+installation.id: ../../Makefile.conf version.h $(INSTALL_HEADERS)
+	@cat ../../Makefile.conf version.h $(INSTALL_HEADERS) | cksum | awk '{print $$1 ":" $$2}' > $@~
+	@cmp -s $@~ $@ || cp $@~ $@
+	@rm -f $@~
+
+ConfigInstall.inc: Config.inc.in installation.id ../maketools/relative-path
 	@echo "Updating ConfigInstall.inc"
 	@sed "s/@SOEXT@/$(SOEXT)/g" Config.inc.in | \
          sed "s/@ISINSTALLED@/true/g" | \
@@ -40,7 +52,12 @@ ConfigInstall.inc: Config.inc.in
          sed "s|@htmldir@|$(htmldir)|g" | \
          sed "s|@includedir@|$(includedir)|g" | \
          sed "s|@program_name@|$(program_name)|g" | \
-         sed "s|@libdir@|$(libdir)|g" > $@~
+         sed "s|@libdir@|$(libdir)|g" | \
+         sed "s|@INSTALL_ID@|$(shell cat installation.id)|g" | \
+         sed "s|@LIB_TO_ROOT@|$(program_name)|g" | \
+         sed "s|@PREFIX_TO_ROOT@|$(shell sh ../maketools/relative-path '$(prefix)' '$(libdir)/$(program_name)')|g" | \
+         sed "s|@ROOT_TO_INCLUDE@|$(shell sh ../maketools/relative-path '$(libdir)/$(program_name)' '$(includedir)')|g" | \
+         sed "s|@ROOT_TO_HTML@|$(shell sh ../maketools/relative-path '$(libdir)/$(program_name)' '$(htmldir)')|g" > $@~
 	cmp -s $@~ $@ || cp $@~ $@
 	rm $@~
 
@@ -52,6 +69,11 @@ Config.inc: Config.inc.in
          sed "s|@htmldir@|xxxxNAxxxx|g" | \
          sed "s|@includedir@|xxxxNAxxxx|g" | \
          sed "s|@program_name@|xxxxNAxxxx|g" | \
+         sed "s|@INSTALL_ID@||g" | \
+         sed "s|@LIB_TO_ROOT@|.|g" | \
+         sed "s|@PREFIX_TO_ROOT@|.|g" | \
+         sed "s|@ROOT_TO_INCLUDE@|.|g" | \
+         sed "s|@ROOT_TO_HTML@|.|g" | \
          sed "s|@PLUMED_ROOT@|$(CURDIR:src/config=)|g" > $@~
 	cmp -s $@~ $@ || cp $@~ $@
 	rm $@~
@@ -67,9 +89,9 @@ Makefile.conf.xxd: ../../Makefile.conf
 	cat ../../Makefile.conf | ../maketools/xxd > Makefile.conf.xxd
 
 # file to import compilation options inside a bash script
-compile_options.sh: ../../Makefile.conf Makefile
+compile_options.sh: ../../Makefile.conf Makefile ../maketools/cxx-abi
 	@echo Building compile_options.sh, a sourceable bash script with some compilation options
-	@echo "compile='"$(CXX) -c -I'"$$PLUMED_INCLUDEDIR/$$PLUMED_PROGRAM_NAME"'/ $(CPPFLAGS) $(CXXFLAGS)"'" > $@
+	@echo "compile='"$(CXX) -c -I'"$$PLUMED_INCLUDEDIR/$$PLUMED_PROGRAM_NAME"'/ $(CPPFLAGS) $(CXXFLAGS) $(shell sh ../maketools/cxx-abi $(CXX) $(CPPFLAGS) $(CXXFLAGS))"'" > $@
 # on osx, in order to use two-level namespace, we should back link the Kernel library
 # the path to the kernel is different for installed and not-installed plumed.
 # notice that $(DYNAMIC_LIBS) are needed as well in order to allow using functions
@@ -85,11 +107,11 @@ compile_options.sh: ../../Makefile.conf Makefile
 # the libraries must follow the objects using them, otherwise linkers using
 # --as-needed (the default on some distributions, e.g. Ubuntu) drop them.
 	@echo "link_shared='"$(LDSHARED)"'" >> $@
-	@echo "link_libs_installed='"$(DYNAMIC_LIBS) $(libdir)/lib$(program_name)Kernel.$(SOEXT)"'" >> $@
+	@echo "link_libs_installed='"$(DYNAMIC_LIBS) $(KERNEL_LINK_FLAGS) '-Wl,-rpath,"$$PLUMED_ROOT/.." "$$PLUMED_ROOT/../lib$(program_name)Kernel.$(SOEXT)"'"'" >> $@
 # this is removed with a grep statement in src/lib/Makefile (see https://github.com/plumed/plumed2/issues/408)
 	@echo "link_libs_uninstalled='"$(DYNAMIC_LIBS) $(CURDIR:/config=)/lib/libplumedKernel.$(SOEXT)"'" >> $@
 # kept for scripts written for previous versions (libraries before the objects, see above)
-	@echo "link_installed='"$(LDSHARED) $(DYNAMIC_LIBS) $(libdir)/lib$(program_name)Kernel.$(SOEXT)"'" >> $@
+	@echo "link_installed='"$(LDSHARED) $(DYNAMIC_LIBS) $(KERNEL_LINK_FLAGS) '-Wl,-rpath,"$$PLUMED_ROOT/.." "$$PLUMED_ROOT/../lib$(program_name)Kernel.$(SOEXT)"'"'" >> $@
 # this is removed with a grep statement in src/lib/Makefile (see https://github.com/plumed/plumed2/issues/408)
 	@echo "link_uninstalled='"$(LDSHARED) $(DYNAMIC_LIBS) $(CURDIR:/config=)/lib/libplumedKernel.$(SOEXT)"'" >> $@
 	@echo "mpi_provider_compile_flags='"$(CFLAGS)"'" >> $@
@@ -100,7 +122,7 @@ compile_options.sh: ../../Makefile.conf Makefile
 clean:
 	rm -f Config.inc compile_options.sh Makefile_conf version.h config.txt
 	rm -fr deps 
-	rm -f Config.inc ConfigInstall.inc compile_options.sh install.conf
+	rm -f Config.inc ConfigInstall.inc compile_options.sh install.conf installation.id
 	rm -f $(CLEANLIST)
 
 # generic makefile rules
