@@ -42,10 +42,19 @@ intentional; GPU builds and GROMACS's own regression suite are outside this test
 
 ## Running the workflow
 
-MD builds are optional and run only through `workflow_dispatch`. In GitHub
-Actions, select **MD integration**, choose **Run workflow**, and select the
-branch to test. Ordinary push, pull-request and scheduled CI remain enabled
-independently; the MD workflow does not suppress or replace any existing job.
+This temporary `mpiw-md-push-test` branch runs the complete MD matrix on every
+push, as well as through `workflow_dispatch`. Push this branch to the test fork:
+
+```sh
+git push giovannibussi mpiw-md-push-test
+```
+
+The normal CI, CodeQL and Python-package workflow files have a `.disabled`
+suffix on this branch, so GitHub ignores them. Other non-MD workflows only
+support `workflow_call` and have no active caller here. The MD reusable
+workflows remain enabled. This test-only commit must not be merged into
+`mpiw` or `master`: the normal setup keeps MD builds manual and all standard
+workflows enabled.
 
 The complete matrix has 20 jobs: two PLUMED artifact builds, six GROMACS jobs,
 six LAMMPS jobs and six AmberTools jobs. All 20 jobs passed on Linux and macOS

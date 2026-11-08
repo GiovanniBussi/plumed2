@@ -1,6 +1,8 @@
 name: MD integration
 
+# Temporary test-branch trigger; do not merge this commit into mpiw/master.
 on:
+  push:
   workflow_dispatch:
 
 permissions:
