@@ -99,6 +99,16 @@ jobs:
       run: |
         uname -m
         plumed config has asmjit
+    - name: Check all-module configuration
+      run: |
+        # configure can omit KEnRef when its external library is unavailable.
+        plumed config show | awk '
+          { print }
+          $1 == "module" && $3 != "on" && $2 != "kenref" {
+            print "Unexpectedly disabled module: " $2 > "/dev/stderr"
+            failed = 1
+          }
+          END { exit failed }'
     - name: Run tests
       run: |
          # regtests run in their own tmp/ directories, so they can run concurrently
