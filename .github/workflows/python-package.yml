@@ -2,6 +2,9 @@ name: Python package
 
 on:
   push:
+    # Temporary fork testing: discard this branch trigger before merging.
+    branches:
+      - python_package_layout
     tags:
       - "v*"
   pull_request:
