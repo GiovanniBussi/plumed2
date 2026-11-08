@@ -3,3 +3,12 @@ type=driver
 plumed_needs=boost_serialization
 plumed_modules=drr
 arg="--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --ixyz ala12_trajectory.xyz --dump-forces forces --dump-forces-fmt=%10.6f --multi 2"
+
+# A large UI gradient can differ by one unit of its six printed decimals
+# after roundoff in the variance estimate. Keep all other outputs exact.
+plumed_tolerance=(
+  "eabf.0.UI.grad:1e-6"
+  "eabf.0.UI.hist.grad:1e-6"
+  "eabf.1.UI.grad:1e-6"
+  "eabf.1.UI.hist.grad:1e-6"
+)
