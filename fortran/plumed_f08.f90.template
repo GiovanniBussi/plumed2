@@ -76,7 +76,7 @@ module plumed_f08_module
     procedure       ::            pl_cmd_val_char
     generic, public :: cmd_ptr => pl_cmd_ptr_c
     procedure       ::            pl_cmd_ptr_c
-    generic, public :: cmd_const_ptr => pl_cmd_ptr_c
+    generic, public :: cmd_const_ptr => pl_cmd_const_ptr_c
     procedure       ::                  pl_cmd_const_ptr_c
 
     procedure, public :: finalize => pl_finalize
