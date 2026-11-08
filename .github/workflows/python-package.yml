@@ -2,6 +2,9 @@ name: Python package
 
 on:
   push:
+    # Temporary fork testing: discard this trigger before merging.
+    branches:
+      - relocatable-install-fork-test
     tags:
       - "v*"
   pull_request:
