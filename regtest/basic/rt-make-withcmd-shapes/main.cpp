@@ -209,6 +209,13 @@ int main() {
   const TypesafePtr scalar(7);
   s.cmd("check",scalar);
   s.cmd("check",TypesafePtr(7));
+  struct DerivedPtr : TypesafePtr {
+    using TypesafePtr::TypesafePtr;
+  };
+  DerivedPtr derivedPtr(7);
+  s.cmd("check",derivedPtr);
+  s.cmd(std::string("check"),derivedPtr);
+  s.cmd(std::string_view("check"),derivedPtr);
   auto reshaped=TypesafePtr::setNelemAndShape(TypesafePtr(7),1,nullptr);
   s.cmd("check",reshaped);
   s.test=[](const TypesafePtr& p) {

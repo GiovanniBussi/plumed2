@@ -49,7 +49,7 @@ public:
   /// Explicit TypesafePtr arguments keep using the non-template entry points.
   template<class Key, class T,
            std::enable_if_t<std::is_convertible<Key,std::string_view>::value &&
-                            !std::is_same<std::decay_t<T>,TypesafePtr>::value,int> = 0>
+                            !std::is_base_of<TypesafePtr,std::decay_t<T>>::value,int> = 0>
   void cmd(Key&& key,T&& val) {
     const auto arg=cmd_detail::argument(std::forward<T>(val));
     cmd(std::forward<Key>(key),arg);
