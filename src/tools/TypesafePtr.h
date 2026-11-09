@@ -146,7 +146,12 @@ public:
   static constexpr unsigned maxrank=4;
   static TypesafePtr fromSafePtr(void* safe);
   static TypesafePtr setNelemAndShape(const TypesafePtr &other, std::size_t nelem, const std::size_t* shape) {
-    return TypesafePtr(other.myptr,nelem,shape,other.myflags);
+    TypesafePtr result(other.myptr,nelem,shape,other.myflags);
+    if(other.myptr==other.buffer.data()) {
+      result.buffer=other.buffer;
+      result.myptr=result.buffer.data();
+    }
+    return result;
   }
   static TypesafePtr unchecked(const void* ptr) {
     return TypesafePtr(const_cast<void*>(ptr),0,nullptr,0);

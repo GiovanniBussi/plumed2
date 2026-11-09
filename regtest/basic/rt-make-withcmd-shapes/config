@@ -1,0 +1,7 @@
+type=make
+export PLUMED_STACK_TRACE=no
+
+function plumed_regtest_after() {
+  cat rejected.make >> Makefile
+  $make check-rejections > rejections 2>&1
+}

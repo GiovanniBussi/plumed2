@@ -1232,10 +1232,10 @@ void Driver<real>::evaluateNumericalDerivatives( const long long int& step, Plum
     for(unsigned j=0; j<3; ++j) {
       pos[i][j]=pos[i][j]+delta;
       p.cmd("setStepLongLong",step);
-      p.cmd("setPositions",&pos[0][0], {natoms,3});
+      p.cmd("setPositions",pos);
       p.cmd("setForces",&fake_forces[0], {natoms,3});
-      p.cmd("setMasses",&masses[0], {natoms});
-      p.cmd("setCharges",&charges[0], {natoms});
+      p.cmd("setMasses",masses);
+      p.cmd("setCharges",charges);
       p.cmd("setBox",&cell[0], {3,3});
       p.cmd("setVirial",&fake_virial[0], {3,3});
       p.cmd("prepareCalc");
@@ -1264,10 +1264,10 @@ void Driver<real>::evaluateNumericalDerivatives( const long long int& step, Plum
         pos[j]=pbc.scaledToReal( pos[j] );
       }
       p.cmd("setStepLongLong",step);
-      p.cmd("setPositions",&pos[0][0], {natoms,3});
+      p.cmd("setPositions",pos);
       p.cmd("setForces",&fake_forces[0], {natoms,3});
-      p.cmd("setMasses",&masses[0], {natoms});
-      p.cmd("setCharges",&charges[0], {natoms});
+      p.cmd("setMasses",masses);
+      p.cmd("setCharges",charges);
       p.cmd("setBox",&cell[0], {3,3});
       p.cmd("setVirial",&fake_virial[0], {3,3});
       p.cmd("prepareCalc");

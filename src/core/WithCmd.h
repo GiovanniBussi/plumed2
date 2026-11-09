@@ -22,7 +22,7 @@
 #ifndef __PLUMED_core_WithCmd_h
 #define __PLUMED_core_WithCmd_h
 
-#include "tools/TypesafePtr.h"
+#include "tools/CmdArgument.h"
 #include <string>
 #include <string_view>
 
@@ -45,6 +45,51 @@ class WithCmd {
     SizeLike(long long int dim): size(std::size_t(dim)) {}
   };
 public:
+  /// Infer scalar type, shape and temporary lifetime before virtual dispatch.
+  /// Explicit TypesafePtr arguments keep using the non-template entry points.
+  template<class Key, class T,
+           std::enable_if_t<std::is_convertible<Key,std::string_view>::value &&
+                            !std::is_same<std::decay_t<T>,TypesafePtr>::value,int> = 0>
+  void cmd(Key&& key,T&& val) {
+    const auto arg=cmd_detail::argument(std::forward<T>(val));
+    cmd(std::string_view(key),arg);
+  }
+
+  /// Explicit dimensions describe the outer array of fixed-size objects.
+  template<class T, std::enable_if_t<CmdArray<std::remove_cv_t<T>>::value,int> = 0>
+  void cmd(std::string_view key,T* val,const std::size_t* shape) {
+    std::array<std::size_t,TypesafePtr::maxrank+1> dims{};
+    if(shape) {
+      unsigned i=0;
+      for(; i<TypesafePtr::maxrank && shape[i]; ++i) {
+        dims[i]=shape[i];
+      }
+      if(shape[i]) {
+        throw ExceptionTypeError()<<"Maximum shape size is "<<TypesafePtr::maxrank;
+      }
+    }
+    const auto arg=cmd_detail::pointer(val,dims);
+    cmd(key,arg);
+  }
+  template<class T, std::enable_if_t<CmdArray<std::remove_cv_t<T>>::value,int> = 0>
+  void cmd(std::string_view key,T* val,std::initializer_list<SizeLike> shape) {
+    std::array<std::size_t,TypesafePtr::maxrank+1> dims{};
+    if(shape.size()>TypesafePtr::maxrank) {
+      throw ExceptionTypeError()<<"Maximum shape size is "<<TypesafePtr::maxrank;
+    }
+    unsigned i=0;
+    for(auto dim: shape) {
+      dims[i++]=dim.size;
+    }
+    cmd(key,val,dims.data());
+  }
+  template<class T, class I, std::enable_if_t<CmdArray<std::remove_cv_t<T>>::value &&
+           std::is_integral<I>::value,int> = 0>
+  void cmd(std::string_view key,T* val,I nelem) {
+    const std::size_t dims[] {val ? std::size_t(nelem) : 0,0};
+    cmd(key,val,dims);
+  }
+
   /// This is the preferred method as it avoid allocations of temporaries.
   /// If this is not overridded, it will call the legacy method.
   virtual void cmd(std::string_view key,const TypesafePtr & val=nullptr) {
