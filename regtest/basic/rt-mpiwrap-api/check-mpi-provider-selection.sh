@@ -25,7 +25,7 @@ PLUMED_MPI_WRAPPER="$compiler" \
 export MPI_TEST_COMPILER="$compiler"
 export MPI_TEST_COMPILER_MARKER="$TASK_DIR/compiler-ran"
 # This filename would expand if it were accidentally used as shell source.
-selected_compiler="$TASK_DIR/paths with spaces/mpi\$(not-a-command)cc"
+selected_compiler="$TASK_DIR/paths with spaces/mpi'\$(not-a-command)cc"
 cat > "$selected_compiler" <<'COMPILER'
 #!/usr/bin/env bash
 printf 'compiler invoked\n' > "$MPI_TEST_COMPILER_MARKER"

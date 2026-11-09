@@ -2,8 +2,10 @@
 # Exercise the real mkmpi discovery path with a deterministic mock compiler.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/mpiw-discovery.XXXXXX")
-trap 'rm -rf "$tmp"' EXIT
+temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/mpiw-discovery.XXXXXX")
+trap 'rm -rf "$temporary_root"' EXIT
+# Configured script/include paths must remain literal in the child environment.
+tmp="$temporary_root/discovery ' \$(not-a-command)"
 mkdir -p "$tmp/scripts" "$tmp/src/config" "$tmp/src/wrapper"
 cp "$root/scripts/mkmpi.sh" "$tmp/scripts/"
 cp "$root/src/wrapper/Plumed.h" "$tmp/src/wrapper/"
@@ -20,6 +22,7 @@ esac
   -I"$root/src" -iquote "$root/src/mpiwrap" \
   -x c++ "$root/src/mpiwrap/mpiwrap.cpp" \
   -x c++ "$root/src/mpiwrap/loader.cpp" \
+  -x c++ "$root/src/tools/SubprocessRun.cpp" \
   -x c++ "$root/src/mpiwrap/fallbacks.cpp" \
   -x c++ "$root/src/mpiwrap/launcher.cpp" \
   -x c++ "$root/src/mpiwrap/tmpi.cpp" \

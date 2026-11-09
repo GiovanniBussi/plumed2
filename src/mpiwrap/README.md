@@ -476,6 +476,12 @@ inline dispatch stay in headers to preserve type safety and direct call-through.
 | `launcher.cpp` | Maintained | Direct-MPI and embedded thread-MPI launch paths. |
 | `tmpi.cpp` | Generated | Thin embedded tMPI adapter and descriptor. |
 
+The maintained loader delegates synchronous compiler execution to
+`tools/Subprocess::run`, supplying literal script/compiler/output arguments and
+child-only configured environment overrides. The standalone provider-discovery
+harness compiles `src/tools/SubprocessRun.cpp` alongside the wrapper sources;
+no generated MPI interface or adapter source is needed for this launch helper.
+
 Each source contains its own build guards. The embedded adapter is compiled
 only when thread-MPI is configured; provider-mode registry/loader/fallback
 implementations are excluded from native-MPI builds. No `.cpp` file includes

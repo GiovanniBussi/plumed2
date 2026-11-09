@@ -12,8 +12,8 @@
 #include "internal.h"
 #if defined(__PLUMED_HAS_DLOPEN)
 #include "../config/Config.h"
+#include "../tools/Subprocess.h"
 #include <dlfcn.h>
-#include <spawn.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -25,7 +25,6 @@
 #include <mach-o/fat.h>
 #include <libkern/OSByteOrder.h>
 #endif
-extern char **environ;
 #endif
 
 namespace PLMD {
@@ -184,52 +183,27 @@ bool installAdjacentProvider(Registry &registry) {
 }
 
 void compileSelectedProvider(const char *compiler, const std::string &output) {
-  std::string script = config::getPlumedRoot() + "/scripts/mkmpi.sh";
-  // Spawn an interpreter with literal arguments. Neither compiler paths nor
-  // output paths are shell commands, even when they contain spaces or '$'.
-  std::vector<char *> arguments{
-    const_cast<char *>("/bin/bash"), const_cast<char *>(script.c_str())
-  };
-  // A null compiler deliberately delegates discovery to mkmpi, including
-  // MPICC/MPICXX and the host application's module-provided PATH.
-  if (compiler && compiler[0]) {
-    arguments.push_back(const_cast<char *>("--compiler"));
-    arguments.push_back(const_cast<char *>(compiler));
+  const std::string script = config::getPlumedRoot() + "/scripts/mkmpi.sh";
+  // A null compiler delegates discovery to mkmpi, including MPICC/MPICXX
+  // and the host application's module-provided PATH.
+  std::vector<std::string> arguments{"--",script};
+  if(compiler && compiler[0]) {
+    arguments.insert(arguments.end(), {"--compiler",compiler});
   }
-  arguments.push_back(const_cast<char *>("--out"));
-  arguments.push_back(const_cast<char *>(output.c_str()));
-  arguments.push_back(nullptr);
-  // A kernel loaded directly by a host has not run the plumed shell wrappers.
-  // Supply their configured paths to this child only; changing the process
-  // environment would race with other callers and unrelated application code.
-  const std::string root = "PLUMED_ROOT=" + config::getPlumedRoot();
-  const std::string includedir = "PLUMED_INCLUDEDIR=" + config::getPlumedIncludedir();
-  const std::string program = "PLUMED_PROGRAM_NAME=" + config::getPlumedProgramName();
-  std::vector<char *> child_environment;
-  for(char **entry = environ; entry && *entry; ++entry) {
-    if(std::strncmp(*entry,"PLUMED_ROOT=",12)!=0 &&
-        std::strncmp(*entry,"PLUMED_INCLUDEDIR=",18)!=0 &&
-        std::strncmp(*entry,"PLUMED_PROGRAM_NAME=",20)!=0) {
-      child_environment.push_back(*entry);
-    }
+  arguments.insert(arguments.end(), {"--out",output});
+  // Host applications have not necessarily run PLUMED's shell wrappers.
+  // Supply configured paths only to the compiler child, without changing
+  // process-global state or interpreting paths as shell command text.
+  const int status=Subprocess::run("/bin/bash",arguments, {
+    {"PLUMED_ROOT",config::getPlumedRoot()},
+    {"PLUMED_INCLUDEDIR",config::getPlumedIncludedir()},
+    {"PLUMED_PROGRAM_NAME",config::getPlumedProgramName()}
+  });
+  if(status<0) {
+    throw std::runtime_error("could not run MPI provider compiler: " +
+                             std::string(std::strerror(errno)));
   }
-  child_environment.push_back(const_cast<char *>(root.c_str()));
-  child_environment.push_back(const_cast<char *>(includedir.c_str()));
-  child_environment.push_back(const_cast<char *>(program.c_str()));
-  child_environment.push_back(nullptr);
-  pid_t child;
-  const int error = posix_spawn(&child, "/bin/bash", nullptr, nullptr, arguments.data(),
-                                child_environment.data());
-  if (error != 0) {
-    throw std::runtime_error("could not start MPI provider compiler: " +
-                             std::string(std::strerror(error)));
-  }
-  int status = 0;
-  pid_t result;
-  do {
-    result = waitpid(child, &status, 0);
-  } while (result < 0 && errno == EINTR);
-  if (result < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+  if(!WIFEXITED(status) || WEXITSTATUS(status)!=0) {
     throw std::runtime_error("MPI provider compilation failed; see compiler diagnostics above");
   }
 }
