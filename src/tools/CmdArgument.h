@@ -131,15 +131,14 @@ TypesafePtr pointer(T* ptr,std::array<std::size_t,TypesafePtr::maxrank+1> shape,
 template<class T> TypesafePtr argument(T&& val) {
   using U=std::remove_reference_t<T>;
   using V=std::remove_cv_t<U>;
-  constexpr bool temporary=!std::is_lvalue_reference<T>::value;
   if constexpr(CmdArray<V>::value) {
-    return pointer(std::addressof(val), {},temporary);
+    return pointer(std::addressof(val), {},!std::is_lvalue_reference<T>::value);
   } else if constexpr(HasSizeData<U>::value) {
     std::size_t size=val.size();
     if constexpr(std::is_same<V,std::string>::value) {
       ++size;
     }
-    return pointer(val.data(), {size,0},temporary);
+    return pointer(val.data(), {size,0},!std::is_lvalue_reference<T>::value);
   } else if constexpr(std::is_pointer<V>::value) {
     if constexpr(CmdArray<std::remove_cv_t<std::remove_pointer_t<V>>>::value) {
       return pointer(val, {val ? std::numeric_limits<std::size_t>::max() : 0,0});
