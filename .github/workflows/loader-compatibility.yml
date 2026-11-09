@@ -10,6 +10,8 @@ permissions:
   contents: read
 jobs:
   windows:
+    # Already validated on this source; dispatch can request another Windows run.
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/windows.yml
   kernel-unload:
     runs-on: ubuntu-latest
@@ -32,3 +34,28 @@ jobs:
           cmp regtest/basic/rt-make-openmp-dlclose/tmp/result regtest/basic/rt-make-openmp-dlclose/result.reference
           ! grep -q FAILURE regtest/basic/rt-make-openmp-dlclose/report.txt
           PLUMED_OPENMP_RETAIN_RUNTIME=no regtest/basic/rt-make-openmp-dlclose/tmp/exe --expect-unload
+      - name: Check concurrent legacy file loading with a timeout
+        run: |
+          export PLUMED_PREPEND_PATH="$PWD/src/lib"
+          export LD_LIBRARY_PATH="$PWD/src/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export PLUMED_KERNEL="$PWD/src/lib/libplumedKernel.so"
+          unset PLUMED_AUTOLOAD
+          for fixture in rt-make-load-cltool rt-make-load-cpp; do
+            directory="regtest/basic/$fixture"
+            set +e
+            timeout 120 make -C "$directory"
+            result=$?
+            set -e
+            cat "$directory/report.txt"
+            if [[ $result != 0 ]] || grep -q FAILURE "$directory/report.txt"; then
+              cat "$directory/tmp/out" "$directory/tmp/err" || true
+              if [[ -x "$directory/tmp/exe" ]] && command -v gdb >/dev/null; then
+                (
+                  cd "$directory/tmp"
+                  timeout --signal=INT --kill-after=20 90 gdb --batch \
+                    -ex 'set pagination off' -ex run -ex 'thread apply all bt' --args ./exe
+                ) || true
+              fi
+              exit 1
+            fi
+          done
