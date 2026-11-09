@@ -1,0 +1,43 @@
+name: Conda extension packages
+on:
+  push:
+    branches: [agents/conda-packaging/ci]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  conda:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      VERSION: 2.11.0dev0
+      CPU_COUNT: 4
+      PLUMED_NUM_THREADS: 2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: packaging
+          python-version: '3.13'
+          channels: conda-forge
+          conda-remove-defaults: true
+      - name: Install packaging tools
+        run: conda install -y conda-build
+      - name: Build packages
+        run: make -C conda
+      - name: Test extension installation and MPI providers
+        run: make -C conda test
+      - name: Preserve conda packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-${{ matrix.os }}
+          path: ${{ env.CONDA }}/envs/packaging/conda-bld/*/plumed*.conda
+          if-no-files-found: ignore
