@@ -52,7 +52,7 @@ public:
                             !std::is_same<std::decay_t<T>,TypesafePtr>::value,int> = 0>
   void cmd(Key&& key,T&& val) {
     const auto arg=cmd_detail::argument(std::forward<T>(val));
-    cmd(std::string_view(key),arg);
+    cmd(std::forward<Key>(key),arg);
   }
 
   /// Explicit dimensions describe the outer array of fixed-size objects.

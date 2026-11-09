@@ -51,6 +51,21 @@ struct Legacy : WithCmd {
     check(arg.get<int>()==7);
   }
 };
+struct Both : WithCmd {
+  using WithCmd::cmd;
+  unsigned views=0,strings=0;
+  const std::string* expected=nullptr;
+  void cmd(std::string_view key,const TypesafePtr& arg=nullptr) override {
+    check(key=="check");
+    check(arg.get<int>()==7);
+    ++views;
+  }
+  void cmd(const std::string& key,const TypesafePtr& arg=nullptr) override {
+    check(&key==expected);
+    check(arg.get<int>()==7);
+    ++strings;
+  }
+};
 void shape(Sink& s,std::initializer_list<std::size_t> dims,bool constant=false,bool nocopy=false) {
   s.test=[dims=std::vector<std::size_t>(dims),constant,nocopy](const TypesafePtr& p) {
     std::size_t n=1;
@@ -214,6 +229,18 @@ int main() {
   old.cmd(std::string_view("check"),7);
   old.cmd(std::string("check"),7);
   check(legacy.calls==6);
+  Both both;
+  WithCmd& bothBase=both;
+  std::string originalKey="check";
+  both.expected=&originalKey;
+  both.cmd(originalKey,7);
+  bothBase.cmd(originalKey,7);
+  both.cmd(std::move(originalKey),7);
+  both.cmd(originalKey,scalar);
+  both.cmd(std::string_view("check"),7);
+  bothBase.cmd("check",7);
+  both.cmd("check",7);
+  check(both.strings==4 && both.views==3);
   s.test=[](const TypesafePtr& p) {
     fails([&] {p.get<const double*>({2,4});});
     fails([&] {p.get<const double*>({6});});
