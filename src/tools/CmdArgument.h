@@ -52,6 +52,8 @@ struct CmdArray<TensorTyped<T,N,M>> : std::true_type {
 };
 
 namespace cmd_detail {
+template<class T, class=void> struct HasSize : std::false_type {};
+template<class T> struct HasSize<T,std::void_t<decltype(std::declval<T&>().size())>> : std::true_type {};
 template<class T, class=void> struct HasSizeData : std::false_type {};
 template<class T> struct HasSizeData<T,std::void_t<
 decltype(std::declval<T&>().size()),decltype(std::declval<T&>().data())>> : std::true_type {};
@@ -119,7 +121,7 @@ TypesafePtr pointer(T* ptr,std::array<std::size_t,TypesafePtr::maxrank+1> shape,
     }
     return pointer(FixedArray<U>::data(ptr),shape,nocopy);
   } else {
-    static_assert(!HasSizeData<U>::value,"cmd cannot flatten nested dynamic containers");
+    static_assert(!HasSize<U>::value,"cmd cannot flatten nested dynamic containers");
     TypesafePtr result(ptr,0,shape.data());
     if(nocopy) {
       return TypesafePtr(result.getRaw(),result.getNelem(),result.getShape(),result.getFlags() | 0x10000000u);
@@ -134,11 +136,15 @@ template<class T> TypesafePtr argument(T&& val) {
   if constexpr(CmdArray<V>::value) {
     return pointer(std::addressof(val), {},!std::is_lvalue_reference<T>::value);
   } else if constexpr(HasSizeData<U>::value) {
-    std::size_t size=val.size();
-    if constexpr(std::is_same<V,std::string>::value) {
-      ++size;
+    using Data=decltype(val.data());
+    static_assert(std::is_pointer<Data>::value,"cmd container data() must return a pointer");
+    if constexpr(std::is_pointer<Data>::value) {
+      std::size_t size=val.size();
+      if constexpr(std::is_same<V,std::string>::value) {
+        ++size;
+      }
+      return pointer(val.data(), {size,0},!std::is_lvalue_reference<T>::value);
     }
-    return pointer(val.data(), {size,0},!std::is_lvalue_reference<T>::value);
   } else if constexpr(std::is_pointer<V>::value) {
     if constexpr(CmdArray<std::remove_cv_t<std::remove_pointer_t<V>>>::value) {
       return pointer(val, {val ? std::numeric_limits<std::size_t>::max() : 0,0});

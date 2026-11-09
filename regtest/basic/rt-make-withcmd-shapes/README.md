@@ -8,7 +8,8 @@ copy/temporary flags, old/new virtual overrides, all key types, explicit
 TypesafePtr arguments, empty containers, strings and native/custom fixed types.
 Real PlumedMain commands check positions, writable forces, shape rejection and
 retention rejection. `rejected.make`, invoked by the normal regression hook,
-requires compilation to reject nested dynamic containers and vector<bool>.
+requires compilation to reject nested dynamic containers (including nested bool
+vectors), vector<bool>, and containers whose data() does not return a pointer.
 
 Run after building and sourcing sourceme.sh:
 
