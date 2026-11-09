@@ -1,0 +1,30 @@
+name: Module loader compatibility
+on:
+  push:
+    branches: [agents/conda-packaging/compatibility]
+  workflow_dispatch:
+concurrency:
+  group: loader-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  windows:
+    uses: ./.github/workflows/windows.yml
+  kernel-unload:
+    runs-on: ubuntu-latest
+    env:
+      PLUMED_AUTOLOAD: "0"
+      PLUMED_NUM_THREADS: 4
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build a serial kernel with unloading enabled
+        run: |
+          ./configure --enable-modules=none:colvar:bias --disable-mpi --disable-python CXXFLAGS="-O2 -fno-gnu-unique"
+          make -j 4
+      - name: Verify repeated calculation and kernel unloading
+        run: |
+          PLUMED_PREPEND_PATH="$PWD/src/lib" make -C regtest/basic/rt-make-openmp-dlclose
+          cat regtest/basic/rt-make-openmp-dlclose/report.txt
+          cmp regtest/basic/rt-make-openmp-dlclose/tmp/result regtest/basic/rt-make-openmp-dlclose/result.reference
+          ! grep -q FAILURE regtest/basic/rt-make-openmp-dlclose/report.txt
