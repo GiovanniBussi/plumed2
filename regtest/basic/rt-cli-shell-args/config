@@ -1,0 +1,10 @@
+type=plumed
+arg="config --help"
+plumed_needs=subprocess
+
+function plumed_regtest_before(){
+  python3 check.py $plumed_nompi || {
+    echo "FAILURE: shell-tool argument and environment checks"
+    return 1
+  }
+}

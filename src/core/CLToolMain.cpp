@@ -448,14 +448,20 @@ int CLToolMain::run(int argc, char **argv,FILE*in,FILE*out,Communicator& pc) {
   if(find(availableShell.begin(),availableShell.end(),command)!=availableShell.end()) {
     plumed_massert(in==stdin,"shell tools can only work on stdin");
     plumed_massert(out==stdout,"shell tools can only work on stdin");
-    std::string cmd=config::getEnvCommand()+" \""+root+"/scripts/"+command+".sh\"";
+    // Pass paths and arguments literally, without reconstructing shell code.
+    std::vector<std::string> arguments{"--",root+"/scripts/"+command+".sh"};
     for(int j=i+1; j<argc; j++) {
-      cmd+=std::string(" ")+argv[j];
+      arguments.emplace_back(argv[j]);
     }
-    int r=std::system(cmd.c_str());
-// this is necessary since system seems to return numbers which are multiple
-// of 256. this would make the interpretation by the shell wrong
-// I just return 1 in case of failure and 0 in case of success
+    const int r=Subprocess::run("/bin/bash",arguments, {
+      {"PLUMED_ROOT",root},
+      {"PLUMED_VERSION",config::getVersionLong()},
+      {"PLUMED_HTMLDIR",config::getPlumedHtmldir()},
+      {"PLUMED_INCLUDEDIR",config::getPlumedIncludedir()},
+      {"PLUMED_PROGRAM_NAME",config::getPlumedProgramName()},
+      {"PLUMED_IS_INSTALLED",config::isInstalled() ? "yes" : "no"}
+    });
+    // Preserve the CLI contract: normalize the raw wait status to success/failure.
     if(r!=0) {
       return 1;
     } else {
