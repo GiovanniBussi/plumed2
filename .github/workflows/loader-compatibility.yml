@@ -20,11 +20,15 @@ jobs:
       - uses: actions/checkout@v6
       - name: Build a serial kernel with unloading enabled
         run: |
-          ./configure --enable-modules=none:colvar:bias --disable-mpi --disable-python CXXFLAGS="-O2 -fno-gnu-unique"
+          ./configure --enable-modules=none:colvar:bias:cltools --disable-mpi --disable-python CXXFLAGS="-O2 -fno-gnu-unique"
           make -j 4
       - name: Verify repeated calculation and kernel unloading
         run: |
-          PLUMED_PREPEND_PATH="$PWD/src/lib" make -C regtest/basic/rt-make-openmp-dlclose
+          export PLUMED_PREPEND_PATH="$PWD/src/lib"
+          export LD_LIBRARY_PATH="$PWD/src/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export PLUMED_KERNEL="$PWD/src/lib/libplumedKernel.so"
+          make -C regtest/basic/rt-make-openmp-dlclose
           cat regtest/basic/rt-make-openmp-dlclose/report.txt
           cmp regtest/basic/rt-make-openmp-dlclose/tmp/result regtest/basic/rt-make-openmp-dlclose/result.reference
           ! grep -q FAILURE regtest/basic/rt-make-openmp-dlclose/report.txt
+          PLUMED_OPENMP_RETAIN_RUNTIME=no regtest/basic/rt-make-openmp-dlclose/tmp/exe --expect-unload
