@@ -166,16 +166,25 @@ PLUMED_REGISTER_ACTION(Load,"LOAD")
 
 void Load::registerKeywords( Keywords& keys ) {
   ActionAnyorder::registerKeywords(keys);
-  keys.add("compulsory","FILE","file to be loaded");
+  keys.add("optional","FILE","file to be loaded");
+  keys.add("optional","MODULE","installed module to be loaded, together with its hard dependencies");
 }
 
 Load::Load(const ActionOptions&ao):
   Action(ao),
   ActionAnyorder(ao) {
-  std::string f;
+  std::string f, module;
   parse("FILE",f);
+  parse("MODULE",module);
   checkRead();
-  plumed.load(f);
+  if(f.empty()==module.empty()) {
+    error("Specify exactly one of FILE and MODULE");
+  }
+  if(!module.empty()) {
+    plumed.loadModule(module);
+  } else {
+    plumed.load(f);
+  }
 }
 
 }
