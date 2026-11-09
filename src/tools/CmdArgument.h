@@ -144,6 +144,9 @@ template<class T> TypesafePtr argument(T&& val) {
         ++size;
       }
       return pointer(val.data(), {size,0},!std::is_lvalue_reference<T>::value);
+    } else {
+      // Unreachable for an instantiable type: the assertion above rejects it.
+      return {};
     }
   } else if constexpr(std::is_pointer<V>::value) {
     if constexpr(CmdArray<std::remove_cv_t<std::remove_pointer_t<V>>>::value) {
