@@ -3,6 +3,9 @@ on:
   push:
     branches: [agents/conda-packaging/ci]
   workflow_dispatch:
+concurrency:
+  group: conda-packaging-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -30,6 +33,9 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
+      - name: Select the installed macOS SDK
+        if: runner.os == 'macOS'
+        run: echo "CONDA_BUILD_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
       - name: Build packages
         run: make -C conda
       - name: Test extension installation and MPI providers
