@@ -24,12 +24,12 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
-          activate-environment: packaging
-          python-version: '3.13'
+          activate-environment: ""
+          auto-activate: true
           channels: conda-forge
           conda-remove-defaults: true
       - name: Install packaging tools
-        run: conda install -y conda-build
+        run: conda install -y conda-build python=3.13
       - name: Build packages
         run: make -C conda
       - name: Test extension installation and MPI providers
@@ -39,5 +39,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: conda-${{ matrix.os }}
-          path: ${{ env.CONDA }}/envs/packaging/conda-bld/*/plumed*.conda
+          path: ${{ env.CONDA }}/conda-bld/*/plumed*.conda
           if-no-files-found: ignore
