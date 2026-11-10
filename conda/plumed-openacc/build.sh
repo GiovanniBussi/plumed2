@@ -7,23 +7,32 @@ sdk="$NVHPC_HOME/Linux_$(uname -m)/$nvhpc_version"
 nvcxx="$sdk/compilers/bin/nvc++"
 "$nvcxx" -V
 mkdir -p "$SRC_DIR/nvhpc-licenses"
-cp "$sdk/compilers/license/"LICENSE*.txt "$SRC_DIR/nvhpc-licenses/"
+cp "$sdk/compilers/license/"* "$SRC_DIR/nvhpc-licenses/"
+cp "$sdk/cuda/$openacc_cuda_version/EULA.txt" "$SRC_DIR/nvhpc-licenses/CUDA-EULA.txt"
 python extensions/register.py --plumed "$PREFIX/bin/plumed" --module openacc_ptm \
   --library ../../plumedOpenACC.so --variant "nvhpc${nvhpc_version}_cuda${openacc_cuda_version}" \
   --features OPENACC --output "$SRC_DIR/openacc-registration"
 "$CXX" $CXXFLAGS $CPPFLAGS -std=c++17 -fPIC -D__PLUMED_HAS_OPENACC=1 \
   -I"$PREFIX/include/plumed" -c "$SRC_DIR/openacc-registration/module_identity.cpp" \
   -o "$SRC_DIR/openacc-registration/module_identity.o"
+# NVHPC needs explicit GNU compiler locations: conda activation exports names,
+# not an installation root containing unprefixed gcc/g++ binaries. Generate a
+# private profile; never rewrite the externally supplied SDK configuration.
+"$sdk/compilers/bin/makelocalrc" -d "$SRC_DIR/openacc-registration" \
+  -x "$sdk/compilers/bin" -gcc "$(command -v "$CC")" \
+  -gpp "$(command -v "$CXX")" -g77 "$(command -v gfortran)"
+export NVLOCALRC="$SRC_DIR/openacc-registration/localrc"
+test -s "$NVLOCALRC"
 cd plugins/openaccPTM
 bash configure
 make clean
 # Include real GPU machine code for all supported architectures, and a serial
 # host target so ordinary CI can test the same installed artifact without a GPU.
 # Keep the vendor runtime private: the base uses GCC's OpenMP runtime.
+# Preserve the base CPPFLAGS, including MPIW and other public-header ABI macros.
 make -j"${CPU_COUNT:-4}" NVCXX="$nvcxx" ACCTARGET=gpu,host \
-  CPPFLAGS="-I$PREFIX/include" \
-  CXXFLAGS="-O2 -std=c++17 -fPIC --gcc-toolchain=$CC -gpu=ccall,cuda${openacc_cuda_version}" \
-  NVLDSHARED="$nvcxx -shared --gcc-toolchain=$CC -gpu=ccall,cuda${openacc_cuda_version} -Xlinker --no-undefined" \
+  CXXFLAGS="-O2 -std=c++17 -fPIC -gpu=ccall,cuda${openacc_cuda_version}" \
+  NVLDSHARED="$nvcxx -shared -gpu=ccall,cuda${openacc_cuda_version} -Xlinker --no-undefined" \
   EXTRA_OBJS="$SRC_DIR/openacc-registration/module_identity.o" \
   DYNAMIC_LIBS="-L$PREFIX/lib"
 readelf -d plumedOpenACC.so
