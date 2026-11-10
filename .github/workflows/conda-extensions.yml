@@ -47,7 +47,7 @@ jobs:
           path: ${{ runner.temp }}/base-package
       - name: Index the fixed main kernel
         run: |
-          subdir=$(conda info --json | python -c 'import json,sys; print(json.load(sys.stdin)["subdir"])')
+          subdir=$(conda info --json | python -c 'import json,sys; print(json.load(sys.stdin)["platform"])')
           mkdir -p "$CONDA_BLD_PATH/$subdir"
           base=$(find "$RUNNER_TEMP/base-package" -name "plumed-${VERSION}-*.conda" -type f)
           test -n "$base"
