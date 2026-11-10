@@ -24,7 +24,7 @@ jobs:
       PLUMED_NUM_THREADS: 2
       # Compilation and native loading do not execute GPU calculations.
       CONDA_OVERRIDE_CUDA: '13.0'
-      CONDA_BLD_PATH: ${{ runner.temp }}/plumed-conda-bld
+      CONDA_BLD_PATH: /tmp/plumed-conda-bld
     steps:
       - uses: actions/checkout@v6
       - uses: conda-incubator/setup-miniconda@v4
