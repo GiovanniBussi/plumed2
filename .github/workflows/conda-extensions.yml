@@ -1,4 +1,4 @@
-name: Conda CUDA coordination variants
+name: Conda OpenACC multi-target plugin
 on:
   push:
     branches: [agents/conda-packaging/ci]
@@ -10,11 +10,11 @@ permissions:
   contents: read
   actions: read
 jobs:
-  cuda:
+  openacc:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -24,7 +24,6 @@ jobs:
       CPU_COUNT: 4
       PLUMED_NUM_THREADS: 2
       # Compilation and native loading do not execute GPU calculations.
-      CONDA_OVERRIDE_CUDA: '13.0'
       CONDA_BLD_PATH: /tmp/plumed-conda-bld
     steps:
       - uses: actions/checkout@v6
@@ -53,16 +52,20 @@ jobs:
           test -n "$base"
           cp "$base" "$CONDA_BLD_PATH/$subdir/"
           conda index "$CONDA_BLD_PATH"
-      - name: Build both CUDA variants against that kernel
+      - name: Fetch isolated NVHPC build tools
+        run: |
+          bash conda/fetch-nvhpc.sh 25.11 "$RUNNER_TEMP/nvhpc"
+          echo "NVHPC_HOME=$RUNNER_TEMP/nvhpc/opt/nvidia/hpc_sdk" >> "$GITHUB_ENV"
+      - name: Build one GPU and host OpenACC library
         run: |
           python extensions/conda_recipe.py
-          conda-build -c local -c conda-forge conda/plumed-cuda-coordination
-      - name: Verify variant selection and unchanged main kernel
-        run: bash conda/run-cuda-coordination-test.sh
+          conda-build -c local -c conda-forge conda/plumed-openacc
+      - name: Verify install and unchanged main kernel
+        run: bash conda/run-openacc-test.sh
       - name: Preserve conda packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cuda-conda-${{ matrix.os }}
+          name: openacc-conda-${{ matrix.os }}
           path: ${{ env.CONDA_BLD_PATH }}/*/plumed*.conda
           if-no-files-found: ignore
