@@ -52,6 +52,10 @@ jobs:
           test -n "$base"
           cp "$base" "$CONDA_BLD_PATH/$subdir/"
           conda index "$CONDA_BLD_PATH"
+      - name: Validate the generated recipe before downloading the SDK
+        run: |
+          python extensions/conda_recipe.py
+          conda render -c local -c conda-forge conda/plumed-openacc --file "$RUNNER_TEMP/openacc-rendered.yaml"
       - name: Fetch isolated NVHPC build tools
         run: |
           bash conda/fetch-nvhpc.sh 25.11 "$RUNNER_TEMP/nvhpc"
