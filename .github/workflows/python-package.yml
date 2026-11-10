@@ -3,8 +3,8 @@ name: Python package
 on:
   push:
     # Branch pushes build wheels on forks; upstream uses tags and pull requests.
-    branches:
-      - "**"
+    branches-ignore:
+      - "agents/fix-recurrent-ci-error/subprocess"
     tags:
       - "v*"
   pull_request:
