@@ -1,4 +1,4 @@
-name: Conda extension packages
+name: Conda CUDA coordination variants
 on:
   push:
     branches: [agents/conda-packaging/ci]
@@ -9,11 +9,11 @@ concurrency:
 permissions:
   contents: read
 jobs:
-  conda:
+  cuda:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -22,6 +22,9 @@ jobs:
       VERSION: 2.11.0dev0
       CPU_COUNT: 4
       PLUMED_NUM_THREADS: 2
+      # Compilation and native loading do not execute GPU calculations.
+      CONDA_OVERRIDE_CUDA: '13.0'
+      CONDA_BLD_PATH: ${{ runner.temp }}/plumed-conda-bld
     steps:
       - uses: actions/checkout@v6
       - uses: conda-incubator/setup-miniconda@v4
@@ -33,17 +36,18 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      - name: Select the installed macOS SDK
-        if: runner.os == 'macOS'
-        run: echo "CONDA_BUILD_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
-      - name: Build packages
-        run: make -C conda
-      - name: Test extension installation and MPI providers
-        run: make -C conda test
+      - name: Build the main kernel once
+        run: conda-build -c conda-forge conda/plumed
+      - name: Build both CUDA variants against that kernel
+        run: |
+          python extensions/conda_recipe.py
+          conda-build -c local -c conda-forge conda/plumed-cuda-coordination
+      - name: Verify variant selection and unchanged main kernel
+        run: bash conda/run-cuda-coordination-test.sh
       - name: Preserve conda packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: conda-${{ matrix.os }}
-          path: ${{ env.CONDA }}/conda-bld/*/plumed*.conda
+          name: cuda-conda-${{ matrix.os }}
+          path: ${{ env.CONDA_BLD_PATH }}/*/plumed*.conda
           if-no-files-found: ignore
