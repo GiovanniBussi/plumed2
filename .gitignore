@@ -34,3 +34,7 @@ __pycache__
 
 /extensions/catalog.json
 /conda/plumed-extensions/meta.yaml
+
+/conda/plumed-pycv/meta.yaml
+
+/conda/plumed-cuda-coordination/meta.yaml

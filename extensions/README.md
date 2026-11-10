@@ -118,11 +118,13 @@ CONDA_UNAVAILABLE_LIBRARIES = example-library
 ```
 
 Quote MatchSpecs containing spaces. Conda selectors are supported at the end of
-a declaration, for example `# [linux]`. These files declare package policy;
+a declaration, for example `# [linux]`. These files are manually curated inputs and are never overwritten by the
+generators. They declare package policy;
 compiler probes only decide which feature macros and native links to enable.
 The current recipe selects all 35 default-off modules. DRR declares Boost;
 Fourier declares non-MPI FFTW; PyTorch and metatomic declare CPU LibTorch and
-native metatomic/metatensor libraries; TTsketch declares non-MPI HDF5 while its
+native metatomic/metatensor libraries; TTsketch builds against non-MPI HDF5 but permits ABI-compatible MPI variants
+at runtime, while its
 unavailable ITensor dependency does not exclude it. KEnRef is also retained.
 Each package gets the license and notices from its own module directory, with
 the root license used only when a module has no notice.
@@ -158,3 +160,47 @@ Plugin builders can pass `--features LIBRARY_MACRO` to `extensions/register.py`.
 The identity translation unit exports those `__PLUMED_HAS_LIBRARY_MACRO` flags
 only when enabled by its compile flags, following the same runtime inquiry
 contract as source modules.
+
+### Python collective-variable plugin
+
+`conda install plumed-ext-pycv` installs the pycv plugin and its companion Python
+extension for the environment's Python minor version. The recipe builds Python
+3.11–3.15 variants from `conda/plumed-pycv/conda_build_config.yaml`. Every variant
+links to and pins the same main `plumed` package, without bundling another kernel.
+Python and NumPy are plugin runtime requirements; pybind11 is needed only to build.
+
+Like other extensions, pycv loads automatically. With `PLUMED_AUTOLOAD=0`, use
+`LOAD MODULE=pycv` in the input or `plumed --load-module=pycv ...` on the command
+line. `plumed modules --has pycv` checks runtime availability. `python -m pycv` continues to report the installed library path. Use
+`LOAD MODULE=pycv` with autoloading disabled so its runtime helpers load first.
+
+`extensions/conda_recipe.py` also generates `conda/plumed-pycv/meta.yaml`, using
+its module-local curated declarations and license. The build installs both
+Python components together and registers the library under `lib/plumed/plugins`.
+On macOS the same package also installs a `pycv_runtime` helper module, loaded
+as a dependency before pycv, so Python-hosted and standalone runs share the
+right interpreter symbols. No extra kernel or compiler is required at runtime.
+Its package tests run the existing Python-hosted suite and numerical driver
+fixtures for both autoloading and explicit module loading.
+
+### CUDA coordination plugin
+
+`plumed-ext-cuda-coordination` has CUDA 12.9 and 13.0 builds on Linux. Select one
+with `cuda-version=12.9` or `cuda-version=13.0`; they are variants of the same
+package, so conda installs one at a time. Each links to the exact main `plumed`
+version/build and the shared CUDA runtime. The kernel has no CUDA compiler or
+runtime dependency. Compiler tools and CCCL headers are build requirements only.
+
+The plugin autoloads as `cuda_coordination`. With autoloading disabled use
+`LOAD MODULE=cuda_coordination` or `plumed --load-module=cuda_coordination ...`.
+The loader rejects multiple variants exposed through `PLUMED_PLUGIN_PATH`,
+including variants outside the active conda prefix.
+
+Package tests without a GPU verify native loading, both action registrations,
+feature exports and explicit loading. The install/remove harness switches CUDA
+variants and checks that the main kernel bytes stay unchanged. Driver metadata
+is overridden only for those CPU-only CI checks. Actual GPU numerical validation
+can be requested with `python extensions/tests/cuda_coordination.py --prefix
+"$CONDA_PREFIX" --cuda-version 12.9 --gpu`; it runs existing double/float value
+and derivative fixtures in autoload and explicit module modes and rejects skips.
+Passing loading checks alone does not validate GPU calculations.
