@@ -8,6 +8,7 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+  actions: read
 jobs:
   cuda:
     strategy:
@@ -36,8 +37,22 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      - name: Build the main kernel once
-        run: conda-build -c conda-forge conda/plumed
+      # Keep the already-tested main kernel fixed while iterating plugin builds.
+      - name: Restore the main kernel archive
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42837350520
+          name: cuda-conda-${{ matrix.os }}
+          path: ${{ runner.temp }}/base-package
+      - name: Index the fixed main kernel
+        run: |
+          subdir=$(conda info --json | python -c 'import json,sys; print(json.load(sys.stdin)["subdir"])')
+          mkdir -p "$CONDA_BLD_PATH/$subdir"
+          base=$(find "$RUNNER_TEMP/base-package" -name "plumed-${VERSION}-*.conda" -type f)
+          test -n "$base"
+          cp "$base" "$CONDA_BLD_PATH/$subdir/"
+          conda index "$CONDA_BLD_PATH"
       - name: Build both CUDA variants against that kernel
         run: |
           python extensions/conda_recipe.py
