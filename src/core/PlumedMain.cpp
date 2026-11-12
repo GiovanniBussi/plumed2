@@ -1772,7 +1772,10 @@ void PlumedMain::load(const std::string& fileName) {
     }
 
     if(extension=="cpp") {
-      libName="./"+base+"."+config::getVersionLong()+"."+config::getSoExt();
+      const auto script=config::getPlumedRoot()+"/scripts/mklib.sh";
+      plumed_massert(std::filesystem::is_regular_file(pathFromUTF8(script)),
+                     "LOAD of C++ source requires mklib; for conda install plumed-mklib");
+      libName="./"+base+"."+config::getVersionLong()+"."+config::getModuleBuildID()+"."+config::getSoExt();
 // full path command, including environment setup
 // this will work even if plumed is not in the execution path or if it has been
 // installed with a name different from "plumed"
