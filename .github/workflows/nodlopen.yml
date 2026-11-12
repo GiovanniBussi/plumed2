@@ -44,5 +44,7 @@ jobs:
           ccache -s -M "$PLUMED_CCACHE_SIZE"
       - name: Run native regressions
         run: |
+          export PATH="$RUNNER_TEMP/plumed-nodlopen/bin:$PATH"
+          plumed info --root
           make --no-print-directory -j 2 -C regtest testclean
           make -C regtest checkfail
