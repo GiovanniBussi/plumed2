@@ -1,10 +1,10 @@
-name: Conda packaging integration
+name: Conda Intel macOS packaging
 on:
   push:
     branches: [agents/conda-packaging/ci]
   workflow_dispatch:
 concurrency:
-  group: conda-packaging-${{ github.ref }}
+  group: conda-packaging-intel-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-latest]
+        os: [macos-15-intel]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -43,45 +43,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: conda-${{ matrix.os }}
-          path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
-          if-no-files-found: ignore
-  openacc:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -el {0}
-    env:
-      VERSION: 2.11.0dev4
-      CPU_COUNT: 4
-      PLUMED_NUM_THREADS: 2
-      CONDA_BLD_PATH: /tmp/plumed-conda-bld
-    steps:
-      - uses: actions/checkout@v6
-      - uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: latest
-          activate-environment: ""
-          auto-activate: true
-          channels: conda-forge
-          conda-remove-defaults: true
-      - name: Install packaging tools
-        run: conda install -y conda-build python=3.13
-      - name: Build current main kernel
-        run: conda-build -c conda-forge conda/plumed
-      - name: Generate plugin recipe
-        run: python extensions/conda_recipe.py
-      - name: Fetch isolated NVHPC build tools
-        run: |
-          bash conda/fetch-nvhpc.sh 25.11 "$RUNNER_TEMP/nvhpc"
-          echo "NVHPC_HOME=$RUNNER_TEMP/nvhpc/opt/nvidia/hpc_sdk" >> "$GITHUB_ENV"
-      - name: Build multi-target OpenACC plugin
-        run: conda-build -c local -c conda-forge conda/plumed-openacc
-      - name: Verify installation and unchanged kernel
-        run: bash conda/run-openacc-test.sh
-      - name: Preserve packages
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: openacc-conda-ubuntu-latest
           path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
           if-no-files-found: ignore
