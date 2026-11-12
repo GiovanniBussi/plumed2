@@ -36,7 +36,7 @@ jobs:
           ccache -s -M "$PLUMED_CCACHE_SIZE"
           ./configure CXX="ccache $CXX" --disable-python --disable-doc \
             --disable-dependency-tracking --enable-modules=all --disable-dlopen \
-            --prefix="$RUNNER_TEMP/plumed-nodlopen"
+            --prefix="$HOME/opt"
       - name: Build and install
         run: |
           make -j 4
@@ -44,7 +44,7 @@ jobs:
           ccache -s -M "$PLUMED_CCACHE_SIZE"
       - name: Run native regressions
         run: |
-          export PATH="$RUNNER_TEMP/plumed-nodlopen/bin:$PATH"
+          export PATH="$HOME/opt/bin:$PATH"
           plumed info --root
           make --no-print-directory -j 2 -C regtest testclean
           make -C regtest checkfail
