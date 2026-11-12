@@ -1,10 +1,10 @@
-name: Conda shared-kernel release validation
+name: Conda final CUDA and integration validation
 on:
   push:
-    branches: [agents/conda-packaging/ci]
+    branches: [agents/conda-packaging/cuda-final]
   workflow_dispatch:
 concurrency:
-  group: conda-packaging-release-${{ github.ref }}
+  group: conda-packaging-cuda-final-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -18,66 +18,11 @@ env:
   PLUMED_NUM_THREADS: 2
   CONDA_BLD_PATH: /tmp/plumed-conda-bld
 jobs:
-  kernel_linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: latest
-          activate-environment: ""
-          auto-activate: true
-          channels: conda-forge
-          conda-remove-defaults: true
-      - name: Install packaging tools
-        run: conda install -y conda-build python=3.13
-      - name: Build and test the one Linux x86-64 kernel
-        run: conda-build -c conda-forge conda/plumed
-      - name: Preserve the exact kernel for all dependent jobs
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-linux-64
-          path: ${{ env.CONDA_BLD_PATH }}/linux-64/plumed-${{ env.VERSION }}-*.conda
-          if-no-files-found: error
   linux_packages:
-    needs: kernel_linux
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: latest
-          activate-environment: ""
-          auto-activate: true
-          channels: conda-forge
-          conda-remove-defaults: true
-      - name: Install packaging tools
-        run: conda install -y conda-build python=3.13
-      - name: Restore the exact shared kernel
-        uses: actions/download-artifact@v4
-        with:
-          name: kernel-linux-64
-          path: ${{ env.CONDA_BLD_PATH }}/linux-64
-      - name: Index the shared kernel
-        run: conda index "$CONDA_BLD_PATH"
-      - name: Build all variants against the shared kernel
-        env:
-          PLUMED_CONDA_SKIP_BASE: "yes"
-        run: bash conda/run-conda-build.sh
-      - name: Verify fresh installation and selection
-        run: bash conda/run-conda-test.sh
-      - name: Preserve packages
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: conda-ubuntu-latest
-          path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
-          if-no-files-found: ignore
-  other_packages:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-arm, macos-15, macos-15-intel]
+        os: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -90,57 +35,48 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      - name: Build kernel and supported variants
-        run: bash conda/run-conda-build.sh
-      - name: Verify fresh installation and selection
+      - name: Wait for the original exact-base artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: conda-${{ matrix.os }}
+        run: |
+          for attempt in {1..120}; do
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/43201389162/artifacts" \
+              --jq '.artifacts[].name' | grep -qx "$ARTIFACT_NAME"; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "Original package artifact not available" >&2
+          exit 1
+      - name: Restore the original exact kernel and completed packages
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-${{ matrix.os }}
+          run-id: 43201389162
+          github-token: ${{ github.token }}
+          path: ${{ env.CONDA_BLD_PATH }}
+      - name: Index completed packages without obsolete CUDA outputs
+        run: |
+          rm -f "$CONDA_BLD_PATH"/*/plumed-ext-cuda-coordination-*.conda
+          conda index "$CONDA_BLD_PATH"
+      - name: Generate recipes and rebuild both corrected CUDA variants
+        env:
+          CONDA_OVERRIDE_CUDA: "13.0"
+        run: |
+          python extensions/conda_recipe.py
+          conda-build -c local -c conda-forge conda/plumed-cuda-coordination
+      - name: Verify all fresh package installation and selection
         run: bash conda/run-conda-test.sh
-      - name: Preserve packages
+      - name: Preserve final packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: conda-${{ matrix.os }}
           path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
-          if-no-files-found: ignore
-  openacc:
-    needs: kernel_linux
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: latest
-          activate-environment: ""
-          auto-activate: true
-          channels: conda-forge
-          conda-remove-defaults: true
-      - name: Install packaging tools
-        run: conda install -y conda-build python=3.13
-      - name: Restore the exact shared kernel
-        uses: actions/download-artifact@v4
-        with:
-          name: kernel-linux-64
-          path: ${{ env.CONDA_BLD_PATH }}/linux-64
-      - name: Index the shared kernel
-        run: conda index "$CONDA_BLD_PATH"
-      - name: Generate the plugin recipe
-        run: python extensions/conda_recipe.py
-      - name: Fetch isolated NVHPC build tools
-        run: |
-          bash conda/fetch-nvhpc.sh 25.11 "$RUNNER_TEMP/nvhpc"
-          echo "NVHPC_HOME=$RUNNER_TEMP/nvhpc/opt/nvidia/hpc_sdk" >> "$GITHUB_ENV"
-      - name: Build the multi-target plugin against the shared kernel
-        run: conda-build -c local -c conda-forge conda/plumed-openacc
-      - name: Verify installed host execution and unchanged kernel
-        run: bash conda/run-openacc-test.sh
-      - name: Preserve packages
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: openacc-conda-ubuntu-latest
-          path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
-          if-no-files-found: ignore
+          if-no-files-found: error
   combined_linux:
-    needs: [linux_packages, openacc]
+    needs: linux_packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -153,17 +89,19 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      - name: Download CPU and CUDA artifacts
+      - name: Download final CPU and CUDA artifacts
         uses: actions/download-artifact@v4
         with:
           name: conda-ubuntu-latest
           path: ${{ runner.temp }}/cpu-artifacts
-      - name: Download OpenACC artifacts
+      - name: Download the matching OpenACC artifact
         uses: actions/download-artifact@v4
         with:
           name: openacc-conda-ubuntu-latest
+          run-id: 43201389162
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/openacc-artifacts
-      - name: Verify common kernel and co-installation without GPU execution
+      - name: Verify exact base and combined loading without GPU execution
         env:
           CPU_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/cpu-artifacts
           OPENACC_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/openacc-artifacts
