@@ -1,0 +1,82 @@
+name: Updated ISDB numerical and shared-kernel artifact checks
+on:
+  push:
+    branches: [agents/conda-packaging/isdb-validate]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: conda-isdb-validation-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash -el {0}
+env:
+  VERSION: 2.11.0dev6
+  PLUMED_NUM_THREADS: 2
+  CONDA_BLD_PATH: /tmp/plumed-conda-bld
+jobs:
+  installed:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: ""
+          auto-activate: true
+          channels: conda-forge
+          conda-remove-defaults: true
+      - name: Install packaging tools
+        run: conda install -y conda-build python=3.13
+      - name: Restore the coherent kernel and its compiled packages
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-${{ matrix.os }}
+          run-id: 43262642430
+          github-token: ${{ github.token }}
+          path: ${{ env.CONDA_BLD_PATH }}
+      - name: Index packages and verify declarations
+        run: |
+          conda index "$CONDA_BLD_PATH"
+          python extensions/tests/kernel_requirements.py
+          python extensions/tests/configure_selection.py
+      - name: Run fresh installation and updated numerical checks
+        run: bash conda/run-conda-test.sh
+  combined_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: ""
+          auto-activate: true
+          channels: conda-forge
+          conda-remove-defaults: true
+      - name: Install packaging tools
+        run: conda install -y conda-build python=3.13
+      - name: Restore CPU and CUDA artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-ubuntu-latest
+          run-id: 43262642430
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/cpu-artifacts
+      - name: Restore the matching OpenACC artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openacc-conda-ubuntu-latest
+          run-id: 43262642430
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/openacc-artifacts
+      - name: Check the exact shared kernel and combined loading
+        env:
+          CPU_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/cpu-artifacts
+          OPENACC_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/openacc-artifacts
+        run: bash conda/run-gpu-coinstall-test.sh
