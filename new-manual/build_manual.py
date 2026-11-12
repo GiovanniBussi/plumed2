@@ -1610,7 +1610,6 @@ if (
     broken_inputs = []
 
     # Create the general pages
-    actions = set()
     pages = glob.glob("*.md")
     run_action_page = functools.partial(
         generateGeneralPages, plumed=PLUMED, version=version
