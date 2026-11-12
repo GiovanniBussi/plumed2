@@ -1,0 +1,48 @@
+name: ISDB loader no-dlopen regression validation
+on:
+  push:
+    branches: [agents/conda-packaging/isdb-nodlopen]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: isdb-nodlopen-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CC: gcc
+  CXX: g++
+  PLUMED_STACK_TRACE: yes
+  PLUMED_NUM_THREADS: 2
+  PLUMED_CCACHE_SIZE: 100M
+jobs:
+  nodlopen:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Identify runner image
+        id: image
+        run: echo "os=${ImageOS:?ImageOS is not set}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: ccache-reset1-${{ steps.image.outputs.os }}-checks-nodlopen-hash-${{ github.sha }}
+          restore-keys: ccache-reset1-${{ steps.image.outputs.os }}-checks-nodlopen-hash-
+      - name: Set up native tools
+        uses: ./.github/actions/linux-setup
+        with:
+          ccache: true
+      - name: Configure with dynamic loading disabled
+        run: |
+          ccache -s -M "$PLUMED_CCACHE_SIZE"
+          ./configure CXX="ccache $CXX" --disable-python --disable-doc \
+            --disable-dependency-tracking --enable-modules=all --disable-dlopen \
+            --prefix="$RUNNER_TEMP/plumed-nodlopen"
+      - name: Build and install
+        run: |
+          make -j 4
+          make install
+          ccache -s -M "$PLUMED_CCACHE_SIZE"
+      - name: Run native regressions
+        run: |
+          make --no-print-directory -j 2 -C regtest testclean
+          make -C regtest checkfail
