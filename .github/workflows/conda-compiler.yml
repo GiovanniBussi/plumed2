@@ -1,0 +1,48 @@
+name: Conda native compiler environment compatibility
+on:
+  push:
+    branches: [agents/conda-packaging/compiler-check]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash -el {0}
+env:
+  CC: gcc
+  CXX: g++
+  VERSION: 2.11.0dev5
+  CONDA_BLD_PATH: /tmp/plumed-conda-bld
+  CPU_COUNT: 4
+  PLUMED_NUM_THREADS: 2
+  CONDA_ALWAYS_COPY: "true"
+jobs:
+  compiler:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install ordinary CI conda bootstrap
+        run: |
+          curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
+          source ./conda-ci install
+          source ./conda-ci install-conda-build
+      - name: Restore the passed macOS ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-macos-15
+          run-id: 43201389162
+          github-token: ${{ github.token }}
+          path: ${{ env.CONDA_BLD_PATH }}
+      - name: Build and test with the conda compiler after clearing native defaults
+        run: |
+          source activate base
+          test "$CXX" = g++
+          unset CC CXX
+          conda index "$CONDA_BLD_PATH"
+          conda-build -c local -c conda-forge conda/plumed-mklib
+      - name: Verify fresh runtime tools installation and numerical use
+        run: |
+          source activate base
+          unset CC CXX
+          bash conda/run-mklib-test.sh
