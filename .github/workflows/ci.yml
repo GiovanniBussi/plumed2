@@ -110,9 +110,3 @@ jobs:
     if: ${{ needs.policy.outputs.run_ci == 'true' && !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch') || (needs.codecheck.result == 'success' && needs.checks.result == 'success')) }}
     uses: ./.github/workflows/dockerWF.yml
     secrets: inherit
-
-  conda:
-    needs: [policy, codecheck, checks]
-    if: ${{ needs.policy.outputs.run_ci == 'true' && !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'workflow_dispatch') || (needs.codecheck.result == 'success' && needs.checks.result == 'success')) }}
-    uses: ./.github/workflows/condaWF.yml
-    secrets: inherit
