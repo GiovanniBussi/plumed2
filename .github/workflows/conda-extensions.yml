@@ -22,7 +22,7 @@ jobs:
       VERSION: 2.11.0dev4
       CPU_COUNT: 4
       PLUMED_NUM_THREADS: 2
-      CONDA_BLD_PATH: ${{ github.workspace }}/.conda-bld
+      CONDA_BLD_PATH: ${{ runner.temp }}/plumed-conda-bld
     steps:
       - uses: actions/checkout@v6
       - uses: conda-incubator/setup-miniconda@v4
@@ -54,7 +54,7 @@ jobs:
       VERSION: 2.11.0dev4
       CPU_COUNT: 4
       PLUMED_NUM_THREADS: 2
-      CONDA_BLD_PATH: ${{ github.workspace }}/.conda-bld
+      CONDA_BLD_PATH: ${{ runner.temp }}/plumed-conda-bld
     steps:
       - uses: actions/checkout@v6
       - uses: conda-incubator/setup-miniconda@v4
