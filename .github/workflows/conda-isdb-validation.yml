@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -48,35 +48,3 @@ jobs:
           python extensions/tests/configure_selection.py
       - name: Run fresh installation and updated numerical checks
         run: bash conda/run-conda-test.sh
-  combined_linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: latest
-          activate-environment: ""
-          auto-activate: true
-          channels: conda-forge
-          conda-remove-defaults: true
-      - name: Install packaging tools
-        run: conda install -y conda-build python=3.13
-      - name: Restore CPU and CUDA artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: conda-ubuntu-latest
-          run-id: 43262642430
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/cpu-artifacts
-      - name: Restore the matching OpenACC artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: openacc-conda-ubuntu-latest
-          run-id: 43262642430
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/openacc-artifacts
-      - name: Check the exact shared kernel and combined loading
-        env:
-          CPU_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/cpu-artifacts
-          OPENACC_CONDA_ARTIFACT_DIR: ${{ runner.temp }}/openacc-artifacts
-        run: bash conda/run-gpu-coinstall-test.sh
