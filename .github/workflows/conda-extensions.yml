@@ -1,4 +1,4 @@
-name: Conda final CUDA and integration validation
+name: Conda final Linux and Intel integration validation
 on:
   push:
     branches: [agents/conda-packaging/cuda-final]
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -35,23 +35,6 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      - name: Wait for the original exact-base artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT_NAME: conda-${{ matrix.os }}
-        run: |
-          available=no
-          for attempt in {1..120}; do
-            names=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/43201389162/artifacts" \
-              --jq '.artifacts[].name')
-            if grep -Fx "$ARTIFACT_NAME" <<< "$names"; then
-              available=yes
-              break
-            fi
-            sleep 30
-          done
-          test "$available" = yes
-          echo "Original package artifact is available: $ARTIFACT_NAME"
       - name: Restore the original exact kernel and completed packages
         uses: actions/download-artifact@v4
         with:
@@ -63,12 +46,21 @@ jobs:
         run: |
           rm -f "$CONDA_BLD_PATH"/*/plumed-ext-cuda-coordination-*.conda
           conda index "$CONDA_BLD_PATH"
-      - name: Generate recipes and rebuild both corrected CUDA variants
+      - name: Generate recipes
+        run: python extensions/conda_recipe.py
+      - name: Rebuild both corrected CUDA variants
+        if: runner.os == 'Linux'
         env:
           CONDA_OVERRIDE_CUDA: "13.0"
+        run: conda-build -c local -c conda-forge conda/plumed-cuda-coordination
+      - name: Finish Intel packages after the original network timeout
+        if: runner.os == 'macOS'
+        env:
+          CONDA_ALWAYS_COPY: "true"
         run: |
-          python extensions/conda_recipe.py
-          conda-build -c local -c conda-forge conda/plumed-cuda-coordination
+          conda-build -c local -c conda-forge conda/plumed-extensions
+          conda-build -c local -c conda-forge conda/plumed-mpi
+          conda-build -c local -c conda-forge conda/plumed-pycv
       - name: Verify all fresh package installation and selection
         run: bash conda/run-conda-test.sh
       - name: Preserve final packages
