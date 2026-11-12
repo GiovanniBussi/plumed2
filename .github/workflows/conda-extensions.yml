@@ -40,15 +40,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_NAME: conda-${{ matrix.os }}
         run: |
+          available=no
           for attempt in {1..120}; do
-            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/43201389162/artifacts" \
-              --jq '.artifacts[].name' | grep -qx "$ARTIFACT_NAME"; then
-              exit 0
+            names=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/43201389162/artifacts" \
+              --jq '.artifacts[].name')
+            if grep -Fx "$ARTIFACT_NAME" <<< "$names"; then
+              available=yes
+              break
             fi
             sleep 30
           done
-          echo "Original package artifact not available" >&2
-          exit 1
+          test "$available" = yes
+          echo "Original package artifact is available: $ARTIFACT_NAME"
       - name: Restore the original exact kernel and completed packages
         uses: actions/download-artifact@v4
         with:
