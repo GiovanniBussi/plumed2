@@ -1,4 +1,4 @@
-name: Conda OpenACC multi-target plugin
+name: Conda packaging integration
 on:
   push:
     branches: [agents/conda-packaging/ci]
@@ -8,23 +8,21 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
-  actions: read
 jobs:
-  openacc:
+  packages:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash -el {0}
     env:
-      VERSION: 2.11.0dev0
+      VERSION: 2.11.0dev4
       CPU_COUNT: 4
       PLUMED_NUM_THREADS: 2
-      # Compilation and native loading do not execute GPU calculations.
-      CONDA_BLD_PATH: /tmp/plumed-conda-bld
+      CONDA_BLD_PATH: ${{ github.workspace }}/.conda-bld
     steps:
       - uses: actions/checkout@v6
       - uses: conda-incubator/setup-miniconda@v4
@@ -36,40 +34,54 @@ jobs:
           conda-remove-defaults: true
       - name: Install packaging tools
         run: conda install -y conda-build python=3.13
-      # Keep the already-tested main kernel fixed while iterating plugin builds.
-      - name: Restore the main kernel archive
-        uses: actions/download-artifact@v4
+      - name: Build kernel and all supported variants
+        run: bash conda/run-conda-build.sh
+      - name: Verify fresh installation and selection
+        run: bash conda/run-conda-test.sh
+      - name: Preserve packages
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{ github.token }}
-          run-id: 42837350520
-          name: cuda-conda-${{ matrix.os }}
-          path: ${{ runner.temp }}/base-package
-      - name: Index the fixed main kernel
-        run: |
-          subdir=$(conda info --json | python -c 'import json,sys; print(json.load(sys.stdin)["platform"])')
-          mkdir -p "$CONDA_BLD_PATH/$subdir"
-          base=$(find "$RUNNER_TEMP/base-package" -name "plumed-${VERSION}-*.conda" -type f)
-          test -n "$base"
-          cp "$base" "$CONDA_BLD_PATH/$subdir/"
-          conda index "$CONDA_BLD_PATH"
-      - name: Validate the generated recipe before downloading the SDK
-        run: |
-          python extensions/conda_recipe.py
-          conda render -c local -c conda-forge conda/plumed-openacc --file "$RUNNER_TEMP/openacc-rendered.yaml"
+          name: conda-${{ matrix.os }}
+          path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
+          if-no-files-found: ignore
+  openacc:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      VERSION: 2.11.0dev4
+      CPU_COUNT: 4
+      PLUMED_NUM_THREADS: 2
+      CONDA_BLD_PATH: ${{ github.workspace }}/.conda-bld
+    steps:
+      - uses: actions/checkout@v6
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: ""
+          auto-activate: true
+          channels: conda-forge
+          conda-remove-defaults: true
+      - name: Install packaging tools
+        run: conda install -y conda-build python=3.13
+      - name: Build current main kernel
+        run: conda-build -c conda-forge conda/plumed
+      - name: Generate plugin recipe
+        run: python extensions/conda_recipe.py
       - name: Fetch isolated NVHPC build tools
         run: |
           bash conda/fetch-nvhpc.sh 25.11 "$RUNNER_TEMP/nvhpc"
           echo "NVHPC_HOME=$RUNNER_TEMP/nvhpc/opt/nvidia/hpc_sdk" >> "$GITHUB_ENV"
-      - name: Build one GPU and host OpenACC library
-        run: |
-          python extensions/conda_recipe.py
-          conda-build -c local -c conda-forge conda/plumed-openacc
-      - name: Verify install and unchanged main kernel
+      - name: Build multi-target OpenACC plugin
+        run: conda-build -c local -c conda-forge conda/plumed-openacc
+      - name: Verify installation and unchanged kernel
         run: bash conda/run-openacc-test.sh
-      - name: Preserve conda packages
+      - name: Preserve packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: openacc-conda-${{ matrix.os }}
-          path: ${{ env.CONDA_BLD_PATH }}/*/plumed*.conda
+          name: openacc-conda-ubuntu-latest
+          path: ${{ env.CONDA_BLD_PATH }}/*/*.conda
           if-no-files-found: ignore
