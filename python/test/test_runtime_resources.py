@@ -1,13 +1,13 @@
 """Discover a wheel's private installation through Python and native clients."""
 
 import os
-from pathlib import Path
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 import plumed
 from plumed.runtime import kernel_path, package_root, resource_root
@@ -203,14 +203,15 @@ with plumed.Plumed() as instance:
     instance.cmd('readInputLine', 'LOAD FILE=ResourceTest.cpp')
     assert 'RESOURCETEST' in plumed.InputBuilder(toplumed=instance)._vimdict
 """
-            subprocess.run(
+            result = subprocess.run(
                 [sys.executable, "-c", script],
                 cwd=tmp,
                 env=self.env,
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     @unittest.skipIf(WINDOWS, "builds the client with a Unix C compiler")
     def test_native_client(self):
