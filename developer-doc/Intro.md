@@ -20,10 +20,6 @@ Before changing an action or a tool used by other actions, read the checks colle
 
 \ref DeveloperPitfalls
 
-To add an exchange-pattern action, including one compiled with LOAD:
-
-\ref AddingAnExchangePattern
-
 Inputs written for PLUMED 2.10 that need changes to run with PLUMED 2.11 are listed here:
 
 \ref Migration211

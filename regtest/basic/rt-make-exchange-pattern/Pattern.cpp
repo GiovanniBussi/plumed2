@@ -25,9 +25,8 @@
 
 namespace PLMD {
 
-// A deliberately small LOAD example: a fixed permutation and an optional pair
-// to veto. Actual tree/grid actions can supply their own scheduling algorithms.
-class FixedExchanges : public ActionForExchangePattern {
+// Test-only provider for permutation validation, registration and pair vetoes.
+class TestExchangePattern : public ActionForExchangePattern {
   std::vector<int> order;
   std::vector<int> rejected;
 public:
@@ -36,7 +35,7 @@ public:
     keys.add("compulsory","ORDER","permutation of the zero-based replica indices");
     keys.add("optional","REJECT","two replica indices defining a dummy pair");
   }
-  explicit FixedExchanges(const ActionOptions& ao):
+  explicit TestExchangePattern(const ActionOptions& ao):
     Action(ao), ActionForExchangePattern(ao) {
     parseVector("ORDER",order);
     parseVector("REJECT",rejected);
@@ -61,6 +60,6 @@ public:
   }
 };
 
-PLUMED_REGISTER_ACTION(FixedExchanges,"FIXED_EXCHANGES")
+PLUMED_REGISTER_ACTION(TestExchangePattern,"TEST_EXCHANGE_PATTERN")
 
 }

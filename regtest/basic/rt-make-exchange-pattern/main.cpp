@@ -73,26 +73,26 @@ int main() {
     }
     require(failed && flag(p)==0,"failed construction retained a provider");
     // Compile and load an action that the kernel has never seen.
-    line(p,"LOAD FILE=FixedExchanges.cpp");
-    line(p,"FIXED_EXCHANGES ORDER=2,0,3,1 REJECT=2,0");
+    line(p,"LOAD FILE=Pattern.cpp");
+    line(p,"TEST_EXCHANGE_PATTERN ORDER=2,0,3,1 REJECT=2,0");
     require(flag(p)>0 && list(p)==std::vector<int>({2,0,3,1}),"LOAD provider was not dispatched");
     require(flag(q)>0,"another object lost its provider");
     rejects(p,"random: RANDOM_EXCHANGES");
-    rejects(p,"other: FIXED_EXCHANGES ORDER=0,1,2,3");
+    rejects(p,"other: TEST_EXCHANGE_PATTERN ORDER=0,1,2,3");
     p.cmd("clear");
     line(p,"RANDOM_EXCHANGES");
     require(flag(p)>0,"could not replace a cleared LOAD provider");
     // Per-object registration and both duplicate-orderings.
-    line(q,"LOAD FILE=FixedExchanges.cpp");
-    rejects(q,"fixed: FIXED_EXCHANGES ORDER=0,1,2,3");
+    line(q,"LOAD FILE=Pattern.cpp");
+    rejects(q,"fixed: TEST_EXCHANGE_PATTERN ORDER=0,1,2,3");
     q.cmd("clear");
-    line(q,"FIXED_EXCHANGES ORDER=0,1,2,3");
+    line(q,"TEST_EXCHANGE_PATTERN ORDER=0,1,2,3");
     require(list(q)==std::vector<int>({0,1,2,3}),"clearing the first object affected the second");
     for(const char* order : {
           "0,1,2", "0,1,2,4", "0,1,2,-1", "0,1,1,3"
         }) {
       q.cmd("clear");
-      line(q,std::string("FIXED_EXCHANGES ORDER=")+order);
+      line(q,std::string("TEST_EXCHANGE_PATTERN ORDER=")+order);
       bool invalid=false;
       try {
         list(q);

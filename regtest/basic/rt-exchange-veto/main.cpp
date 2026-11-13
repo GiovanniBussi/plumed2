@@ -2,7 +2,7 @@
 // The MPI harness calls kernel C++ symbols, so it uses the runner's static
 // linkage. Register its pattern in that same image. The separate
 // rt-make-exchange-pattern fixture exercises dynamic LOAD registration.
-#include "FixedExchanges.cpp"
+#include "Pattern.cpp"
 #if defined(EXCHANGE_NATIVE_MPI)
 #include <mpi.h>
 #else
@@ -49,7 +49,7 @@ int run(MPI_Comm world, int, char**) {
     const std::string log="test."+std::to_string(rank)+".log";
     p.cmd("setLogFile",log.c_str());
     p.cmd("init");
-    p.cmd("readInputLine","FIXED_EXCHANGES ORDER=0,1,2,3 REJECT=2,3");
+    p.cmd("readInputLine","TEST_EXCHANGE_PATTERN ORDER=0,1,2,3 REJECT=2,3");
     p.cmd("readInputLine","d: DISTANCE ATOMS=1,2 NOPBC");
     p.cmd("readInputLine","r: RESTRAINT ARG=d AT=@replicas:0.2,0.4,0.6,0.8 KAPPA=10");
     std::array<double,6> positions{},forces{};

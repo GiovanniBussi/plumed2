@@ -3,4 +3,4 @@ mpiprocs=8
 plumed_mpi_harness=yes
 plumed_modules="generic bias colvar"
 plumed_src=main.cpp
-extra_files="${extra_files} ../../scripts/mpi-test.h ../../../developer-doc/exchange-patterns/FixedExchanges.cpp"
+extra_files="${extra_files} ../../scripts/mpi-test.h ../rt-make-exchange-pattern/Pattern.cpp"

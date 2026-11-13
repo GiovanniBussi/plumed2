@@ -29,12 +29,14 @@ namespace PLMD {
 
 /**
 \ingroup MULTIINHERIT
-Base for actions providing replica-exchange patterns, including actions compiled
-with LOAD. Only one such action may belong to a PlumedMain object.
+Base for actions providing replica-exchange patterns. Only one such action may
+belong to a PlumedMain object. See generic/RandomExchanges.cpp for an implementation.
 
 The MD engine requests a permutation through getExchangesList and chooses pairs
 from consecutive entries. This interface does not change the host's pairing
-parity or capacity. See \ref AddingAnExchangePattern for the complete contract.
+parity or capacity. The host does not supply the exchange interval; actions
+requiring an absolute schedule phase must derive it from getStep() and an interval
+matching the host. Stateful actions own their checkpoint data.
 */
 class ActionForExchangePattern : public virtual Action {
 public:
@@ -52,7 +54,10 @@ public:
 /// Veto a proposed pair, e.g. a padding attempt. Called on the GREX root rank,
 /// including ranks that did not request a list. Must not perform collectives.
 /// Define the same symmetric predicate in every replica. Self-pairs are idle
-/// already and are not passed to this method. Default: allow every pair.
+/// already and are not passed to this method. A veto makes GREX report a positive
+/// infinite exchange correction, forcing rejection for finite host contributions
+/// at finite positive inverse temperatures. Physical bias and forces are unchanged.
+/// Default: allow every pair.
   virtual bool isExchangeAllowed(int replica, int partner) const;
 /// Initial seed last supplied by the host, or zero if none was supplied.
   int getExchangeSeed() const;

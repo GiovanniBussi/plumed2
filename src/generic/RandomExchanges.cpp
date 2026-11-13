@@ -85,8 +85,7 @@ METAD ARG=@replicas:t1,t2,t3 HEIGHT=0.1 PACE=100 SIGMA=0.3
     The directive should appear in the input file for every replica. If SEED is specified, it
     should be the same in all input files.
 
-Only one exchange-pattern directive can appear in each PLUMED input. Custom patterns
-can be supplied through [LOAD](LOAD.md) using the `ActionForExchangePattern` C++ base.
+Only one exchange-pattern directive can appear in each PLUMED input.
 
 ## Restart
 
