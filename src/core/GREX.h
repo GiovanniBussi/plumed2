@@ -51,6 +51,9 @@ class GREX:
   double localUNow;
   double localUSwap;
   bool physicalEnergiesProvided=false;
+/// Foreign potential energy for bias evaluation only, supplied on the main rank.
+  bool foreignEnergyProvided=false;
+  double foreignEnergy=0;
   std::vector<double> allDeltaBias;
   std::string buffer;
   int myreplica;

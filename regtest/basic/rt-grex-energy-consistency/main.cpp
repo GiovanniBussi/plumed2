@@ -12,7 +12,7 @@ int run(MPI_Comm world, int, char**) {
   MPI_Comm_rank(world,&rank);
   MPI_Comm_size(world,&size);
   if(size!=2) MPI_Abort(world,2);
-  auto evaluate=[&](bool energy, bool direct) {
+  auto evaluate=[&](bool energy, bool direct, bool lambda=false) {
     Plumed p;
     MPI_Comm intra=MPI_COMM_SELF;
     p.cmd("GREX setMPIIntracomm",&intra);
@@ -77,8 +77,12 @@ int run(MPI_Comm world, int, char**) {
     } else {
       p.cmd("GREX savePositions");
       if(energy) {
-        p.cmd("GREX cacheLocalUNow",&own);
-        p.cmd("GREX cacheLocalUSwap",&foreign);
+        if(lambda) {
+          p.cmd("GREX setForeignEnergy",&foreign);
+        } else {
+          p.cmd("GREX cacheLocalUNow",&own);
+          p.cmd("GREX cacheLocalUSwap",&foreign);
+        }
       }
       int partner=rank^1;
       p.cmd("GREX setPartner",&partner);
@@ -86,15 +90,16 @@ int run(MPI_Comm world, int, char**) {
       p.cmd("GREX getLocalDeltaBias",&delta);
     }
     const double gaussian=(std::exp(-.5)-std::exp(-6.25))/(1-std::exp(-6.25));
-    const double expected=energy ? foreign*foreign-own*own+foreign-own : .2*(rank+1)*(gaussian-1);
+    const double expected=energy ? foreign*foreign-own*own+(lambda ? 0 : foreign-own) : .2*(rank+1)*(gaussian-1);
     if(std::abs(delta-expected)>1e-10) throw std::runtime_error("GREX energy mismatch");
   };
   evaluate(true,false);
   evaluate(false,false);
   evaluate(true,true);
   evaluate(false,true);
+  evaluate(true,false,true);
   MPI_Barrier(world);
-  if(rank==0) std::ofstream("output")<<"ENERGY cross-Hamiltonian evaluation: pass\nPost-update bias consistency: pass\nDirect energy-only evaluation: pass\n";
+  if(rank==0) std::ofstream("output")<<"ENERGY cross-Hamiltonian evaluation: pass\nPost-update bias consistency: pass\nDirect energy-only evaluation: pass\nLambda ENERGY without physical double counting: pass\n";
   return 0;
 }
 }
