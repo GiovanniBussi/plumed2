@@ -75,7 +75,8 @@ make -C conda test
 The build script generates the inventory and recipes, builds `plumed` once,
 then builds matching Python/tooling, optional module, MPI provider and
 plugin variants, including opted-in empty compatibility packages. Module-local `conda.mk` files declare
-native conda requirements; licenses come from module license files. Optional
+native conda requirements, variants, build options and tests; see the complete
+[conda.mk option reference](module-options.md). Licenses come from module license files. Optional
 libraries that are unavailable do not exclude modules during this proof of concept.
 The base requirements are inherited from the `conda.mk` files of the default
 modules and their hard dependencies. LibTorch is supplied only by optional
@@ -129,20 +130,30 @@ still follows the loader rules described in the extension documentation.
 
 ## GPU validation and distribution handoff
 
-[Open the self-contained notebook in Colab](https://colab.research.google.com/github/GiovanniBussi/plumed2/blob/c823c9ca00f40367e46362d14c187dfc6200fabb/conda/gpu-validation.ipynb).
+[Open the self-contained notebook in Colab](https://colab.research.google.com/github/plumed/plumed2/blob/master/conda/gpu-validation.ipynb).
 
-[GPU validation notebook](gpu-validation.ipynb) runs directly in Colab: select a
-GPU runtime and choose **Run all**. It anonymously downloads both pinned Linux
-x86-64 CI artifact ZIPs through nightly.link, verifies their SHA256 checksums and
-common kernel, and installs an isolated conda plus pinned test fixtures. No laptop
-uploads or GitHub token are needed. It exercises CUDA 12.9 and 13.0 and the
-OpenACC NVIDIA target, reports each result and exports a small logs-only ZIP.
-Conda environments and binaries are excluded from that ZIP.
-It never overrides driver metadata: a driver too old for an output is
-an incomplete matrix, not a successful GPU test. Alternatively index the artifact
-packages as a local channel and run `run-gpu-test.sh` with `VERSION`,
-`GPU_CONDA_CHANNEL` and `GPU_TEST_ROOT` set. The notebook needs a user-owned GPU
-session; CPU CI does not establish GPU numerical correctness.
+After merging and completing a manual test publication, open the
+[GPU validation notebook](gpu-validation.ipynb), select a GPU runtime and choose
+**Run all**. It installs from `plumed/label/test` (optionally a requested dated
+version), reads the kernel's installed `conda-source.json`, and downloads the
+exact matching source revision for its fixtures and test harness. GPU alternatives
+come from that revision's module `conda.mk` files. No laptop upload, GitHub token,
+expiring CI artifact link or manually refreshed version list is needed.
+
+The notebook bootstraps the current official Miniforge release with checksum
+verification, pins the same exact kernel build for each alternative and exports
+logs, package checksums, provenance and a structured summary in a small ZIP.
+Environments and binaries are excluded. Only clean Git-derived package snapshots
+can supply reproducible source; older packages without provenance report a clear
+setup error. The numerical harness rejects skips and enforces GPU execution.
+A driver too old for an alternative is a failed/incomplete validation.
+
+The maintained runner also accepts a local indexed artifact channel: run
+`run-gpu-test.sh` with `VERSION`, `GPU_CONDA_CHANNEL` and `GPU_TEST_ROOT` set.
+`GPU_KERNEL_SPEC` can pin an explicit `plumed=VERSION=BUILD`; otherwise the first
+successful installation pins the exact build for subsequent alternatives.
+The notebook needs a user-owned GPU session; CPU CI checks orchestration using
+stubs and does not establish GPU numerical correctness.
 
 Generated recipes/catalogs are build products. Curate module requirements and
 compatibility-package choices in their `conda.mk` files, regenerate with
@@ -180,6 +191,10 @@ conda create -n plumed-test -c plumed/label/test -c conda-forge \
 ```
 
 The hosted workflow builds the supported CPU, MPI, Python and CUDA variants.
-OpenACC still requires a builder with the documented NVHPC SDK. Uploads include
+Manual test publication also provisions the declared NVHPC SDK versions in an
+isolated Linux x86-64 directory, builds OpenACC against that job's exact kernel,
+and runs its host tests before upload. GPU hardware validation is performed
+separately after installation from the test channel. Other OpenACC builders
+must supply the documented NVHPC SDK through `NVHPC_HOME`. Uploads include
 only archives for the selected version from `CONDA_BLD_PATH` (or the default
 conda-build directory). The upload helper reads its token from the environment.

@@ -2,6 +2,7 @@
 """Check kernel/extension build-feature vectors without cross-module leakage."""
 
 import argparse
+import importlib
 import json
 import os
 import shlex
@@ -17,7 +18,7 @@ base = args.base.resolve()
 program = str(base / "bin/plumed")
 source = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(source / "extensions"))
-from symbols import module_symbol
+module_symbol = importlib.import_module("symbols").module_symbol
 
 env = dict(os.environ, PLUMED_AUTOLOAD="0")
 soext = subprocess.check_output(
@@ -236,6 +237,19 @@ with tempfile.TemporaryDirectory(prefix="plumed-module-features-") as scratch:
         (["plumed", "modules", "--"], "--has-feature"),
         (["plumed", "--load-module", "feature_b", "metadata_tool", "--"], "--probe"),
         (["plumed", "--load-module=feature_b", "metadata_tool", "--"], "--probe"),
+        (["plumed", "driver", "--load", str(root / "missing.so"), "--"], "--plumed"),
+        (["plumed", "driver", "--load=" + str(root / "missing.so"), "--"], "--plumed"),
+        (["plumed", "driver", "--load-module", "missing-module", "--"], "--plumed"),
+        (
+            [
+                "plumed",
+                "--load-module=feature_b",
+                "driver",
+                "--load-module=missing-module",
+                "--",
+            ],
+            "--plumed",
+        ),
     ):
         script = 'source "$1"\nshift\nCOMP_WORDS=("$@")\nCOMP_CWORD=$((${#COMP_WORDS[@]}-1))\n_plumed\nprintf "%s\\n" "${COMPREPLY[@]}"'
         result = subprocess.run(
