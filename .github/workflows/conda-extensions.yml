@@ -13,7 +13,7 @@ defaults:
   run:
     shell: bash -el {0}
 env:
-  VERSION: 2.11.0dev9
+  VERSION: 2.11.0dev10
   CPU_COUNT: 4
   PLUMED_NUM_THREADS: 2
   CONDA_BLD_PATH: /tmp/plumed-conda-bld
