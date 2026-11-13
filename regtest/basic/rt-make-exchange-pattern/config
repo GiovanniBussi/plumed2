@@ -1,0 +1,6 @@
+type=make
+plumed_needs=dlopen
+plumed_modules=generic
+plumed_src=main.cpp
+plumed_link=shared
+extra_files="${extra_files} ../../../developer-doc/exchange-patterns/FixedExchanges.cpp"

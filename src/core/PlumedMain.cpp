@@ -467,7 +467,8 @@ PlumedMain::PlumedMain():
   stopwatch_fwd(log),
   checkpointing_fwd(*this),
   actionSet_fwd(*this),
-  passtools(DataPassingTools::create(sizeof(double))) {
+  passtools(DataPassingTools::create(sizeof(double))),
+  exchangePatterns_fwd(*this) {
   OpenMP::retainRuntime();
   passtools->usingNaturalUnits=false;
   increaseReferenceCounter();

@@ -19,11 +19,9 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "core/Action.h"
+#include "core/ActionForExchangePattern.h"
 #include "core/ActionRegister.h"
-#include "core/PlumedMain.h"
-#include "tools/Exception.h"
-#include "core/ExchangePatterns.h"
+#include "tools/Random.h"
 #include "tools/Checkpoint.h"
 
 namespace PLMD {
@@ -87,6 +85,9 @@ METAD ARG=@replicas:t1,t2,t3 HEIGHT=0.1 PACE=100 SIGMA=0.3
     The directive should appear in the input file for every replica. If SEED is specified, it
     should be the same in all input files.
 
+Only one exchange-pattern directive can appear in each PLUMED input. Custom patterns
+can be supplied through [LOAD](LOAD.md) using the `ActionForExchangePattern` C++ base.
+
 ## Restart
 
 With [CHECKPOINT](CHECKPOINT.md) the state of the random number generator is stored in the checkpoint, so that the sequence of exchanges continues exactly.
@@ -95,8 +96,11 @@ With [CHECKPOINT](CHECKPOINT.md) the state of the random number generator is sto
 //+ENDPLUMEDOC
 
 class RandomExchanges:
-  public Action {
+  public ActionForExchangePattern {
+  Random random;
 public:
+  void getExchangeList(std::vector<int>& list) override;
+  void setExchangeSeed(int seed) override;
   static void registerKeywords( Keywords& keys );
   bool hasCheckpointState() const override {
     return true;
@@ -111,7 +115,7 @@ public:
 PLUMED_REGISTER_ACTION(RandomExchanges,"RANDOM_EXCHANGES")
 
 void RandomExchanges::registerKeywords( Keywords& keys ) {
-  Action::registerKeywords(keys);
+  ActionForExchangePattern::registerKeywords(keys);
   keys.add("optional","SEED","seed for random exchanges");
   keys.addDOI("10.1021/jp067873l");
 }
@@ -119,23 +123,45 @@ void RandomExchanges::registerKeywords( Keywords& keys ) {
 // the generator is shared by all the replicas (same seed, same sequence), so every
 // replica stores the same state: the list of exchanges continues exactly
 void RandomExchanges::writeCheckpoint(CheckpointWriter& w) {
-  w.write("random",plumed.getExchangePatterns().getRandomState());
+  w.write("random",random.stateToString());
 }
 
 void RandomExchanges::readCheckpoint(CheckpointReader& r) {
   std::string state;
   r.read("random",state);
-  plumed.getExchangePatterns().setRandomState(state);
+  random.stateFromString(state);
 }
 
 RandomExchanges::RandomExchanges(const ActionOptions&ao):
-  Action(ao) {
-  plumed.getExchangePatterns().setFlag(ExchangePatterns::RANDOM);
+  Action(ao),
+  ActionForExchangePattern(ao) {
+  random.setSeed(getExchangeSeed());
 // I convert the seed to -seed because I think it is more general to use a positive seed in input
   int seed=-1;
   parse("SEED",seed);
   if(seed>=0) {
-    plumed.getExchangePatterns().setSeed(-seed);
+    random.setSeed(-seed);
+  }
+}
+
+void RandomExchanges::setExchangeSeed(int seed) {
+  random.setSeed(seed);
+}
+
+void RandomExchanges::getExchangeList(std::vector<int>& list) {
+  // Preserve the historical permutation algorithm and its seeded sequence.
+  const int nrep=list.size();
+  for(int i=0; i<nrep; ++i) {
+    bool duplicate;
+    do {
+      duplicate=false;
+      list[i]=static_cast<int>(random.U01()*nrep);
+      for(int j=0; j<i; ++j) {
+        if(list[i]==list[j]) {
+          duplicate=true;
+        }
+      }
+    } while(duplicate);
   }
 }
 

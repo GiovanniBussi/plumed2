@@ -23,9 +23,11 @@
 #include "PlumedMain.h"
 #include "ActionSet.h"
 #include "DomainDecomposition.h"
+#include "ExchangePatterns.h"
 #include "tools/Tools.h"
 #include "tools/Communicator.h"
 #include <sstream>
+#include <limits>
 
 namespace PLMD {
 
@@ -235,6 +237,18 @@ void GREX::calculate() {
   plumedMain.setExchangeStep(false);
   localDeltaBias+=plumedMain.getBias();
   localDeltaBias+=localUSwap-localUNow;
+  // The provider may have generated its list on the root rank only. Propagate
+  // its veto rather than consulting uninitialized schedule state on other ranks.
+  int reject=0;
+  if(intracomm.Get_rank()==0 && partner!=myreplica) {
+    reject=!plumedMain.getExchangePatterns().isExchangeAllowed(myreplica,partner);
+  }
+  intracomm.Bcast(reject,0);
+  if(reject) {
+    // This is only the exchange correction, never the physical bias or forces.
+    // Infinity forces rejection for any finite host contribution at positive beta.
+    localDeltaBias=std::numeric_limits<double>::infinity();
+  }
   if(intracomm.Get_rank()==0) {
     Communicator::Request req=intercomm.Isend(localDeltaBias,partner,1067);
     intercomm.Recv(foreignDeltaBias,partner,1067);

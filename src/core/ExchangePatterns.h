@@ -22,30 +22,28 @@
 #ifndef __PLUMED_core_ExchangePatterns_h
 #define __PLUMED_core_ExchangePatterns_h
 
-#include "tools/ForwardDecl.h"
-#include <string>
 #include "tools/TypesafePtr.h"
 
 namespace PLMD {
-class Random;
+class PlumedMain;
+class ActionForExchangePattern;
 
+/// Adapter between legacy MD-engine commands and the exchange-pattern action.
+/// Pattern algorithms and their checkpoint state belong to the action.
 class ExchangePatterns {
-  int    PatternFlag;
-  int    NumberOfReplicas;
-  ForwardDecl<Random> random_fwd;
-  Random& random=*random_fwd;
+  PlumedMain& plumed;
+  int numberOfReplicas=1;
+  int seed=0;
+  ActionForExchangePattern* getAction() const;
 public:
-  ExchangePatterns();
-  ~ExchangePatterns();
-  enum PatternFlags { NONE, RANDOM, NEIGHBOR, TOTAL };
-  void setNofR(const int);
-  void setSeed(const int);
-/// Full state of the random number generator (stored in the checkpoint)
-  std::string getRandomState() const;
-  void setRandomState(const std::string&);
-  void setFlag(const int);
-  void getList(const TypesafePtr & ind);
-  void getFlag(int&);
+  explicit ExchangePatterns(PlumedMain&);
+  void setNofR(int);
+  void setSeed(int);
+  int getSeed() const;
+  void getList(const TypesafePtr&);
+/// Legacy hosts only distinguish zero (default) from positive (custom pattern).
+  void getFlag(int&) const;
+  bool isExchangeAllowed(int replica, int partner) const;
 };
 }
 #endif

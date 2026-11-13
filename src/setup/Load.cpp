@@ -162,6 +162,11 @@ If a file that you wrote for an older version does not compile, the following ch
 - The classes of the old multicolvar module (`multicolvar/MultiColvarBase.h`) were removed in PLUMED 2.10.
   A collective variable that is computed for many groups of atoms is now written for one group of atoms and then
   used with the `MultiColvarTemplate` class: see how `src/colvar/Distance.cpp` defines DISTANCE_SCALAR and DISTANCE_VECTOR.
+- Custom exchange-pattern actions should derive from `core/ActionForExchangePattern.h` in PLUMED 2.11.
+  The random generator and algorithm have moved from `ExchangePatterns` into `RANDOM_EXCHANGES`;
+  `ExchangePatterns::setFlag`, its pattern enum and its random-state accessors have been removed.
+  Override `getExchangeList` and, optionally, `isExchangeAllowed` and `setExchangeSeed` in the action.
+  The MD-engine `cmd()` interface is unchanged.
 - Some helper functions of the tools that PLUMED itself did not use were removed in PLUMED 2.11:
   in `PDB` the setters (`setAtomNumbers`, `setAtomPositions`, `setArgumentNames`, `setArgumentValue`, `addBlockEnd`), `print`, `hasFlag`, `getMtype`,
   `getAtomsInChain`, `checkForResidue`, `getChainID` of a residue number (use the one of an atom), and the versions without a chain

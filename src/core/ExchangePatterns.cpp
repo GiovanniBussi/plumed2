@@ -20,63 +20,69 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "ExchangePatterns.h"
-#include "tools/Random.h"
+#include "ActionForExchangePattern.h"
+#include "ActionSet.h"
+#include "PlumedMain.h"
+#include <algorithm>
+#include <numeric>
+#include <vector>
 
 namespace PLMD {
 
-ExchangePatterns::ExchangePatterns():
-  PatternFlag(NONE),
-  NumberOfReplicas(1)
-{}
+ExchangePatterns::ExchangePatterns(PlumedMain& p): plumed(p) {}
 
-ExchangePatterns::~ExchangePatterns() {}
-
-void ExchangePatterns::setNofR(const int nrepl) {
-  NumberOfReplicas=nrepl;
+ActionForExchangePattern* ExchangePatterns::getAction() const {
+  const auto patterns=plumed.getActionSet().select<ActionForExchangePattern*>();
+  plumed_massert(patterns.size()<=1,"only one exchange-pattern action is allowed");
+  return patterns.empty() ? nullptr : patterns.front();
 }
 
-void ExchangePatterns::setFlag(const int flag) {
-  PatternFlag=flag;
+void ExchangePatterns::setNofR(int nrepl) {
+  plumed_massert(nrepl>0,"the number of replicas must be positive");
+  numberOfReplicas=nrepl;
 }
 
-void ExchangePatterns::getFlag(int &flag) {
-  flag=PatternFlag;
+void ExchangePatterns::getFlag(int& flag) const {
+  flag=getAction() ? 1 : 0;
 }
 
-void ExchangePatterns::setSeed(const int seed) {
-  random.setSeed(seed);
-}
-
-std::string ExchangePatterns::getRandomState() const {
-  return random.stateToString();
-}
-
-void ExchangePatterns::setRandomState(const std::string& state) {
-  random.stateFromString(state);
-}
-
-void ExchangePatterns::getList(const TypesafePtr & ind) {
-  auto iind=ind.get<int*>({NumberOfReplicas});
-  switch(PatternFlag) {
-  case RANDOM:
-    for(int i=0; i<NumberOfReplicas; i++) {
-      int stat=1;
-      while(stat) {
-        stat=0;
-        iind[i] = (int) (random.U01()*NumberOfReplicas);
-        for(int j=0; j<i; j++)
-          if(iind[i]==iind[j]) {
-            stat=1;
-          }
-      }
-    }
-    break;
-  case NEIGHBOR:
-    for(int i=0; i<NumberOfReplicas; i++) {
-      iind[i]=i;
-    }
-    break;
+void ExchangePatterns::setSeed(int newSeed) {
+  seed=newSeed;
+  if(auto* action=getAction()) {
+    action->setExchangeSeed(seed);
   }
+}
+
+int ExchangePatterns::getSeed() const {
+  return seed;
+}
+
+void ExchangePatterns::getList(const TypesafePtr& ind) {
+  auto* output=ind.get<int*>({numberOfReplicas});
+  if(auto* action=getAction()) {
+    std::vector<int> list(numberOfReplicas);
+    std::iota(list.begin(),list.end(),0);
+    action->getExchangeList(list);
+    if(list.size()!=static_cast<std::size_t>(numberOfReplicas)) {
+      action->error("exchange list must contain one entry per replica");
+    }
+    std::vector<bool> seen(numberOfReplicas,false);
+    for(int replica : list) {
+      if(replica<0 || replica>=numberOfReplicas || seen[replica]) {
+        action->error("exchange list must be a permutation of the replica indices");
+      }
+      seen[replica]=true;
+    }
+    std::copy(list.begin(),list.end(),output);
+  }
+  // With no provider, retain the legacy behavior: leave the buffer unchanged.
+}
+
+bool ExchangePatterns::isExchangeAllowed(int replica, int partner) const {
+  if(auto* action=getAction()) {
+    return action->isExchangeAllowed(replica,partner);
+  }
+  return true;
 }
 
 }
