@@ -43,6 +43,21 @@ l: EXTRACV NAME=lambda
 RESTRAINT ARG=l KAPPA=10 AT=3
 ```
 
+With the updated GROMACS 2026 patch, `lambda` is the integer alchemical state
+index (`init-lambda-state`), not an individual Coulomb or van der Waals coupling
+parameter. In an expanded-ensemble simulation (`free-energy=expanded`), biases
+on this variable enter GROMACS's MCMC transition probabilities. The host evaluates
+all candidate states without depositing hills, writing ordinary output, or
+changing the MD forces. Metadynamics can therefore bias lambda alone or together
+with configurational variables, as in alchemical metadynamics
+([Hsu et al., JCTC 2023](https://doi.org/10.1021/acs.jctc.2c01258)).
+
+For native lambda replica exchange, the updated patch uses
+`GREX setLocalInput lambda` so that the parameter stays with its local Hamiltonian
+when the foreign coordinates are evaluated. This command must be issued on every
+rank of the replica; it marks a scalar MD input as local to that replica.
+This requires the corresponding PLUMED 2.11 kernel. ENERGY-dependent biases
+additionally require the foreign physical energy described in [ENERGY](ENERGY.md).
 
 */
 //+ENDPLUMEDOC

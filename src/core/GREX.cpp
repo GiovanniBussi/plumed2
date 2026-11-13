@@ -27,6 +27,7 @@
 #include "tools/Tools.h"
 #include "tools/Communicator.h"
 #include <sstream>
+#include <algorithm>
 
 namespace PLMD {
 
@@ -170,6 +171,19 @@ void GREX::cmd(std::string_view key,const TypesafePtr & val) {
       foreignEnergy=plumedMain.MDQuantityToPLUMED("energy",val);
       foreignEnergyProvided=true;
       break;
+    case cmd_setLocalInput:
+      CHECK_INIT(initialized,key);
+      plumed_massert(nw==2,"setLocalInput requires a scalar input label");
+      {
+        const std::string label(words[1]);
+        auto* input=plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(label);
+        plumed_massert(input && input->copyOutput(0)->getNumberOfValues()==1,
+                       "setLocalInput requires an existing scalar MD input");
+        if(std::find(localInputs.begin(),localInputs.end(),label)==localInputs.end()) {
+          localInputs.push_back(label);
+        }
+      }
+      break;
     case cmd_shareAllDeltaBias:
       CHECK_INIT(initialized,key);
       if(intracomm.Get_rank()!=0) {
@@ -200,6 +214,8 @@ void GREX::cmd(std::string_view key,const TypesafePtr & val) {
 }
 
 void GREX::savePositions() {
+  const bool wasExchangeStep=plumedMain.getExchangeStep();
+  plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
   plumedMain.resetActive(true);
   plumedMain.shareAll();
@@ -215,6 +231,7 @@ void GREX::savePositions() {
   std::ostringstream o;
   plumedMain.writeBinary(o);
   buffer=o.str();
+  plumedMain.setExchangeStep(wasExchangeStep);
 }
 
 void GREX::calculate() {
@@ -246,6 +263,10 @@ void GREX::calculate() {
   // its bias. Evaluate both configurations with that same current potential.
   std::istringstream own(buffer);
   plumedMain.readBinary(own);
+  std::vector<double> localValues;
+  for(const auto& label : localInputs) {
+    localValues.push_back(plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(label)->copyOutput(0)->get());
+  }
   plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
   plumedMain.justCalculate();
@@ -258,6 +279,9 @@ void GREX::calculate() {
   intracomm.Bcast(rbuf,0);
   std::istringstream i(std::string(rbuf.data(),rbuf.size()));
   plumedMain.readBinary(i);
+  for(unsigned index=0; index<localInputs.size(); ++index) {
+    plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(localInputs[index])->copyOutput(0)->set(localValues[index]);
+  }
   if(physicalEnergiesProvided || foreignEnergyProvided) {
     // The partner's serialized ENERGY is U_partner(x_partner). General HREX
     // needs U_local(x_partner), already summed over local domains by caching.
