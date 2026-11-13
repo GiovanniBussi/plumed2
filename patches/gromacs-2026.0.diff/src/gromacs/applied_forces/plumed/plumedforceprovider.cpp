@@ -78,11 +78,30 @@
 #define __PLUMED_WRAPPER_MPI_HOST_ADAPTER 1
 #endif
 #include "../../../../Plumed.h"
+#include "../../mdrun/plumedexchange.h"
 
 namespace gmx
 {
 
-PlumedForceProvider::~PlumedForceProvider() = default;
+// Temporary non-owning bridge to the replica-exchange code.
+extern void* plumed_ptr;
+void* plumed_ptr = nullptr;
+extern bool plumed_exchange_step;
+bool plumed_exchange_step = false;
+bool         plumed_hrex_trial    = false;
+real         plumed_lambda_state  = 0;
+real         plumed_lambda_force  = 0;
+real         plumed_trial_energy  = 0;
+bool         plumed_main_rank     = true;
+
+PlumedForceProvider::~PlumedForceProvider()
+{
+    if (plumed_ptr == plumed_->toVoid())
+    {
+        plumed_ptr = nullptr;
+        plumed_exchange_step = false;
+    }
+}
 PlumedForceProvider::PlumedForceProvider(const PlumedOptions& options)
 try : plumed_(std::make_unique<PLMD::Plumed>()),
       replex_(options.replex_),
@@ -91,6 +110,7 @@ try : plumed_(std::make_unique<PLMD::Plumed>()),
     // I prefer to pass a struct with data because it stops the coupling
     // at the implementation and not at the function signature:
     // less code to edit when adding new options :)
+    plumed_main_rank = options.mpiComm_->isMainRank();
     plumed_->cmd("getApiVersion", &plumedAPIversion_);
 #if __PLUMED_WRAPPER_MPI_HOST_ADAPTER
     if (plumedAPIversion_ >= 13)
@@ -198,6 +218,7 @@ try : plumed_(std::make_unique<PLMD::Plumed>()),
 
     plumed_->cmd("setTimestep", &options.simulationTimeStep_);
     plumed_->cmd("init", nullptr);
+    plumed_ptr = plumed_->toVoid();
 }
 catch (const GromacsException&)
 {
@@ -218,6 +239,8 @@ void PlumedForceProvider::setGlobalAtomIndices(const std::optional<ArrayRef<cons
 void PlumedForceProvider::writeCheckpointData()
 try
 {
+    if (plumed_hrex_trial)
+        return;
     if (!prepareStepIsCalled_)
     {
         checkpointRequested_ = 1;
@@ -238,6 +261,8 @@ void PlumedForceProvider::calculateForces(const ForceProviderInput& forceProvide
                                           ForceProviderOutput*      forceProviderOutput)
 try
 {
+    if (plumed_hrex_trial)
+        return;
     // setup: these instructions in the original patch are BEFORE do_force()
     // now this is called within do_force(), but this does not impact the results
     long int lstep = prepareStepIsCalled_ ? currentStep_ : forceProviderInput.step_;
@@ -247,6 +272,9 @@ try
     repeatedCall_   = prepareStepIsCalled_ && (calculatedStep_ == lstep);
     calculatedStep_ = lstep;
     plumed_->cmd("setStepLong", &lstep);
+    plumed_lambda_force = 0;
+    plumed_->cmd("setExtraCV lambda", &plumed_lambda_state);
+    plumed_->cmd("setExtraCVForce lambda", &plumed_lambda_force);
     if (globalAtomIndices_.has_value())
     {
         int nat_home = forceProviderInput.homenr_;
@@ -312,8 +340,6 @@ try
     // Do the work
     plumed_->cmd(repeatedCall_ ? "performCalcNoUpdate" : "performCalc", nullptr);
 
-    checkReplicaExchangeBias();
-
     msmul(plumedVir_, 0.5, plumedVir_);
     forceProviderOutput->forceWithVirial_.addVirialContribution(plumedVir_);
 }
@@ -331,20 +357,6 @@ catch (const std::exception& ex)
 bool PlumedForceProvider::requestsStop() const
 {
     return plumedWantsToStop_ != 0;
-}
-
-void PlumedForceProvider::checkReplicaExchangeBias()
-{
-    if (replex_)
-    {
-        real bias = 0.0;
-        plumed_->cmd("getBias", &bias);
-        if (bias != 0.0)
-        {
-            GMX_THROW(NotImplementedError("The PLUMED patch is still not compatible"
-                                          " with the replica exchange if PLUMED computes biases"));
-        }
-    }
 }
 
 bool PlumedForceProvider::usesVirtualSites()
@@ -374,6 +386,9 @@ try
        positions are available. */
     long int lstep = step;
     plumed_->cmd("setStepLong", &lstep);
+    plumed_lambda_force = 0;
+    plumed_->cmd("setExtraCV lambda", &plumed_lambda_state);
+    plumed_->cmd("setExtraCVForce lambda", &plumed_lambda_force);
     prepareStepIsCalled_ = true;
     currentStep_         = step;
     calculatedStep_.reset();
@@ -406,18 +421,40 @@ bool PlumedForceProvider::applyAfterPotentialEnergy(bool           energyWasComp
                                                     tensor         virial)
 try
 {
+    if (plumed_hrex_trial)
+        return false;
+    if (plumed_hrex && plumed_exchange_step && energyWasComputed)
+        plumed_->cmd("GREX cacheLocalUNow", potentialEnergy);
+
+    auto saveExchangeInputs = [&]()
+    {
+        if (replex_ && plumed_exchange_step)
+        {
+            GMX_RELEASE_ASSERT(energyWasComputed && potentialEnergy != nullptr,
+                               "Replica exchange requires the physical potential energy");
+            // Also bind ENERGY when its bias has an off-step MTS stride. Save
+            // only after the normal physical energy has been computed.
+            long int savedStep = calculatedStep_.value();
+            plumed_->cmd("setStepLong", &savedStep);
+            plumed_->cmd("setEnergy", potentialEnergy);
+            plumed_->cmd("GREX savePositions");
+            int needsLambda = 0;
+            plumed_->cmd("isExtraCVNeeded lambda", &needsLambda);
+            if (needsLambda)
+                plumed_->cmd("GREX setLocalInput lambda");
+        }
+    };
+
     if (!plumedNeedsEnergy_)
     {
+        saveExchangeInputs();
         return false;
     }
     if (!energyWasComputed || potentialEnergy == nullptr)
     {
         GMX_THROW(NotImplementedError(
-                "The PLUMED input needs the potential energy, but this run uses the GROMACS "
-                "modular simulator, which cannot be asked for it before the step is scheduled. "
-                "The modular simulator is the default for the md-vv integrator. Set the "
-                "environment variable GMX_DISABLE_MODULAR_SIMULATOR=1 to use the legacy "
-                "simulator, which supports energy-dependent PLUMED input."));
+                "The PLUMED input needs the potential energy, but GROMACS did not compute it "
+                "on this step. Check the simulator's force/energy scheduling."));
     }
 
     plumed_->cmd("setEnergy", potentialEnergy);
@@ -429,8 +466,8 @@ try
     msmul(virial, 2.0, plumedVir_);
     plumed_->cmd("setVirial", &plumedVir_[0][0]);
     plumed_->cmd(repeatedCall_ ? "performCalcNoUpdate" : "performCalc", nullptr);
+    saveExchangeInputs();
 
-    checkReplicaExchangeBias();
 
     msmul(plumedVir_, 0.5, virial);
     return usesVirtualSites();
