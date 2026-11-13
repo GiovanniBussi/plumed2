@@ -1,13 +1,6 @@
 type=make
 mpiprocs=8
 plumed_mpi_harness=yes
-plumed_needs=dlopen
 plumed_modules="generic bias colvar"
 plumed_src=main.cpp
-plumed_link=shared
 extra_files="${extra_files} ../../scripts/mpi-test.h ../../../developer-doc/exchange-patterns/FixedExchanges.cpp"
-
-function plumed_regtest_before(){
-  source "$root/src/config/compile_options.sh"
-  $plumed_nompi mklib -o "fixed.$soext" FixedExchanges.cpp
-}
