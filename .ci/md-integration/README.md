@@ -330,3 +330,20 @@ python3 .ci/md-integration/amber/check.py --mode serial \
   --sander /path/to/build/AmberTools/src/sander/sander \
   --kernel /path/to/libplumedKernel.dylib --results /tmp/amber-serial-results
 ```
+
+## Replica exchange and expanded-ensemble coverage
+
+The same pinned GROMACS 2026.4 builds also run `gromacs/check-exchange.sh`.
+Native MPI jobs check bias-only and Hamiltonian replica exchange with coordinate,
+ENERGY and depositing metadynamics biases against independent analytical energy
+oracles. Native lambda exchange checks candidate ENERGY values and local lambda
+retention. Expanded-ensemble tests cover lambda, ENERGY and metadynamics candidate
+biases, forces and history isolation in both legacy and modular simulators.
+The small two-atom systems run 31 steps; the source harnesses can also run their
+larger matrices locally. Every case preserves inputs, commands and results JSON.
+
+The initial implementation assumes one PLUMED provider per native-MPI process.
+Thread-MPI jobs instead verify early rejection of PLUMED-biased MCMC (one/two
+ranks, legacy/modular), native MCMC without PLUMED, and ordinary coordinate/ENERGY
+bias controls. Those exclusions must remain until per-instance state replaces
+the MPI-only global bridge. GPU execution is outside this CPU workflow.

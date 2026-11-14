@@ -27,6 +27,7 @@
 #include "tools/Tools.h"
 #include "tools/Communicator.h"
 #include <sstream>
+#include <algorithm>
 
 namespace PLMD {
 
@@ -160,6 +161,29 @@ void GREX::cmd(std::string_view key,const TypesafePtr & val) {
       CHECK_NOTNULL(val,key);
       plumedMain.plumedQuantityToMD("energy",foreignDeltaBias,val);
       break;
+    case cmd_setForeignEnergy:
+      CHECK_INIT(initialized,key);
+      CHECK_NOTNULL(val,key);
+      // Unlike cacheLocalUSwap, this is an already-global potential energy,
+      // supplied only on the main rank. The engine retains responsibility for
+      // the physical acceptance term (e.g. native GROMACS lambda exchange).
+      plumed_massert(intracomm.Get_rank()==0,"setForeignEnergy must be called on the main rank");
+      foreignEnergy=plumedMain.MDQuantityToPLUMED("energy",val);
+      foreignEnergyProvided=true;
+      break;
+    case cmd_setLocalInput:
+      CHECK_INIT(initialized,key);
+      plumed_massert(nw==2,"setLocalInput requires a scalar input label");
+      {
+        const std::string label(words[1]);
+        auto* input=plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(label);
+        plumed_massert(input && input->copyOutput(0)->getNumberOfValues()==1,
+                       "setLocalInput requires an existing scalar MD input");
+        if(std::find(localInputs.begin(),localInputs.end(),label)==localInputs.end()) {
+          localInputs.push_back(label);
+        }
+      }
+      break;
     case cmd_shareAllDeltaBias:
       CHECK_INIT(initialized,key);
       if(intracomm.Get_rank()!=0) {
@@ -190,6 +214,8 @@ void GREX::cmd(std::string_view key,const TypesafePtr & val) {
 }
 
 void GREX::savePositions() {
+  const bool wasExchangeStep=plumedMain.getExchangeStep();
+  plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
   plumedMain.resetActive(true);
   plumedMain.shareAll();
@@ -205,9 +231,19 @@ void GREX::savePositions() {
   std::ostringstream o;
   plumedMain.writeBinary(o);
   buffer=o.str();
+  plumedMain.setExchangeStep(wasExchangeStep);
 }
 
 void GREX::calculate() {
+  // Workers enter here through GREX prepare before the main rank has computed
+  // its native exchange data. Broadcast the optional energy at this common point.
+  int hasForeignEnergy=foreignEnergyProvided;
+  intracomm.Bcast(hasForeignEnergy,0);
+  foreignEnergyProvided=hasForeignEnergy;
+  if(foreignEnergyProvided) {
+    intracomm.Bcast(foreignEnergy,0);
+    plumed_massert(!physicalEnergiesProvided,"Do not combine setForeignEnergy with cacheLocalUSwap");
+  }
   unsigned nn=buffer.size();
   // the buffers of the two replicas must have the same size, otherwise the partner
   // state would be read from a truncated or partially filled buffer
@@ -227,6 +263,10 @@ void GREX::calculate() {
   // its bias. Evaluate both configurations with that same current potential.
   std::istringstream own(buffer);
   plumedMain.readBinary(own);
+  std::vector<double> localValues;
+  for(const auto& label : localInputs) {
+    localValues.push_back(plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(label)->copyOutput(0)->get());
+  }
   plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
   plumedMain.justCalculate();
@@ -239,13 +279,16 @@ void GREX::calculate() {
   intracomm.Bcast(rbuf,0);
   std::istringstream i(std::string(rbuf.data(),rbuf.size()));
   plumedMain.readBinary(i);
-  if(physicalEnergiesProvided) {
+  for(unsigned index=0; index<localInputs.size(); ++index) {
+    plumedMain.getActionSet().selectWithLabel<ActionToPutData*>(localInputs[index])->copyOutput(0)->set(localValues[index]);
+  }
+  if(physicalEnergiesProvided || foreignEnergyProvided) {
     // The partner's serialized ENERGY is U_partner(x_partner). General HREX
     // needs U_local(x_partner), already summed over local domains by caching.
     // Replace the value after deserialization; do not sum it a second time.
     for(auto* input : plumedMain.getActionSet().select<ActionToPutData*>()) {
       if(input->getName()=="ENERGY") {
-        input->copyOutput(0)->set(localUSwap);
+        input->copyOutput(0)->set(foreignEnergyProvided ? foreignEnergy : localUSwap);
       }
     }
   }
@@ -264,6 +307,7 @@ void GREX::calculate() {
   }
   intracomm.Bcast(foreignDeltaBias,0);
   physicalEnergiesProvided=false;
+  foreignEnergyProvided=false;
 }
 
 }
