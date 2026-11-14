@@ -83,6 +83,7 @@
 
 #include "plumedexchange.h"
 
+#if GMX_LIB_MPI
 // Temporary runtime wrapper bridge, matching the force provider's loader mode.
 #define __PLUMED_WRAPPER_FORTRAN 0
 #define __PLUMED_WRAPPER_LINK_RUNTIME 1
@@ -91,10 +92,7 @@
 #define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #define __PLUMED_HAS_DLOPEN
 #include "../../../Plumed.h"
-namespace gmx
-{
-gmx_bool plumed_hrex = FALSE;
-}
+#endif
 
 //! Helps cut off probability values.
 constexpr int c_probabilityCutoff = 100;
@@ -241,7 +239,8 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                   "Nothing to exchange with only one replica, maybe you forgot to set the "
                   "-multidir option of mdrun?");
     }
-    if (gmx::plumed_hrex)
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.hrex)
     {
         if (ir->efep != FreeEnergyPerturbationType::No)
             gmx_fatal(FARGS, "-hrex cannot be combined with native free-energy lambda exchange");
@@ -268,6 +267,7 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
         check_multi_int(fplog, *ms, int(ir->vdw_modifier), "HREX VdW modifier", FALSE);
         check_multi_int(fplog, *ms, int(ir->coulomb_modifier), "HREX Coulomb modifier", FALSE);
     }
+#endif
 
     if (replExParams.numExchanges < 0)
     {
@@ -537,10 +537,12 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
     }
     re->patternStep = -1;
     re->nex = replExParams.numExchanges;
-    if (gmx::plumed_ptr && re->nex > 1)
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.ptr && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
+#endif
     return re;
 }
 
@@ -884,8 +886,10 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
     {
         fprintf(fplog, "Repl %d <-> %d  dE_term = %10.3e (kT)\n", a, b, delta);
     }
-    if (gmx::plumed_hrex)
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.hrex)
         delta = 0; // physical cross energies are supplied through GREX
+#endif
     if (re->bNPT)
     {
         /* revist the calculation for 5.0.  Might be some improvements. */
@@ -899,10 +903,11 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
     return delta;
 }
 
+#if GMX_LIB_MPI
 // Resolve a PLUMED pattern once per step, shared by trial energies and acceptance.
 static int select_plumed_partner(FILE* fplog, const gmx_multisim_t* ms, gmx_repl_ex* re, int64_t step)
 {
-    PLMD::Plumed plumed(gmx::plumed_ptr);
+    PLMD::Plumed plumed(gmx::plumedContext.ptr);
     if (re->patternStep != step)
     {
         int custom = 0;
@@ -955,8 +960,9 @@ int plumed_hrex_partner(FILE* fplog, const t_commrec* cr, const gmx_multisim_t* 
 
 void plumed_hrex_cache_foreign(real* energy)
 {
-    PLMD::Plumed(gmx::plumed_ptr).cmd("GREX cacheLocalUSwap", energy);
+    PLMD::Plumed(gmx::plumedContext.ptr).cmd("GREX cacheLocalUSwap", energy);
 }
+#endif
 
 static void test_for_replica_exchange(FILE*                 fplog,
                                       const gmx_multisim_t* ms,
@@ -979,10 +985,12 @@ static void test_for_replica_exchange(FILE*                 fplog,
     gmx::UniformRealDistribution<real> uniformRealDist;
     gmx::UniformIntDistribution<int>   uniformNreplDist(0, re->nrepl - 1);
 
-    if (gmx::plumed_ptr && re->nex > 1)
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.ptr && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
+#endif
     bMultiEx = (re->nex > 1); /* multiple exchanges at each state */
     fprintf(fplog, "Replica exchange at step %" PRId64 " time %.5f\n", step, time);
 
@@ -1141,9 +1149,10 @@ static void test_for_replica_exchange(FILE*                 fplog,
         /* standard nearest neighbor replica exchange */
 
         m = (step / re->nst) % 2;
-        if (gmx::plumed_ptr)
+#if GMX_LIB_MPI
+        if (gmx::plumedContext.ptr)
         {
-            PLMD::Plumed plumed(gmx::plumed_ptr);
+            PLMD::Plumed plumed(gmx::plumedContext.ptr);
             int          partner = select_plumed_partner(fplog, ms, re, step);
             if (re->type == ReplicaExchangeType::Lambda
                 || re->type == ReplicaExchangeType::TemperatureLambda)
@@ -1177,6 +1186,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
             plumed.cmd("GREX calculate");
             plumed.cmd("GREX shareAllDeltaBias");
         }
+#endif
         for (i = 1; i < re->nrepl; i++)
         {
             a = re->ind[i - 1];
@@ -1186,9 +1196,10 @@ static void test_for_replica_exchange(FILE*                 fplog,
             if (i % 2 == m)
             {
                 delta = calc_delta(fplog, bPrint, re, a, b, a, b);
-                if (gmx::plumed_ptr)
+#if GMX_LIB_MPI
+                if (gmx::plumedContext.ptr)
                 {
-                    PLMD::Plumed plumed(gmx::plumed_ptr);
+                    PLMD::Plumed plumed(gmx::plumedContext.ptr);
                     real adb, bdb;
                     plumed.cmd(("GREX getDeltaBias " + std::to_string(a)).c_str(), &adb);
                     plumed.cmd(("GREX getDeltaBias " + std::to_string(b)).c_str(), &bdb);
@@ -1197,6 +1208,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
                     if (bPrint)
                         fprintf(fplog, "PLUMED_GREX step=%" PRId64 " a=%d b=%d correction=%.17g delta=%.17g\n", step, a, b, double(correction), double(delta));
                 }
+#endif
                 if (delta <= 0)
                 {
                     /* accepted */
@@ -1427,11 +1439,13 @@ gmx_bool replica_exchange(FILE*                 fplog,
     /* The order in which multiple exchanges will occur. */
     gmx_bool bThisReplicaExchanged = FALSE;
 
-    if (gmx::plumed_ptr)
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.ptr)
     {
-        PLMD::Plumed plumed(gmx::plumed_ptr);
+        PLMD::Plumed plumed(gmx::plumedContext.ptr);
         plumed.cmd("GREX prepare");
     }
+#endif
 
     if (isMainRank)
     {

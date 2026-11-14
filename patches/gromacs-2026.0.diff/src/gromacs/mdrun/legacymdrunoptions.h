@@ -177,7 +177,8 @@ public:
 
     ImdOptions& imdOptions = mdrunOptions.imdOptions;
 
-    t_pargs pa[50] = {
+    // The extra -hrex entry is compiled only with external MPI.
+    t_pargs pa[49 + GMX_LIB_MPI] = {
 
         { "-dd", FALSE, etRVEC, { &realddxyz }, "Domain decomposition grid, 0 is optimize" },
         { "-ddorder", FALSE, etENUM, { ddrank_opt_choices }, "DD rank order" },
@@ -351,11 +352,14 @@ public:
           etINT,
           { &replExParams.randomSeed },
           "Seed for replica exchange, -1 is generate a seed" },
+#if GMX_LIB_MPI
         { "-hrex",
           FALSE,
           etBOOL,
-          { &plumed_hrex },
+          { &plumedContext.hrex },
           "Enable general Hamiltonian replica exchange with PLUMED" },
+#endif
+
         { "-imdport", FALSE, etINT, { &imdOptions.port }, "HIDDENIMD listening port" },
         { "-imdwait",
           FALSE,

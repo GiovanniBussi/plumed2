@@ -169,9 +169,10 @@ int LegacyMdrunOptions::updateFromCommandLine(int argc, char** argv, ArrayRef<co
     domdecOptions.numCells[YY] = roundToInt(realddxyz[YY]);
     domdecOptions.numCells[ZZ] = roundToInt(realddxyz[ZZ]);
 
+#if GMX_LIB_MPI
     if (std::getenv("PLUMED_HREX"))
-        plumed_hrex = TRUE;
-    if (plumed_hrex)
+        plumedContext.hrex = TRUE;
+    if (plumedContext.hrex)
     {
         if (!opt2bSet("-plumed", gmx::ssize(filenames), filenames.data())
             || replExParams.exchangeInterval == 0)
@@ -181,6 +182,11 @@ int LegacyMdrunOptions::updateFromCommandLine(int argc, char** argv, ArrayRef<co
         if (mdrunOptions.tunePme)
             gmx_fatal(FARGS, "-hrex requires -notunepme for consistent trial-energy settings");
     }
+#else
+    if (std::getenv("PLUMED_HREX"))
+        gmx_fatal(FARGS, "PLUMED_HREX requires real MPI (GMX_MPI=ON, GMX_THREAD_MPI=OFF)");
+#endif
+
     return 1;
 }
 

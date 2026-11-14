@@ -178,8 +178,6 @@
 #include "plumedexchange.h"
 #include "replicaexchange.h"
 
-// Temporary bridge to PLUMED, alongside its global instance handle.
-namespace gmx { extern bool plumed_exchange_step; }
 #include "shellfc.h"
 
 struct gmx_mdoutf;
@@ -551,16 +549,19 @@ void gmx::LegacySimulator::do_md()
                                 opt2fn("-awh", nFile_, fnm_),
                                 pullWork_);
 
-    if (gmx::plumed_hrex && (inputRec_->useMts || shellfc || awh || pullWork_ || enforcedRotation_ || ed))
+#if GMX_LIB_MPI
+    if (gmx::plumedContext.hrex
+        && (inputRec_->useMts || shellfc || awh || pullWork_ || enforcedRotation_ || ed))
         gmx_fatal(FARGS,
                   "-hrex trial evaluation does not support MTS, shells, AWH, pulling, rotation or "
                   "essential dynamics");
-    if (gmx::plumed_hrex && fr_->forceProviders && fr_->forceProviders->numForceProviders() != 1)
+    if (gmx::plumedContext.hrex && fr_->forceProviders && fr_->forceProviders->numForceProviders() != 1)
         gmx_fatal(FARGS,
                   "-hrex prototype supports only the PLUMED force provider; other provider side "
                   "effects are not isolated");
-    if (gmx::plumed_hrex && (simulationWork.useGpuUpdate || simulationWork.useGpuDirectCommunication))
+    if (gmx::plumedContext.hrex && (simulationWork.useGpuUpdate || simulationWork.useGpuDirectCommunication))
         gmx_fatal(FARGS, "-hrex prototype requires -update cpu and no direct GPU communication");
+#endif
 
     if (useReplicaExchange && isMainRank)
     {
@@ -918,7 +919,9 @@ void gmx::LegacySimulator::do_md()
         {
             /* find and set the current lambdas */
             state_->lambda = currentLambdas(step, *(ir->fepvals), state_->fep_state);
-            gmx::plumed_lambda_state = state_->fep_state;
+#if GMX_LIB_MPI
+            gmx::plumedContext.lambdaState = state_->fep_state;
+#endif
 
             bDoExpanded = (do_per_step(step, ir->expandedvals->nstexpanded) && (ir->bExpanded)
                            && (!bFirstStep));
@@ -926,7 +929,9 @@ void gmx::LegacySimulator::do_md()
 
         bDoReplEx = (useReplicaExchange && (step > 0) && !bLastStep
                      && do_per_step(step, replExParams_.exchangeInterval));
-        gmx::plumed_exchange_step = bDoReplEx;
+#if GMX_LIB_MPI
+        gmx::plumedContext.exchangeStep = bDoReplEx;
+#endif
 
         if (doSimulatedAnnealing)
         {
@@ -1101,14 +1106,19 @@ void gmx::LegacySimulator::do_md()
         clear_mat(force_vir);
 
         /* PLUMED HREX */
-        gmx_bool bHREX = bDoReplEx && gmx::plumed_hrex;
+#if GMX_LIB_MPI
+        const bool bHREX = bDoReplEx && gmx::plumedContext.hrex;
+#else
+        const bool bHREX = false;
+#endif
         // Restore/write PLUMED checkpoint state before consuming the exchange
         // pattern RNG, including on the first step of a continuation.
         checkpointHandler->decideIfCheckpointingThisStep(bNS || bHREX, bFirstStep, bLastStep);
         const bool plumedStepNeedsEnergy = fr_->forceProviders != nullptr
                 && fr_->forceProviders->prepareStep(step, checkpointHandler->isCheckpointingStep());
 
-        if (gmx::plumed_ptr && bHREX)
+#if GMX_LIB_MPI
+        if (gmx::plumedContext.ptr && bHREX)
         {
             // gmx_enerdata_t *hrex_enerd;
             int            nlambda = enerd_->foreignLambdaTerms.numLambdas();
@@ -1178,8 +1188,8 @@ void gmx::LegacySimulator::do_md()
                calculate (and e.g. deposit or print) again for the previous step inside do_force() */
             struct TrialGuard
             {
-                TrialGuard() { gmx::plumed_hrex_trial = true; }
-                ~TrialGuard() { gmx::plumed_hrex_trial = false; }
+                TrialGuard() { gmx::plumedContext.hrexTrial = true; }
+                ~TrialGuard() { gmx::plumedContext.hrexTrial = false; }
             };
             {
                 TrialGuard trialGuard;
@@ -1262,6 +1272,7 @@ void gmx::LegacySimulator::do_md()
             bNS = true;
         }
         /* END PLUMED HREX */
+#endif
 
 
         /* Determine the energy and pressure:
