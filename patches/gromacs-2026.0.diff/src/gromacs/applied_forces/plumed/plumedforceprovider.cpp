@@ -267,7 +267,10 @@ try
     plumed_->cmd("setPositions", &(forceProviderInput.x_.data()->as_vec()[0]));
     plumed_->cmd("setMasses", forceProviderInput.massT_.data());
     plumed_->cmd("setCharges", forceProviderInput.chargeA_.data());
-    plumed_->cmd("setBox", &forceProviderInput.box_[0][0]);
+    // Lambda trials call prepareCalc() again after this callback's short-lived
+    // input container has gone out of scope. Keep the registered box alive.
+    copy_mat(forceProviderInput.box_, plumedBox_);
+    plumed_->cmd("setBox", &plumedBox_[0][0]);
 
     if (preparedStep_ == lstep)
     {

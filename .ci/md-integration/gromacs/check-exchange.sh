@@ -8,14 +8,14 @@ results=${3:?set a fresh results directory}
 suite=$(cd "$(dirname "$0")/exchange" && pwd)
 export PLUMED_KERNEL="$kernel"
 unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE PLUMED_HREX
-python "$suite/../check-context-isolation.py" "$(dirname "$(dirname "$gmx")")" "$results/context-isolation"
+python "$suite/../check-context-isolation.py" "$(dirname "$(dirname "$gmx")")" "$results/context-isolation" "$kernel"
 if [[ "$BACKEND" == tmpi ]]; then
   python "$suite/validate_mpi_modes.py" --gmx "$gmx" --kernel "$kernel" --output "$results/tmpi"
   for simulator in modular legacy; do
-    extra=()
+    extra=(--quick)
     if [[ "$simulator" == legacy ]]; then extra+=(--legacy); fi
     python "$suite/validate_expanded.py" --gmx "$gmx" --kernel "$kernel" \
-      --output "$results/expanded-$simulator" --backend tmpi --quick "${extra[@]}"
+      --output "$results/expanded-$simulator" --backend tmpi "${extra[@]}"
   done
   python "$suite/validate_expanded.py" --gmx "$gmx" --kernel "$kernel" \
     --output "$results/expanded-restarts" --backend tmpi --filter restart
@@ -36,10 +36,10 @@ else
   python "$suite/validate_lambda.py" --gmx "$gmx" --kernel "$kernel" \
     --output "$results/lambda" --launcher "$launcher" --quick
   for simulator in modular legacy; do
-    extra=()
+    extra=(--quick)
     if [[ "$simulator" == legacy ]]; then extra+=(--legacy); fi
     python "$suite/validate_expanded.py" --gmx "$gmx" --kernel "$kernel" \
-      --output "$results/expanded-$simulator" --launcher "$launcher" --quick "${extra[@]}"
+      --output "$results/expanded-$simulator" --launcher "$launcher" "${extra[@]}"
   done
   python "$suite/validate_expanded.py" --gmx "$gmx" --kernel "$kernel" \
     --output "$results/expanded-restarts" --launcher "$launcher" --filter restart

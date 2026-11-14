@@ -1,6 +1,7 @@
-"""Compile and run the context isolation fixture against the selected host build."""
+"""Check context isolation and, with a kernel argument, actual provider bindings."""
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -23,29 +24,50 @@ while index < len(arguments):
         flags.append(arg)
     index += 1
 library = "gromacs_mpi" if list((build / "lib").glob("libgromacs_mpi.*")) else "gromacs"
-binary = output / "context-isolation"
-command = [
-    arguments[0],
-    *flags,
-    str(Path(__file__).with_name("context-isolation.cpp")),
-    "-o",
-    str(binary),
-    "-L" + str(build / "lib"),
-    "-l" + library,
-    "-Wl,-rpath," + str(build / "lib"),
-    "-pthread",
-]
-(output / "command.json").write_text(json.dumps(command, indent=2) + "\n")
-with (output / "compile.log").open("w") as log:
-    subprocess.run(
-        command,
-        cwd=entry["directory"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        check=True,
-    )
-with (output / "output").open("w") as log:
-    subprocess.run(
-        [str(binary)], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=60
-    )
-print((output / "output").read_text(), end="")
+
+
+def check(name, destination, kernel=None):
+    destination.mkdir(parents=True, exist_ok=True)
+    binary = destination / name
+    command = [
+        arguments[0],
+        *flags,
+        str(Path(__file__).with_name(name + ".cpp")),
+        "-o",
+        str(binary),
+        "-L" + str(build / "lib"),
+        "-l" + library,
+        "-Wl,-rpath," + str(build / "lib"),
+        "-pthread",
+    ]
+    if kernel:
+        source = Path(entry["file"]).resolve().parents[3]
+        command.append("-I" + str(source))
+    (destination / "command.json").write_text(json.dumps(command, indent=2) + "\n")
+    with (destination / "compile.log").open("w") as log:
+        subprocess.run(
+            command,
+            cwd=entry["directory"],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+    environment = os.environ.copy()
+    if kernel:
+        environment["PLUMED_KERNEL"] = str(Path(kernel).resolve())
+    with (destination / "output").open("w") as log:
+        subprocess.run(
+            [str(binary)],
+            cwd=destination,
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+            timeout=60,
+        )
+    print((destination / "output").read_text(), end="")
+
+
+check("context-isolation", output)
+if len(sys.argv) > 3:
+    check("provider-input-lifetime", output / "provider-input-lifetime", sys.argv[3])
