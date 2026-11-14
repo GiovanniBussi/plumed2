@@ -95,6 +95,7 @@ def main():
     parser.add_argument("--gmx", required=True)
     parser.add_argument("--kernel", required=True)
     parser.add_argument("--provider")
+    parser.add_argument("--backend", choices=["mpi", "tmpi"], default="mpi")
     parser.add_argument("--output", required=True)
     parser.add_argument("--quick", action="store_true")
     parser.add_argument(
@@ -125,8 +126,11 @@ def main():
         os.environ.pop("GMX_DISABLE_MODULAR_SIMULATOR", None)
     if options.provider:
         os.environ["PLUMED_MPI_WRAPPER"] = str(Path(options.provider).resolve())
+    elif options.backend == "tmpi":
+        os.environ.pop("PLUMED_MPI_WRAPPER", None)
     args = SimpleNamespace(
         gmx=str(Path(options.gmx).resolve()),
+        backend=options.backend,
         output=options.output,
         threads=options.threads,
         timeout=options.timeout,
@@ -139,6 +143,10 @@ def main():
     suite = module.Suite(args)
     results = []
     cases = cases_for(options.quick, options.skip_population)
+    if options.legacy:
+        # GROMACS deliberately disables legacy expanded-ensemble checkpoints
+        # (upstream #4629). Validate MCMC here and restarts in the modular suite.
+        cases = [case for case in cases if not case.get("restart")]
     for case in cases:
         if options.filter and options.filter not in case["name"]:
             continue

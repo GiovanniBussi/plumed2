@@ -68,6 +68,7 @@ template<typename T>
 class ArrayRef;
 class ForceWithVirial;
 class MpiComm;
+struct PlumedContext;
 
 
 /*! \libinternal \brief
@@ -174,6 +175,9 @@ public:
 class IForceProvider
 {
 public:
+    //! Optional non-owning PLUMED context; other providers return nullptr.
+    virtual PlumedContext* plumedContext() { return nullptr; }
+
     /*! \brief
      * Computes forces.
      *
@@ -259,6 +263,8 @@ public:
 
     //! Whether there are modules added.
     bool hasForceProvider() const;
+    //! The PLUMED context belonging to this simulation/rank, or nullptr.
+    PlumedContext* plumedContext() const;
     //! Number of registered providers (used to reject unsafe HREX trial side effects).
     int numForceProviders() const;
 

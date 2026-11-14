@@ -171,8 +171,8 @@ int LegacyMdrunOptions::updateFromCommandLine(int argc, char** argv, ArrayRef<co
 
 #if GMX_LIB_MPI
     if (std::getenv("PLUMED_HREX"))
-        plumedContext.hrex = TRUE;
-    if (plumedContext.hrex)
+        replExParams.plumedHrex = TRUE;
+    if (replExParams.plumedHrex)
     {
         if (!opt2bSet("-plumed", gmx::ssize(filenames), filenames.data())
             || replExParams.exchangeInterval == 0)

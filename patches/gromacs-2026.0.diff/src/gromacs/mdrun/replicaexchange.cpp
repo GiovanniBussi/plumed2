@@ -132,6 +132,8 @@ static const char* enumValueToString(ReplicaExchangeType enumValue)
 //! Working data for replica exchange.
 struct gmx_repl_ex
 {
+    //! Main-rank context; collective callers pass each worker's own context separately.
+    gmx::PlumedContext* plumed = nullptr;
     //! Replica ID
     int repl;
     //! Total number of replica
@@ -224,7 +226,8 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                                     const gmx_multisim_t*            ms,
                                     int                              numAtomsInSystem,
                                     const t_inputrec*                ir,
-                                    const ReplicaExchangeParameters& replExParams)
+                                    const ReplicaExchangeParameters& replExParams,
+                                    gmx::PlumedContext*              context)
 {
     real                pres;
     int                 i, j;
@@ -240,7 +243,7 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                   "-multidir option of mdrun?");
     }
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.hrex)
+    if (context && context->hrex)
     {
         if (ir->efep != FreeEnergyPerturbationType::No)
             gmx_fatal(FARGS, "-hrex cannot be combined with native free-energy lambda exchange");
@@ -535,10 +538,11 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
     {
         snew(re->de[i], re->nrepl);
     }
+    re->plumed      = context;
     re->patternStep = -1;
     re->nex = replExParams.numExchanges;
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.ptr && re->nex > 1)
+    if ((re->plumed ? re->plumed->ptr : nullptr) && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
@@ -887,7 +891,7 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
         fprintf(fplog, "Repl %d <-> %d  dE_term = %10.3e (kT)\n", a, b, delta);
     }
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.hrex)
+    if (re->plumed && re->plumed->hrex)
         delta = 0; // physical cross energies are supplied through GREX
 #endif
     if (re->bNPT)
@@ -907,7 +911,7 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
 // Resolve a PLUMED pattern once per step, shared by trial energies and acceptance.
 static int select_plumed_partner(FILE* fplog, const gmx_multisim_t* ms, gmx_repl_ex* re, int64_t step)
 {
-    PLMD::Plumed plumed(gmx::plumedContext.ptr);
+    PLMD::Plumed plumed(re->plumed->ptr);
     if (re->patternStep != step)
     {
         int custom = 0;
@@ -958,9 +962,9 @@ int plumed_hrex_partner(FILE* fplog, const t_commrec* cr, const gmx_multisim_t* 
     return partner;
 }
 
-void plumed_hrex_cache_foreign(real* energy)
+void plumed_hrex_cache_foreign(gmx::PlumedContext& context, real* energy)
 {
-    PLMD::Plumed(gmx::plumedContext.ptr).cmd("GREX cacheLocalUSwap", energy);
+    PLMD::Plumed(context.ptr).cmd("GREX cacheLocalUSwap", energy);
 }
 #endif
 
@@ -986,7 +990,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
     gmx::UniformIntDistribution<int>   uniformNreplDist(0, re->nrepl - 1);
 
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.ptr && re->nex > 1)
+    if ((re->plumed ? re->plumed->ptr : nullptr) && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
@@ -1150,9 +1154,9 @@ static void test_for_replica_exchange(FILE*                 fplog,
 
         m = (step / re->nst) % 2;
 #if GMX_LIB_MPI
-        if (gmx::plumedContext.ptr)
+        if (re->plumed && re->plumed->ptr)
         {
-            PLMD::Plumed plumed(gmx::plumedContext.ptr);
+            PLMD::Plumed plumed(re->plumed->ptr);
             int          partner = select_plumed_partner(fplog, ms, re, step);
             if (re->type == ReplicaExchangeType::Lambda
                 || re->type == ReplicaExchangeType::TemperatureLambda)
@@ -1197,9 +1201,9 @@ static void test_for_replica_exchange(FILE*                 fplog,
             {
                 delta = calc_delta(fplog, bPrint, re, a, b, a, b);
 #if GMX_LIB_MPI
-                if (gmx::plumedContext.ptr)
+                if (re->plumed && re->plumed->ptr)
                 {
-                    PLMD::Plumed plumed(gmx::plumedContext.ptr);
+                    PLMD::Plumed plumed(re->plumed->ptr);
                     real adb, bdb;
                     plumed.cmd(("GREX getDeltaBias " + std::to_string(a)).c_str(), &adb);
                     plumed.cmd(("GREX getDeltaBias " + std::to_string(b)).c_str(), &bdb);
@@ -1425,7 +1429,8 @@ gmx_bool replica_exchange(FILE*                 fplog,
                           const gmx_enerdata_t* enerd,
                           t_state*              state_local,
                           int64_t               step,
-                          real                  time)
+                          real                  time,
+                          gmx::PlumedContext*   context)
 {
     const bool isMainRank = cr->commMyGroup.isMainRank();
 
@@ -1440,9 +1445,9 @@ gmx_bool replica_exchange(FILE*                 fplog,
     gmx_bool bThisReplicaExchanged = FALSE;
 
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.ptr)
+    if (context && context->ptr)
     {
-        PLMD::Plumed plumed(gmx::plumedContext.ptr);
+        PLMD::Plumed plumed(context->ptr);
         plumed.cmd("GREX prepare");
     }
 #endif

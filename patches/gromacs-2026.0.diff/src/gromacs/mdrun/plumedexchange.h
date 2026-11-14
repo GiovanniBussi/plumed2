@@ -3,12 +3,11 @@
 
 #include "config.h"
 
-#if GMX_LIB_MPI
-#    include <cstdint>
-#    include <cstdio>
+#include <cstdint>
+#include <cstdio>
 
-#    include "gromacs/utility/basedefinitions.h"
-#    include "gromacs/utility/real.h"
+#include "gromacs/utility/basedefinitions.h"
+#include "gromacs/utility/real.h"
 
 struct t_commrec;
 struct gmx_multisim_t;
@@ -17,11 +16,10 @@ class t_state;
 
 namespace gmx
 {
-// One non-owning context per MPI process. This bridge also serves single-replica
-// alchemical MCMC. It must never be used with thread-MPI: its ranks share process
-// globals, whereas each rank needs its own PLUMED instance and mutable buffers.
-// Keep the definition and every access under #if GMX_LIB_MPI, even if a future
-// GROMACS version permits replica exchange with thread-MPI.
+// Provider-owned host state. Each thread-MPI rank has its own provider and buffers.
+// Kernel calculations and exchange state remain instance-specific through cmd().
+// Pointers into these buffers are registered with the kernel: the provider must
+// stay at a stable address until its kernel and all simulation callbacks finish.
 struct PlumedContext
 {
     void*    ptr          = nullptr;
@@ -33,11 +31,14 @@ struct PlumedContext
     real     trialEnergy  = 0;
     bool     mainRank     = true;
 };
-extern PlumedContext plumedContext;
+class ForceProviders;
+// Stateless lookup in the simulation/rank-owned provider collection.
+PlumedContext* findPlumedContext(ForceProviders* providers);
 } // namespace gmx
 
-int plumed_hrex_partner(FILE*, const t_commrec*, const gmx_multisim_t*, gmx_repl_ex*, int64_t);
-void plumed_hrex_cache_foreign(real*);
+#if GMX_LIB_MPI
+int  plumed_hrex_partner(FILE*, const t_commrec*, const gmx_multisim_t*, gmx_repl_ex*, int64_t);
+void plumed_hrex_cache_foreign(gmx::PlumedContext&, real*);
 void exchange_state(const gmx_multisim_t*, int, t_state*);
 void copy_state_serial(const t_state*, t_state*);
 #endif // GMX_LIB_MPI

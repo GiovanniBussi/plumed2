@@ -195,6 +195,10 @@ void gmx::LegacySimulator::do_md()
     // t_inputrec is being replaced by IMdpOptionsProvider, so this
     // will go away eventually.
     const t_inputrec* ir = inputRec_;
+    PlumedContext     inactivePlumedContext;
+    auto*             providerContext = findPlumedContext(fr_->forceProviders);
+    auto&             plumedContext   = providerContext ? *providerContext : inactivePlumedContext;
+    plumedContext.hrex                = replExParams_.plumedHrex;
 
     const double t0 = ir->init_t;
     gmx_bool     bFirstStep, bInitStep, bLastStep = FALSE;
@@ -550,22 +554,21 @@ void gmx::LegacySimulator::do_md()
                                 pullWork_);
 
 #if GMX_LIB_MPI
-    if (gmx::plumedContext.hrex
-        && (inputRec_->useMts || shellfc || awh || pullWork_ || enforcedRotation_ || ed))
+    if (plumedContext.hrex && (inputRec_->useMts || shellfc || awh || pullWork_ || enforcedRotation_ || ed))
         gmx_fatal(FARGS,
                   "-hrex trial evaluation does not support MTS, shells, AWH, pulling, rotation or "
                   "essential dynamics");
-    if (gmx::plumedContext.hrex && fr_->forceProviders && fr_->forceProviders->numForceProviders() != 1)
+    if (plumedContext.hrex && fr_->forceProviders && fr_->forceProviders->numForceProviders() != 1)
         gmx_fatal(FARGS,
                   "-hrex prototype supports only the PLUMED force provider; other provider side "
                   "effects are not isolated");
-    if (gmx::plumedContext.hrex && (simulationWork.useGpuUpdate || simulationWork.useGpuDirectCommunication))
+    if (plumedContext.hrex && (simulationWork.useGpuUpdate || simulationWork.useGpuDirectCommunication))
         gmx_fatal(FARGS, "-hrex prototype requires -update cpu and no direct GPU communication");
 #endif
 
     if (useReplicaExchange && isMainRank)
     {
-        repl_ex = init_replica_exchange(fpLog_, ms_, topGlobal_.natoms, ir, replExParams_);
+        repl_ex = init_replica_exchange(fpLog_, ms_, topGlobal_.natoms, ir, replExParams_, &plumedContext);
     }
 
     // PME tuning is only supported with PME for Coulomb. It is not supported with only LJ PME
@@ -919,9 +922,7 @@ void gmx::LegacySimulator::do_md()
         {
             /* find and set the current lambdas */
             state_->lambda = currentLambdas(step, *(ir->fepvals), state_->fep_state);
-#if GMX_LIB_MPI
-            gmx::plumedContext.lambdaState = state_->fep_state;
-#endif
+            plumedContext.lambdaState = state_->fep_state;
 
             bDoExpanded = (do_per_step(step, ir->expandedvals->nstexpanded) && (ir->bExpanded)
                            && (!bFirstStep));
@@ -929,9 +930,7 @@ void gmx::LegacySimulator::do_md()
 
         bDoReplEx = (useReplicaExchange && (step > 0) && !bLastStep
                      && do_per_step(step, replExParams_.exchangeInterval));
-#if GMX_LIB_MPI
-        gmx::plumedContext.exchangeStep = bDoReplEx;
-#endif
+        plumedContext.exchangeStep = bDoReplEx;
 
         if (doSimulatedAnnealing)
         {
@@ -1107,7 +1106,7 @@ void gmx::LegacySimulator::do_md()
 
         /* PLUMED HREX */
 #if GMX_LIB_MPI
-        const bool bHREX = bDoReplEx && gmx::plumedContext.hrex;
+        const bool bHREX = bDoReplEx && plumedContext.hrex;
 #else
         const bool bHREX = false;
 #endif
@@ -1118,7 +1117,7 @@ void gmx::LegacySimulator::do_md()
                 && fr_->forceProviders->prepareStep(step, checkpointHandler->isCheckpointingStep());
 
 #if GMX_LIB_MPI
-        if (gmx::plumedContext.ptr && bHREX)
+        if (plumedContext.ptr && bHREX)
         {
             // gmx_enerdata_t *hrex_enerd;
             int            nlambda = enerd_->foreignLambdaTerms.numLambdas();
@@ -1188,11 +1187,15 @@ void gmx::LegacySimulator::do_md()
                calculate (and e.g. deposit or print) again for the previous step inside do_force() */
             struct TrialGuard
             {
-                TrialGuard() { gmx::plumedContext.hrexTrial = true; }
-                ~TrialGuard() { gmx::plumedContext.hrexTrial = false; }
+                PlumedContext& context;
+                explicit TrialGuard(PlumedContext& value) : context(value)
+                {
+                    context.hrexTrial = true;
+                }
+                ~TrialGuard() { context.hrexTrial = false; }
             };
             {
-                TrialGuard trialGuard;
+                TrialGuard trialGuard(plumedContext);
                 do_force(fpLog_,
                          cr_,
                          *ir,
@@ -1223,7 +1226,8 @@ void gmx::LegacySimulator::do_md()
                          fr_->longRangeNonbondeds.get(),
                          ddBalanceRegionHandler);
             }
-            plumed_hrex_cache_foreign(&hrex_enerd.term[InteractionFunction::PotentialEnergy]);
+            plumed_hrex_cache_foreign(plumedContext,
+                                      &hrex_enerd.term[InteractionFunction::PotentialEnergy]);
 
             /* exchange back */
             if (haveDDAtomOrdering(*cr_))
@@ -1583,7 +1587,8 @@ void gmx::LegacySimulator::do_md()
                                                   step,
                                                   state_->v.rvec_array(),
                                                   md->homenr,
-                                                  md->cTC);
+                                                  md->cTC,
+                                                  providerContext);
                 /* history is maintained in state->dfhist, but state_global is what is sent to trajectory and log output */
                 if (isMainRank)
                 {
@@ -2305,8 +2310,8 @@ void gmx::LegacySimulator::do_md()
         bExchanged = FALSE;
         if (bDoReplEx)
         {
-            bExchanged =
-                    replica_exchange(fpLog_, cr_, ms_, repl_ex, stateGlobal_, enerd_, state_, step, t);
+            bExchanged = replica_exchange(
+                    fpLog_, cr_, ms_, repl_ex, stateGlobal_, enerd_, state_, step, t, providerContext);
         }
 
         if ((bExchanged || bNeedRepartition) && haveDDAtomOrdering(*cr_))

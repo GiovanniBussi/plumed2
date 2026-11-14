@@ -43,7 +43,6 @@
 #include "forceelement.h"
 
 #include "../mdrun/plumedexchange.h"
-#if GMX_LIB_MPI
 #    define __PLUMED_WRAPPER_FORTRAN 0
 #    define __PLUMED_WRAPPER_LINK_RUNTIME 1
 #    define __PLUMED_WRAPPER_EXTERN 0
@@ -51,7 +50,6 @@
 #    define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #    define __PLUMED_HAS_DLOPEN
 #    include "../../../Plumed.h"
-#endif
 
 #include "gromacs/domdec/mdsetup.h"
 #include "gromacs/listed_forces/listed_forces_gpu.h"
@@ -193,9 +191,9 @@ void ForceElement::elementSetup()
 template<bool doShellFC>
 void ForceElement::run(Step step, Time time, unsigned int flags)
 {
-#if GMX_LIB_MPI
-    if (plumedContext.ptr)
+    if (auto* context = findPlumedContext(fr_->forceProviders))
     {
+        auto& plumedContext = *context;
         plumedContext.lambdaState =
                 freeEnergyPerturbationData_ ? freeEnergyPerturbationData_->currentFEPState() : 0;
         // Ask at execution time, not when tasks for future steps are queued.
@@ -210,7 +208,6 @@ void ForceElement::run(Step step, Time time, unsigned int flags)
         if (needsEnergy)
             flags |= GMX_FORCE_ENERGY | GMX_FORCE_VIRIAL;
     }
-#endif
     if (!haveDDAtomOrdering(*cr_) && (flags & GMX_FORCE_NS) && inputrecDynamicBox(inputrec_))
     {
         // TODO: Correcting the box is done in DomDecHelper (if using DD) or here (non-DD simulations).

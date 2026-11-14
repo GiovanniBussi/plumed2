@@ -45,6 +45,7 @@
 #include <utility>
 #include <vector>
 
+#include "gromacs/mdrun/plumedexchange.h"
 #include "gromacs/timing/wallcycle.h"
 #include "gromacs/utility/arrayref.h"
 
@@ -72,6 +73,27 @@ void ForceProviders::addForceProvider(gmx::IForceProvider* provider, const std::
     }
 
     impl_->providers_.emplace_back(provider, counter);
+}
+
+PlumedContext* ForceProviders::plumedContext() const
+{
+    PlumedContext* result = nullptr;
+    for (const auto& provider : impl_->providers_)
+    {
+        if (auto* context = provider.first->plumedContext())
+        {
+            GMX_RELEASE_ASSERT(result == nullptr,
+                               "Only one PLUMED provider per simulation is supported");
+            result = context;
+        }
+    }
+    return result;
+}
+
+// This lookup must remain available when the concrete PLUMED module is disabled.
+PlumedContext* gmx::findPlumedContext(ForceProviders* providers)
+{
+    return providers ? providers->plumedContext() : nullptr;
 }
 
 bool ForceProviders::hasForceProvider() const

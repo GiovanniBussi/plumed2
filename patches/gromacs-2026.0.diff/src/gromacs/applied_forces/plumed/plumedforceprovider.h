@@ -45,6 +45,7 @@
 #include <optional>
 #include <vector>
 
+#include "gromacs/mdrun/plumedexchange.h"
 #include "gromacs/mdtypes/iforceprovider.h"
 
 namespace PLMD
@@ -68,6 +69,7 @@ public:
      */
     PlumedForceProvider(const PlumedOptions& options);
     ~PlumedForceProvider();
+    PlumedContext* plumedContext() override { return &context_; }
     /*! @brief Sets the global atom indices list
      * param[in] globalAtomIndices  the, optional, list of global atom indices
      */
@@ -110,6 +112,7 @@ private:
     //! Whether the atoms that PLUMED used on this step include virtual sites
     bool usesVirtualSites();
 
+    PlumedContext                 context_;
     std::unique_ptr<PLMD::Plumed> plumed_;
     int                           plumedAPIversion_;
     bool                          replex_;

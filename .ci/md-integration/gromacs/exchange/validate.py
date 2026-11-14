@@ -83,6 +83,15 @@ class Suite:
         return r.returncode
 
     def launch(self, n):
+        if getattr(self.args, "backend", "mpi") == "tmpi":
+            return [
+                self.args.gmx,
+                "mdrun",
+                "-ntmpi",
+                str(n),
+                "-ntomp",
+                str(self.args.threads),
+            ]
         return [x.format(n=n) for x in shlex.split(self.args.launcher)] + [
             self.args.gmx,
             "mdrun",

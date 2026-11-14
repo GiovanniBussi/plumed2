@@ -71,7 +71,6 @@
 #include "gromacs/utility/smalloc.h"
 
 #include "expanded_internal.h"
-#if GMX_LIB_MPI
 #    define __PLUMED_WRAPPER_CXX 1
 #    define __PLUMED_WRAPPER_LIBCXX11 1
 #    define __PLUMED_WRAPPER_EXTERN 0
@@ -80,7 +79,6 @@
 #    define __PLUMED_WRAPPER_IMPLEMENTATION 1
 #    define __PLUMED_HAS_DLOPEN
 #    include "../../../Plumed.h"
-#endif
 
 static void init_df_history_weights(df_history_t* dfhist, const t_expanded* expand, int nlim)
 {
@@ -1376,7 +1374,8 @@ int expandedEnsembleUpdateLambdaState(FILE*                 log,
                                       const gmx_enerdata_t* enerd,
                                       int                   fep_state,
                                       df_history_t*         dfhist,
-                                      int64_t               step)
+                                      int64_t               step,
+                                      gmx::PlumedContext*   context)
 {
     real *      pfep_lamee, *scaled_lamee, *weighted_lamee;
     double*     p_k;
@@ -1453,27 +1452,26 @@ int expandedEnsembleUpdateLambdaState(FILE*                 log,
         }
     }
 
-#if GMX_LIB_MPI
-    if (gmx::plumedContext.ptr)
+    if (context && context->ptr)
     {
-        PLMD::Plumed      plumed(gmx::plumedContext.ptr);
+        PLMD::Plumed      plumed(context->ptr);
         std::vector<real> biases(nlim);
         int               exchange = 1;
         plumed.cmd("setExchangeStep", &exchange);
         auto evaluate = [&](int lambdaState)
         {
             long int plumedStep      = step;
-            gmx::plumedContext.lambdaState = lambdaState;
-            gmx::plumedContext.trialEnergy =
-                    gmx::plumedContext.mainRank
+            context->lambdaState     = lambdaState;
+            context->trialEnergy =
+                    context->mainRank
                             ? enerd->term[InteractionFunction::PotentialEnergy]
                                       + enerd->foreignLambdaTerms.deltaPotentialEnergy(lambdaState)
                             : 0;
             // Reopen input bindings at the same MD step; do not update history,
             // propagate forces, or write ordinary output for a lambda trial.
             plumed.cmd("setStepLong", &plumedStep);
-            plumed.cmd("setExtraCV lambda", &gmx::plumedContext.lambdaState);
-            plumed.cmd("setEnergy", &gmx::plumedContext.trialEnergy);
+            plumed.cmd("setExtraCV lambda", &context->lambdaState);
+            plumed.cmd("setEnergy", &context->trialEnergy);
             plumed.cmd("prepareCalc");
             plumed.cmd("performCalcNoForces");
             real bias = 0;
@@ -1508,7 +1506,6 @@ int expandedEnsembleUpdateLambdaState(FILE*                 log,
                         double(scaled_lamee[i]));
         }
     }
-#endif
 
     for (i = 0; i < nlim; i++)
     {
@@ -1556,10 +1553,8 @@ int expandedEnsembleUpdateLambdaState(FILE*                 log,
 
     lamnew = ChooseNewLambda(
             nlim, expand, dfhist, fep_state, weighted_lamee, p_k, ir->expandedvals->lmc_seed, step);
-#if GMX_LIB_MPI
-    if (gmx::plumedContext.ptr && log && std::getenv("PLUMED_EXCHANGE_DEBUG"))
+    if (context && context->ptr && log && std::getenv("PLUMED_EXCHANGE_DEBUG"))
         fprintf(log, "PLUMED_LAMBDA_MOVE step=%" PRId64 " old=%d new=%d\n", step, fep_state, lamnew);
-#endif
 
     /* now check on the Wang-Landau updating critera */
 
@@ -1683,11 +1678,13 @@ int ExpandedEnsembleDynamics(FILE*                               log,
                              int64_t                             step,
                              rvec*                               v,
                              const int                           homenr,
-                             gmx::ArrayRef<const unsigned short> cTC)
+                             gmx::ArrayRef<const unsigned short> cTC,
+                             gmx::PlumedContext*                 context)
 /* Note that the state variable is only needed for simulated tempering, not
    Hamiltonian expanded ensemble.  May be able to remove it after integrator refactoring. */
 {
-    const int newLambda = expandedEnsembleUpdateLambdaState(log, &ir, &enerd, fep_state, dfhist, step);
+    const int newLambda =
+            expandedEnsembleUpdateLambdaState(log, &ir, &enerd, fep_state, dfhist, step, context);
     // if using simulated tempering, we need to adjust the temperatures
     // only need to change the temperatures if we change the state
     if (ir.bSimTemp && (newLambda != fep_state))
