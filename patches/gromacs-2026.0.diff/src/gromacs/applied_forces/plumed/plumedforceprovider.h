@@ -107,8 +107,6 @@ public:
                                    tensor         virial) override;
 
 private:
-    //! Throws if PLUMED computed a bias while replica exchange is active
-    void checkReplicaExchangeBias();
     //! Whether the atoms that PLUMED used on this step include virtual sites
     bool usesVirtualSites();
 
