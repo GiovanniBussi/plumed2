@@ -79,6 +79,11 @@ bool ForceProviders::hasForceProvider() const
     return !impl_->providers_.empty();
 }
 
+int ForceProviders::numForceProviders() const
+{
+    return static_cast<int>(impl_->providers_.size());
+}
+
 void ForceProviders::calculateForces(const ForceProviderInput& forceProviderInput,
                                      ForceProviderOutput*      forceProviderOutput) const
 {

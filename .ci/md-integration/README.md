@@ -330,3 +330,26 @@ python3 .ci/md-integration/amber/check.py --mode serial \
   --sander /path/to/build/AmberTools/src/sander/sander \
   --kernel /path/to/libplumedKernel.dylib --results /tmp/amber-serial-results
 ```
+
+
+## Replica exchange and lambda validation
+
+The pinned GROMACS2026.4 integration runs `gromacs/check-exchange.sh` in every
+MPI/OpenMP configuration. The source harnesses in `gromacs/exchange/` provide
+independent analytical exchange oracles, native lambda/ENERGY tests, expanded
+MCMC checks, and PME reruns under each Hamiltonian. Metadynamics acceptance uses
+the pre-deposition history, and hill centers/counts must match ordinary local
+output. Lambda-dependent fixed replica parameters are set in PLUMED inputs;
+`EXTRACV NAME=lambda` is used only for expanded-ensemble MCMC.
+
+`validate_order.py` builds a private LOAD counting fixture. It verifies exact
+forward-call counts for strides1/4/10, analytical atomic forces throughout all
+64 replica frames in each case, and native lambda force-call counts showing no
+additional `do_force()`. Off-stride local energy evaluation never changes the
+ordinary MTS force schedule. Native lambda acceptance retains kinetic/constraint
+terms; ENERGY uses potential-only terms. These CPU checks complement the portable
+energy-oracle design; GPU execution still requires an appropriate external host.
+
+The temporary global provider lookup and accesses are guarded by real MPI.
+Thread-MPI jobs verify biased-MCMC exclusions plus ordinary PLUMED/native-MCMC
+controls. Simultaneous expanded ensemble and replica exchange is unsupported.

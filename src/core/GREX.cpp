@@ -23,6 +23,8 @@
 #include "PlumedMain.h"
 #include "ActionSet.h"
 #include "ActionToPutData.h"
+#include "ActionPilot.h"
+#include "ActionWithValue.h"
 #include "DomainDecomposition.h"
 #include "tools/Tools.h"
 #include "tools/Communicator.h"
@@ -190,6 +192,15 @@ void GREX::cmd(std::string_view key,const TypesafePtr & val) {
 }
 
 void GREX::savePositions() {
+  bool missingBias=false;
+  for(auto* pilot : plumedMain.getActionSet().select<ActionPilot*>()) {
+    auto* value=dynamic_cast<ActionWithValue*>(pilot);
+    if(value && value->exists(value->getLabel()+".bias") && !pilot->isActive()) {
+      missingBias=true;
+    }
+  }
+  const bool wasExchangeStep=plumedMain.getExchangeStep();
+  plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
   plumedMain.resetActive(true);
   plumedMain.shareAll();
@@ -202,9 +213,15 @@ void GREX::savePositions() {
       dd->wait();
     }
   }
+  if(missingBias) {
+    plumedMain.justCalculate();
+  }
   std::ostringstream o;
   plumedMain.writeBinary(o);
   buffer=o.str();
+  plumedMain.setExchangeStep(wasExchangeStep);
+  // A delayed normal update must retain its usual action/stride activation.
+  plumedMain.prepareDependencies();
 }
 
 void GREX::calculate() {
