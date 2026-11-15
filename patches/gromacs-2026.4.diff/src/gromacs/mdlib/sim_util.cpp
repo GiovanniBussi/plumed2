@@ -88,6 +88,7 @@
 #include "gromacs/mdlib/vsite.h"
 #include "gromacs/mdlib/wall.h"
 #include "gromacs/mdlib/wholemoleculetransform.h"
+#include "gromacs/mdrun/plumedexchange.h"
 #include "gromacs/mdrunutility/mdmodulesnotifiers.h"
 #include "gromacs/mdtypes/commrec.h"
 #include "gromacs/mdtypes/enerdata.h"
@@ -2747,6 +2748,11 @@ void do_force(FILE*                         fplog,
                 forceBeforePlumed.assign(forceForPlumed.begin(), forceForPlumed.begin() + mdatoms->homenr);
             }
         }
+#if GMX_LIB_MPI
+        if (gmx::plumedForceProvider && gmx::plumedForceProvider->context().exchangeStep
+            && !gmx::plumedForceProvider->context().hrexTrial)
+            gmx::plumedForceProvider->prepareExchange(*enerd);
+#endif
         const bool plumedForcesOnVirtualSites = fr->forceProviders->applyAfterPotentialEnergy(
                 stepWork.computeEnergy, &enerd->term[InteractionFunction::PotentialEnergy], forceForPlumed, vir_force);
         if (plumedForcesOnVirtualSites && vsite)

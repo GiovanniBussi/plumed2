@@ -41,11 +41,15 @@
 #ifndef GMX_APPLIED_FORCES_PLUMEDFORCEPROVIDER_H
 #define GMX_APPLIED_FORCES_PLUMEDFORCEPROVIDER_H
 
+#include "config.h"
+
 #include <memory>
 #include <optional>
 #include <vector>
 
 #include "gromacs/mdtypes/iforceprovider.h"
+
+struct gmx_multisim_t;
 
 namespace PLMD
 {
@@ -56,6 +60,43 @@ namespace gmx
 template<typename>
 class ArrayRef;
 struct PlumedOptions;
+
+#if GMX_LIB_MPI
+// Owned by the provider: registered buffers stay valid for GREX and lambda trials.
+// The temporary global lookup is restricted to real MPI in plumedexchange.h.
+struct PlumedContext
+{
+    //! Whether this MD step attempts replica exchange; schedules the pre-update energy trials.
+    bool exchangeStep = false;
+    //! Whether general Hamiltonian replica exchange was requested by -hrex.
+    bool hrex = false;
+    //! Mark a foreign HREX pass: calculate only its bias, without forces, updates or checkpoints.
+    bool hrexTrial = false;
+    //! Current or trial alchemical state index exposed as EXTRACV NAME=lambda.
+    real lambdaState = 0;
+    //! Force-output buffer registered for lambda; discrete-state MCMC uses bias energies instead.
+    real lambdaForce = 0;
+    //! Physical potential for an MCMC candidate, in GROMACS units: global on main rank, zero on workers.
+    real trialEnergy = 0;
+    //! Native lambda state of the selected partner, or -1 for ordinary/HREX exchange.
+    int partnerLambda = -1;
+    //! Selected partner replica index, identical for trial evaluation and acceptance.
+    int partner = 0;
+    //! Whether the foreign bias for this step has already been evaluated.
+    bool foreignReady = false;
+    //! Whether this step's complete exchange correction is ready for acceptance.
+    bool exchangeReady = false;
+    //! Foreign physical potential, summed over the local replica, in MD units.
+    real foreignEnergy = 0;
+    //! Foreign bias before this step's update, in MD units.
+    real foreignBias = 0;
+    //! Local exchange correction: bias difference, plus physical difference for -hrex.
+    real exchangeDelta = 0;
+    //! Whether this is the replica's main MPI rank; used to supply global ENERGY only once.
+    bool mainRank = true;
+};
+#endif
+
 /*! \internal \brief
  * Implements IForceProvider for PLUMED.
  */
@@ -68,6 +109,15 @@ public:
      */
     PlumedForceProvider(const PlumedOptions& options);
     ~PlumedForceProvider();
+#if GMX_LIB_MPI
+    //! Mutable exchange/MCMC data, valid for this provider's lifetime.
+    PlumedContext& context() { return context_; }
+    //! Non-owning Plumed::toVoid() handle for runtime-wrapper calls from the MD engine.
+    void* plumedHandle() const;
+    //! Evaluate the foreign bias from native cross energies, before the local PLUMED calculation.
+    //! Called collectively on PP ranks after physical potentials are accumulated.
+    void prepareExchange(const gmx_enerdata_t& energy);
+#endif
     /*! @brief Sets the global atom indices list
      * param[in] globalAtomIndices  the, optional, list of global atom indices
      */
@@ -107,11 +157,27 @@ public:
                                    tensor         virial) override;
 
 private:
-    //! Throws if PLUMED computed a bias while replica exchange is active
-    void checkReplicaExchangeBias();
+    //! Bind positions, physical atom properties and persistent box for a normal or trial calculation.
+    void bindInput(const ForceProviderInput& input);
+#if GMX_LIB_MPI
+    //! Physical input for this force call; owns its box, refers to MD-owned atom arrays.
+    std::optional<ForceProviderInput> stepInput_;
+    //! MPI communication and replica metadata owned by the MD simulation.
+    const MpiComm*        mpiComm_  = nullptr;
+    const gmx_multisim_t* multiSim_ = nullptr;
+    //! Global atom count used for trial-coordinate communication.
+    int numAtoms_ = 0;
+    //! Whether lambda EXTRACV is enabled for expanded-ensemble MCMC.
+    bool expanded_ = false;
+    //! Complete local bias before update, calculating off-stride biases only when needed.
+    real localExchangeBias(real physicalEnergy);
+#endif
     //! Whether the atoms that PLUMED used on this step include virtual sites
     bool usesVirtualSites();
 
+#if GMX_LIB_MPI
+    PlumedContext context_;
+#endif
     std::unique_ptr<PLMD::Plumed> plumed_;
     int                           plumedAPIversion_;
     bool                          replex_;
@@ -122,6 +188,8 @@ private:
     int                                plumedNeedsEnergy_ = 0;
     int                                plumedWantsToStop_ = 0;
     matrix                             plumedVir_ = { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } };
+    //! PLUMED reuses this binding after the short-lived ForceProviderInput is destroyed.
+    matrix plumedBox_ = { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } };
     //! Step for which prepareStep() already prepared the dependencies, if any
     std::optional<int64_t> preparedStep_;
     //! Whether prepareStep() is called, so that PLUMED is told about checkpoints before the calculation
