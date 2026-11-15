@@ -350,6 +350,9 @@ ordinary MTS force schedule. Native lambda acceptance retains kinetic/constraint
 terms; ENERGY uses potential-only terms. These CPU checks complement the portable
 energy-oracle design; GPU execution still requires an appropriate external host.
 
-The temporary global provider lookup and accesses are guarded by real MPI.
-Thread-MPI jobs verify biased-MCMC exclusions plus ordinary PLUMED/native-MCMC
-controls. Simultaneous expanded ensemble and replica exchange is unsupported.
+Each simulation/rank finds its own PLUMED provider through its force-provider
+collection. Thread-MPI jobs run successful biased MCMC on one and two ranks,
+including lambda and ENERGY restraints, one/two-dimensional metadynamics and
+ENERGY-dependent metadynamics, with independent candidate-energy, force and
+update/deposition checks. Both modular and supported legacy paths are covered,
+alongside ordinary PLUMED/native-MCMC controls and modular restart equivalence. Simultaneous expanded ensemble and replica exchange is unsupported.

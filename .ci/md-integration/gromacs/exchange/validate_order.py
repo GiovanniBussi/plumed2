@@ -126,7 +126,7 @@ def main():
                 counts = Counter(
                     (int(step), int(exchange))
                     for step, exchange in re.findall(
-                        r"EXCHANGE_COUNT step=(\d+) exchange=(\d+)", log
+                        r"EXCHANGE_COUNT step=(\d+) exchange=\d+ auxiliary=(\d+)", log
                     )
                 )
                 expected = Counter()

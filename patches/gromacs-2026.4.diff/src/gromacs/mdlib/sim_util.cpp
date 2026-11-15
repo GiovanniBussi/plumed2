@@ -2749,9 +2749,10 @@ void do_force(FILE*                         fplog,
             }
         }
 #if GMX_LIB_MPI
-        if (gmx::plumedForceProvider && gmx::plumedForceProvider->context().exchangeStep
-            && !gmx::plumedForceProvider->context().hrexTrial)
-            gmx::plumedForceProvider->prepareExchange(*enerd);
+        auto* plumedForceProvider = gmx::findPlumedForceProvider(fr->forceProviders);
+        if (plumedForceProvider && plumedForceProvider->context().exchangeStep
+            && !plumedForceProvider->context().hrexTrial)
+            plumedForceProvider->prepareExchange(*enerd);
 #endif
         const bool plumedForcesOnVirtualSites = fr->forceProviders->applyAfterPotentialEnergy(
                 stepWork.computeEnergy, &enerd->term[InteractionFunction::PotentialEnergy], forceForPlumed, vir_force);
