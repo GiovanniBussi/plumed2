@@ -53,7 +53,7 @@ combined with configurational variables or [ENERGY](ENERGY.md). Trial evaluation
 apply no MD forces and perform no history updates. This enables alchemical
 metadynamics ([Hsu et al., JCTC 2023](https://doi.org/10.1021/acs.jctc.2c01258)).
 
-This implementation requires a real-MPI GROMACS build, even for one replica.
+This implementation supports native MPI and thread-MPI GROMACS builds.
 Lambda MCMC combined with replica exchange is unsupported. Fixed-lambda replica
 exchange does not register `EXTRACV NAME=lambda`; replica-specific fixed bias
 parameters can be specified directly in the PLUMED inputs.

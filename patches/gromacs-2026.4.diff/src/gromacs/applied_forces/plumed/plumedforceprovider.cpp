@@ -83,24 +83,12 @@
 namespace gmx
 {
 
-#if GMX_LIB_MPI
-PlumedForceProvider* plumedForceProvider = nullptr;
-#endif
-
-#if GMX_LIB_MPI
 void* PlumedForceProvider::plumedHandle() const
 {
     return plumed_->toVoid();
 }
-#endif
 
-PlumedForceProvider::~PlumedForceProvider()
-{
-#if GMX_LIB_MPI
-    if (plumedForceProvider == this)
-        plumedForceProvider = nullptr;
-#endif
-}
+PlumedForceProvider::~PlumedForceProvider() = default;
 PlumedForceProvider::PlumedForceProvider(const PlumedOptions& options)
 try : plumed_(std::make_unique<PLMD::Plumed>()),
       replex_(options.replex_),
@@ -109,26 +97,18 @@ try : plumed_(std::make_unique<PLMD::Plumed>()),
     // I prefer to pass a struct with data because it stops the coupling
     // at the implementation and not at the function signature:
     // less code to edit when adding new options :)
-#if !GMX_LIB_MPI
-    if (options.inputrec_ != nullptr && options.inputrec_->bExpanded)
-    {
-        GMX_THROW(InvalidInputError(
-                "PLUMED-biased expanded-ensemble lambda MCMC requires real MPI "
-                "(GMX_MPI=ON, GMX_THREAD_MPI=OFF); thread-MPI and non-MPI builds "
-                "are not supported. Run an MPI build, even for a single replica."));
-    }
-#else
     context_.mainRank = options.mpiComm_->isMainRank();
     context_.hrex     = options.hrex_;
+#if GMX_LIB_MPI
     mpiComm_          = options.mpiComm_;
     multiSim_         = options.ms_;
     numAtoms_         = options.natoms_;
+#endif
     expanded_         = options.inputrec_ != nullptr && options.inputrec_->bExpanded;
     if (expanded_ && replex_)
         GMX_THROW(
                 InvalidInputError("PLUMED does not support expanded-ensemble lambda MCMC combined "
                                   "with replica exchange"));
-#endif
     plumed_->cmd("getApiVersion", &plumedAPIversion_);
 #if __PLUMED_WRAPPER_MPI_HOST_ADAPTER
     if (plumedAPIversion_ >= 13)
@@ -236,11 +216,6 @@ try : plumed_(std::make_unique<PLMD::Plumed>()),
 
     plumed_->cmd("setTimestep", &options.simulationTimeStep_);
     plumed_->cmd("init", nullptr);
-#if GMX_LIB_MPI
-    GMX_RELEASE_ASSERT(plumedForceProvider == nullptr,
-                       "Only one PLUMED provider per real-MPI process is supported");
-    plumedForceProvider = this;
-#endif
 }
 catch (const GromacsException&)
 {
@@ -285,14 +260,12 @@ void PlumedForceProvider::bindInput(const ForceProviderInput& forceProviderInput
 {
     long int lstep = prepareStepIsCalled_ ? currentStep_ : forceProviderInput.step_;
     plumed_->cmd("setStepLong", &lstep);
-#if GMX_LIB_MPI
     if (expanded_)
     {
         context_.lambdaForce = 0;
         plumed_->cmd("setExtraCV lambda", &context_.lambdaState);
         plumed_->cmd("setExtraCVForce lambda", &context_.lambdaForce);
     }
-#endif
     if (globalAtomIndices_.has_value())
     {
         int nat_home = forceProviderInput.homenr_;
@@ -430,7 +403,6 @@ try
        positions are available. */
     long int lstep = step;
     plumed_->cmd("setStepLong", &lstep);
-#if GMX_LIB_MPI
     if (expanded_)
     {
         context_.lambdaForce = 0;
@@ -439,7 +411,6 @@ try
     }
     context_.foreignReady  = false;
     context_.exchangeReady = false;
-#endif
     prepareStepIsCalled_ = true;
     currentStep_         = step;
     calculatedStep_.reset();
@@ -544,13 +515,15 @@ void PlumedForceProvider::prepareExchange(const gmx_enerdata_t& energy)
     context_.trialEnergy = context_.mainRank ? context_.foreignEnergy : 0;
     plumed_->cmd("setEnergy", &context_.trialEnergy);
     int exchange = 1;
-    plumed_->cmd("setExchangeStep", &exchange);
+    if (hasExchangeStepCommand())
+        plumed_->cmd("setExchangeStep", &exchange);
     plumed_->cmd("prepareCalc");
     plumed_->cmd("performCalcNoForces");
     plumed_->cmd("getBias", &context_.foreignBias);
     context_.foreignReady = true;
     exchange              = 0;
-    plumed_->cmd("setExchangeStep", &exchange);
+    if (hasExchangeStepCommand())
+        plumed_->cmd("setExchangeStep", &exchange);
     // The caller immediately rebinds the local input before the normal force
     // calculation/update; the temporary trialPositions binding is not reused.
     preparedStep_.reset();
@@ -586,7 +559,8 @@ try
                            "HREX trial must supply coordinates and physical energy");
         bindInput(*stepInput_);
         int exchange = 1;
-        plumed_->cmd("setExchangeStep", &exchange);
+        if (hasExchangeStepCommand())
+            plumed_->cmd("setExchangeStep", &exchange);
         plumed_->cmd("prepareCalc");
         plumed_->cmd("setEnergy", potentialEnergy);
         plumed_->cmd("performCalcNoForces");
@@ -596,7 +570,8 @@ try
         context_.foreignEnergy = energy;
         context_.foreignReady  = true;
         exchange               = 0;
-        plumed_->cmd("setExchangeStep", &exchange);
+        if (hasExchangeStepCommand())
+            plumed_->cmd("setExchangeStep", &exchange);
         preparedStep_.reset();
         return false;
     }
