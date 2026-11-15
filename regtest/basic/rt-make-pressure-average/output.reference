@@ -1,0 +1,26 @@
+double VOLUME55: PASS
+double mixed26 inactive steps: PASS
+double coprime25: PASS
+double pressure stride one: PASS
+double indirect ENERGY: PASS
+double ENERGY mixed26: PASS
+double coordinate4: PASS
+double nested virtual atoms: PASS
+double fit SIMPLE: PASS
+double fit OPTIMAL: PASS
+double fit OPTIMAL-FAST: PASS
+double RESET_CELL: PASS
+float VOLUME55: PASS
+float mixed26 inactive steps: PASS
+float coprime25: PASS
+float pressure stride one: PASS
+float indirect ENERGY: PASS
+float ENERGY mixed26: PASS
+float coordinate4: PASS
+float nested virtual atoms: PASS
+float fit SIMPLE: PASS
+float fit OPTIMAL: PASS
+float fit OPTIMAL-FAST: PASS
+float RESET_CELL: PASS
+duplicate step: rejected
+skipped step: rejected

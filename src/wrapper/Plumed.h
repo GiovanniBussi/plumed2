@@ -347,6 +347,17 @@
 
 \section ReferencePlumedH-2-11 New in PLUMED 2.11
 
+  Command API version 14 adds `setPressureCouplingStride` (positive int,
+  before initialization; default one). This experimental branch accumulates
+  the raw PLUMED host-virial increment on every physical step. At multiples of
+  the supplied pressure stride, it returns the trailing sum divided by that
+  stride. The incoming physical MD virial and atomic forces are unchanged.
+  Noncoupling steps retain raw virial reporting. Common-gcd and ENERGY-stride
+  input checks are retained for comparison with instantaneous normalization.
+  This causal average requires consecutive force calls from step zero and has
+  no checkpoint/restart support. It is not time reversible. A pressure stride
+  of one preserves legacy behavior. Hosts must not apply another correction.
+
   A kernel built without a direct MPI dependency can use the MPI implementation
   supplied by its host. The host adapter is opt-in and uses the existing command
   interface: command API version 13 adds `injectMPIImplementation`, while the

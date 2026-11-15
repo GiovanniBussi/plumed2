@@ -93,6 +93,9 @@ public:
   void add_force( const std::vector<AtomNumber>& index, const std::vector<unsigned>& i, const std::size_t& nlocal, Value* value ) override;
 /// Rescale the force on the output value
   void rescale_force( const unsigned& n, const double& factor, Value* value ) override;
+  std::vector<double> get_force(Value* value) const override;
+  void rescale_force_delta(const std::vector<double>& before, double factor, Value* value) override;
+  void set_force_delta(const std::vector<double>& before, const std::vector<double>& delta, Value* value) override;
 /// This transfers everything to the output
   void setData( Value* value ) override;
 };
@@ -317,6 +320,49 @@ void DataPassingObjectTyped<T>::rescale_force( const unsigned& n, const double& 
   #pragma omp parallel for num_threads(nt)
   for(unsigned i=0; i<n; ++i) {
     pp[i*stride] *= T(factor);
+  }
+}
+
+template <class T>
+std::vector<double> DataPassingObjectTyped<T>::get_force(Value* value) const {
+  if(!hasForcePointer()) {
+    return {};
+  }
+  T* buffer=nullptr;
+  getPointer(f,value->getShape(),start,stride,buffer);
+  std::vector<double> before(value->getNumberOfValues());
+  for(std::size_t i=0; i<before.size(); ++i) {
+    before[i]=buffer[i*stride];
+  }
+  return before;
+}
+
+template <class T>
+void DataPassingObjectTyped<T>::rescale_force_delta(const std::vector<double>& before,
+    double factor, Value* value) {
+  if(before.empty() || !hasForcePointer()) {
+    return;
+  }
+  plumed_assert(before.size()==value->getNumberOfValues());
+  T* buffer=nullptr;
+  getPointer(f,value->getShape(),start,stride,buffer);
+  for(std::size_t i=0; i<before.size(); ++i) {
+    buffer[i*stride]=T(before[i]+factor*(double(buffer[i*stride])-before[i]));
+  }
+}
+
+
+template <class T>
+void DataPassingObjectTyped<T>::set_force_delta(const std::vector<double>& before,
+    const std::vector<double>& delta, Value* value) {
+  if(before.empty() || !hasForcePointer()) {
+    return;
+  }
+  plumed_assert(before.size()==value->getNumberOfValues() && delta.size()==before.size());
+  T* buffer=nullptr;
+  getPointer(f,value->getShape(),start,stride,buffer);
+  for(std::size_t i=0; i<before.size(); ++i) {
+    buffer[i*stride]=T(before[i]+delta[i]);
   }
 }
 

@@ -97,6 +97,13 @@ public:
   virtual void add_force( const std::vector<AtomNumber>& index, const std::vector<unsigned>& i, const std::size_t& nlocal, Value* value )=0;
 /// Rescale the forces that were passed
   virtual void rescale_force( const unsigned& n, const double& factor, Value* value )=0;
+/// Snapshot the host force buffer in host units, empty when not bound.
+  virtual std::vector<double> get_force(Value* value) const=0;
+/// Normalize only the change to a host buffer since a snapshot.
+  virtual void rescale_force_delta(const std::vector<double>& before, double factor, Value* value)=0;
+/// Replace a host force increment, used by the experimental interval average.
+  virtual void set_force_delta(const std::vector<double>& before, const std::vector<double>& delta, Value* value)=0;
+
 /// This transfers everything to the output
   virtual void setData( Value* value )=0;
 };
