@@ -214,7 +214,10 @@ void GREX::savePositions() {
     }
   }
   if(missingBias) {
-    plumedMain.justCalculate();
+    // The full dependency graph is already active. These are local inputs:
+    // do not record them as an exchange partner or advance calculation-time statistics.
+    plumedMain.setExchangeStep(false);
+    plumedMain.justCalculate(true);
   }
   std::ostringstream o;
   plumedMain.writeBinary(o);
@@ -246,7 +249,8 @@ void GREX::calculate() {
   plumedMain.readBinary(own);
   plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
-  plumedMain.justCalculate();
+  plumedMain.setExchangeStep(false);
+  plumedMain.justCalculate(true);
   localDeltaBias=-plumedMain.getBias();
   if(intracomm.Get_rank()==0) {
     Communicator::Request req=intercomm.Isend(buffer,partner,1066);
@@ -268,7 +272,7 @@ void GREX::calculate() {
   }
   plumedMain.setExchangeStep(true);
   plumedMain.prepareDependencies();
-  plumedMain.justCalculate();
+  plumedMain.justCalculate(true);
   plumedMain.setExchangeStep(false);
   localDeltaBias+=plumedMain.getBias();
   if(physicalEnergiesProvided) {

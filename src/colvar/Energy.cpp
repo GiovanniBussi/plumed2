@@ -58,9 +58,15 @@ number of required replicas.
     interface supports this when the MD engine supplies the current and foreign
     physical energies, as the GROMACS `-hrex` patches do. This also works with older
     GROMACS patches when loading the 2.11 kernel. Older PLUMED kernels retain the
-    limitation, even when loaded by a newly patched GROMACS. Updated maintenance
+    limitation when the foreign bias is evaluated through GREX. Updated maintenance
     kernels in the 2.9 and 2.10 series stop with an error when an ENERGY CV is
     defined and the host supplies a foreign physical energy through GREX.
+
+    An engine can instead bind the foreign coordinates and local-Hamiltonian
+    energy explicitly and use the ordinary calculation-only interface. The
+    GROMACS 2026.4 patch uses this direct path; exchange evaluations with
+    STRIDE=1 can therefore work with older kernels as well. Complete
+    off-stride bias evaluation still requires the PLUMED 2.11 kernel.
 
     The GROMACS 2026.4 patch also supports native lambda replica exchange with
     ENERGY biases. It obtains the foreign physical potential from GROMACS's

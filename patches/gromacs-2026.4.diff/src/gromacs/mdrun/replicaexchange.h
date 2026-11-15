@@ -49,6 +49,8 @@
 #include "gromacs/utility/basedefinitions.h"
 #include "gromacs/utility/real.h"
 
+namespace gmx { class PlumedForceProvider; }
+
 struct gmx_enerdata_t;
 struct gmx_multisim_t;
 struct t_commrec;
@@ -79,7 +81,8 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                                     const gmx_multisim_t*            ms,
                                     int                              numAtomsInSystem,
                                     const t_inputrec*                ir,
-                                    const ReplicaExchangeParameters& replExParams);
+                                    const ReplicaExchangeParameters& replExParams,
+                                    gmx::PlumedForceProvider*         plumedForceProvider = nullptr);
 
 /*! \brief Attempts replica exchange.
  *
