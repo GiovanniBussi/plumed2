@@ -44,6 +44,20 @@ RESTRAINT ARG=l KAPPA=10 AT=3
 ```
 
 
+
+With the GROMACS 2026.4 patch, `lambda` is the integer alchemical state index
+(`init-lambda-state`), not an individual Coulomb or van der Waals coupling
+parameter. It is supplied only for expanded-ensemble MCMC (`free-energy=expanded`).
+Biases on this variable enter the candidate-state probabilities, including when
+combined with configurational variables or [ENERGY](ENERGY.md). Trial evaluations
+apply no MD forces and perform no history updates. This enables alchemical
+metadynamics ([Hsu et al., JCTC 2023](https://doi.org/10.1021/acs.jctc.2c01258)).
+
+This implementation requires a real-MPI GROMACS build, even for one replica.
+Lambda MCMC combined with replica exchange is unsupported. Fixed-lambda replica
+exchange does not register `EXTRACV NAME=lambda`; replica-specific fixed bias
+parameters can be specified directly in the PLUMED inputs.
+
 */
 //+ENDPLUMEDOC
 

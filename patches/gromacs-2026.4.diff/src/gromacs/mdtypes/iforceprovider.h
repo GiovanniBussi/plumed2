@@ -259,6 +259,8 @@ public:
 
     //! Whether there are modules added.
     bool hasForceProvider() const;
+    //! Number of registered providers (used to reject unsafe HREX trial side effects).
+    int numForceProviders() const;
 
     //! Computes forces.
     void calculateForces(const gmx::ForceProviderInput& forceProviderInput,
