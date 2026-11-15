@@ -61,9 +61,8 @@ template<typename>
 class ArrayRef;
 struct PlumedOptions;
 
-#if GMX_LIB_MPI
 // Owned by the provider: registered buffers stay valid for GREX and lambda trials.
-// The temporary global lookup is restricted to real MPI in plumedexchange.h.
+// Each simulation rank has its own provider, including thread-MPI ranks.
 struct PlumedContext
 {
     //! Whether this MD step attempts replica exchange; schedules the pre-update energy trials.
@@ -76,7 +75,7 @@ struct PlumedContext
     real lambdaState = 0;
     //! Force-output buffer registered for lambda; discrete-state MCMC uses bias energies instead.
     real lambdaForce = 0;
-    //! Physical potential for an MCMC candidate, in GROMACS units: global on main rank, zero on workers.
+    //! Stable ENERGY input: domain-local for snapshots, or main-rank global/worker zero for MCMC trials.
     real trialEnergy = 0;
     //! Native lambda state of the selected partner, or -1 for ordinary/HREX exchange.
     int partnerLambda = -1;
@@ -95,7 +94,6 @@ struct PlumedContext
     //! Whether this is the replica's main MPI rank; used to supply global ENERGY only once.
     bool mainRank = true;
 };
-#endif
 
 /*! \internal \brief
  * Implements IForceProvider for PLUMED.
@@ -109,11 +107,13 @@ public:
      */
     PlumedForceProvider(const PlumedOptions& options);
     ~PlumedForceProvider();
-#if GMX_LIB_MPI
+    //! Identify this provider through the current simulation/rank's collection.
+    PlumedForceProvider* plumedForceProvider() override { return this; }
     //! Mutable exchange/MCMC data, valid for this provider's lifetime.
     PlumedContext& context() { return context_; }
     //! Non-owning Plumed::toVoid() handle for runtime-wrapper calls from the MD engine.
     void* plumedHandle() const;
+#if GMX_LIB_MPI
     //! Evaluate the foreign bias from native cross energies, before the local PLUMED calculation.
     //! Called collectively on PP ranks after physical potentials are accumulated.
     void prepareExchange(const gmx_enerdata_t& energy);
@@ -159,6 +159,8 @@ public:
 private:
     //! Bind positions, physical atom properties and persistent box for a normal or trial calculation.
     void bindInput(const ForceProviderInput& input);
+    //! Whether lambda EXTRACV is enabled for expanded-ensemble MCMC.
+    bool expanded_ = false;
 #if GMX_LIB_MPI
     //! Physical input for this force call; owns its box, refers to MD-owned atom arrays.
     std::optional<ForceProviderInput> stepInput_;
@@ -167,17 +169,13 @@ private:
     const gmx_multisim_t* multiSim_ = nullptr;
     //! Global atom count used for trial-coordinate communication.
     int numAtoms_ = 0;
-    //! Whether lambda EXTRACV is enabled for expanded-ensemble MCMC.
-    bool expanded_ = false;
     //! Complete local bias before update, calculating off-stride biases only when needed.
     real localExchangeBias(real physicalEnergy);
 #endif
     //! Whether the atoms that PLUMED used on this step include virtual sites
     bool usesVirtualSites();
 
-#if GMX_LIB_MPI
     PlumedContext context_;
-#endif
     std::unique_ptr<PLMD::Plumed> plumed_;
     int                           plumedAPIversion_;
     bool                          replex_;
