@@ -132,6 +132,8 @@ static const char* enumValueToString(ReplicaExchangeType enumValue)
 //! Working data for replica exchange.
 struct gmx_repl_ex
 {
+    //! Non-owning provider for this main rank; worker helpers receive their own explicitly.
+    gmx::PlumedForceProvider* plumedForceProvider;
     //! Replica ID
     int repl;
     //! Total number of replica
@@ -224,7 +226,8 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                                     const gmx_multisim_t*            ms,
                                     int                              numAtomsInSystem,
                                     const t_inputrec*                ir,
-                                    const ReplicaExchangeParameters& replExParams)
+                                    const ReplicaExchangeParameters& replExParams,
+                                    gmx::PlumedForceProvider*         plumedForceProvider)
 {
     real                pres;
     int                 i, j;
@@ -240,7 +243,7 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
                   "-multidir option of mdrun?");
     }
 #if GMX_LIB_MPI
-    if (gmx::plumedForceProvider && gmx::plumedForceProvider->context().hrex)
+    if (plumedForceProvider && plumedForceProvider->context().hrex)
     {
         if (ir->efep != FreeEnergyPerturbationType::No)
             gmx_fatal(FARGS, "-hrex cannot be combined with native free-energy lambda exchange");
@@ -296,6 +299,7 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
     }
 
     snew(re, 1);
+    re->plumedForceProvider = plumedForceProvider;
 
     re->repl  = ms->simulationIndex_;
     re->nrepl = ms->numSimulations_;
@@ -538,7 +542,7 @@ gmx_repl_ex_t init_replica_exchange(FILE*                            fplog,
     re->patternStep = -1;
     re->nex = replExParams.numExchanges;
 #if GMX_LIB_MPI
-    if (gmx::plumedForceProvider && re->nex > 1)
+    if (plumedForceProvider && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
@@ -809,6 +813,7 @@ static void print_count(FILE* fplog, const char* leg, int n, int* count)
 
 static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int a, int b, int ap, int bp)
 {
+    auto* plumedForceProvider = re->plumedForceProvider;
 
     real   ediff, dpV, delta = 0;
     real*  Epot = re->Epot;
@@ -892,7 +897,7 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
         fprintf(fplog, "Repl %d <-> %d  dE_term = %10.3e (kT)\n", a, b, delta);
     }
 #if GMX_LIB_MPI
-    if (gmx::plumedForceProvider && gmx::plumedForceProvider->context().hrex)
+    if (plumedForceProvider && plumedForceProvider->context().hrex)
         delta = 0; // physical cross energies are included in the cached HREX correction
 #endif
     if (re->bNPT)
@@ -912,7 +917,8 @@ static real calc_delta(FILE* fplog, gmx_bool bPrint, struct gmx_repl_ex* re, int
 // Resolve a PLUMED pattern once per step, shared by trial energies and acceptance.
 static int select_plumed_partner(FILE* fplog, const gmx_multisim_t* ms, gmx_repl_ex* re, int64_t step)
 {
-    PLMD::Plumed plumed(gmx::plumedForceProvider->plumedHandle());
+    auto* plumedForceProvider = re->plumedForceProvider;
+    PLMD::Plumed plumed(plumedForceProvider->plumedHandle());
     if (re->patternStep != step)
     {
         int custom = 0;
@@ -968,9 +974,9 @@ int plumed_hrex_partner(FILE* fplog, const t_commrec* cr, const gmx_multisim_t* 
     return partner;
 }
 
-void plumed_prepare_exchange(FILE* fplog, const t_commrec* cr, const gmx_multisim_t* ms, gmx_repl_ex* re, int64_t step)
+void plumed_prepare_exchange(FILE* fplog, const t_commrec* cr, const gmx_multisim_t* ms, gmx_repl_ex* re, int64_t step, PlumedForceProvider* plumedForceProvider)
 {
-    auto& context         = gmx::plumedForceProvider->context();
+    auto& context         = plumedForceProvider->context();
     context.partner       = plumed_hrex_partner(fplog, cr, ms, re, step);
     context.partnerLambda = -1;
     if (cr->commMyGroup.isMainRank()
@@ -997,6 +1003,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
                                       int64_t               step,
                                       real                  time)
 {
+    auto* plumedForceProvider = re->plumedForceProvider;
     int                                m, i, j, a, b, ap, bp, i0, i1, tmp;
     real                               delta = 0;
     gmx_bool                           bPrint, bMultiEx;
@@ -1011,7 +1018,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
     gmx::UniformIntDistribution<int>   uniformNreplDist(0, re->nrepl - 1);
 
 #if GMX_LIB_MPI
-    if (gmx::plumedForceProvider && re->nex > 1)
+    if (plumedForceProvider && re->nex > 1)
     {
         gmx_fatal(FARGS, "PLUMED bias correction does not support multiple exchanges (-nex)");
     }
@@ -1175,17 +1182,17 @@ static void test_for_replica_exchange(FILE*                 fplog,
 
         m = (step / re->nst) % 2;
 #if GMX_LIB_MPI
-        if (gmx::plumedForceProvider)
+        if (plumedForceProvider)
         {
-            GMX_RELEASE_ASSERT(gmx::plumedForceProvider->context().exchangeReady,
+            GMX_RELEASE_ASSERT(plumedForceProvider->context().exchangeReady,
                                "PLUMED exchange energies must precede bias updates");
         }
 #endif
 #if GMX_LIB_MPI
         std::vector<real> differences(re->nrepl, 0);
-        if (gmx::plumedForceProvider)
+        if (plumedForceProvider)
         {
-            differences[re->repl] = gmx::plumedForceProvider->context().exchangeDelta;
+            differences[re->repl] = plumedForceProvider->context().exchangeDelta;
             gmx_sum_sim(re->nrepl, differences.data(), ms);
         }
 #endif
@@ -1199,7 +1206,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
             {
                 delta = calc_delta(fplog, bPrint, re, a, b, a, b);
 #if GMX_LIB_MPI
-                if (gmx::plumedForceProvider)
+                if (plumedForceProvider)
                 {
                     real correction = differences[a] * re->beta[a] + differences[b] * re->beta[b];
                     delta += correction;

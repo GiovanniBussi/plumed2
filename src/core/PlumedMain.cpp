@@ -1548,7 +1548,7 @@ void PlumedMain::performCalcNoUpdate() {
 
 void PlumedMain::performCalcNoForces() {
   waitData();
-  justCalculate();
+  justCalculate(true);
 }
 
 void PlumedMain::performCalc() {
@@ -1580,7 +1580,15 @@ void PlumedMain::waitData() {
   }
 }
 
-void PlumedMain::justCalculate() {
+void PlumedMain::justCalculate(bool calculationOnly) {
+  struct RestoreFlag {
+    bool& flag;
+    bool previous;
+    ~RestoreFlag() {
+      flag=previous;
+    }
+  } restore{calculationOnly_,calculationOnly_};
+  calculationOnly_=calculationOnly;
   if(!active) {
     return;
   }
