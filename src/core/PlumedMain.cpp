@@ -22,6 +22,7 @@
 #include "PlumedMain.h"
 #include "ActionAtomistic.h"
 #include "ActionPilot.h"
+#include "BiasStrideProvider.h"
 #include "ActionForInterface.h"
 #include "ActionRegister.h"
 #include "ActionSet.h"
@@ -70,6 +71,7 @@
 #include <typeinfo>
 #include <iostream>
 #include <algorithm>
+#include <numeric>
 #include <system_error>
 #include <future>
 #include <memory>
@@ -829,9 +831,17 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
         setUnits( passtools->usingNaturalUnits, passtools->units );
       }
       break;
+      case cmd_setPressureCouplingStride: {
+        CHECK_NOTINIT(initialized,word);
+        CHECK_NOTNULL(val,word);
+        const int interval=val.get<const int>();
+        plumed_massert(interval>0,"Pressure coupling stride must be positive");
+        pressureCouplingStride=static_cast<unsigned>(interval);
+      }
+      break;
       case cmd_getApiVersion:
         CHECK_NOTNULL(val,word);
-        val.set(int(13));
+        val.set(int(14));
         break;
       case cmd_getInputBuilderJSONLength: {
         CHECK_NOTNULL(val,word);
@@ -1311,6 +1321,11 @@ void PlumedMain::init() {
     log.printf("KbT has not been set by the MD engine\n");
     log.printf("It should be set by hand where needed\n");
   }
+  if(pressureCouplingStride>1) {
+    const unsigned divisor=getPressureVirialDivisor();
+    log.printf("Pressure coupling stride: %u; common bias virial divisor: %u\n",
+               pressureCouplingStride,divisor);
+  }
   log<<"Relevant bibliography:\n";
   log<<citations;
   log<<"Please read and cite where appropriate!\n";
@@ -1678,9 +1693,83 @@ void PlumedMain::justApply() {
   resetInputs();
 }
 
+unsigned PlumedMain::getPressureVirialDivisor() const {
+  if(pressureCouplingStride==1) {
+    return 1;
+  }
+  unsigned divisor=0;
+  unsigned firstStride=0;
+  std::string firstLabel;
+  unsigned energyStride=0;
+  std::string energyLabel;
+  std::map<const Action*,bool> energyDependencies;
+  std::function<bool(const Action*)> dependsOnEnergy=[&](const Action* action) {
+    const auto found=energyDependencies.find(action);
+    if(found!=energyDependencies.end()) {
+      return found->second;
+    }
+    energyDependencies[action]=false;
+    if(action->getName()=="ENERGY") {
+      energyDependencies[action]=true;
+      return true;
+    }
+    for(const auto* dependency : action->getDependencies()) {
+      if(dependsOnEnergy(dependency)) {
+        energyDependencies[action]=true;
+        return true;
+      }
+    }
+    return false;
+  };
+  for(const auto& action : actionSet) {
+    const auto* biasProvider=dynamic_cast<const BiasStrideProvider*>(action.get());
+    if(!biasProvider) {
+      continue;
+    }
+    const unsigned biasStride=biasProvider->getBiasStride();
+    plumed_massert(biasStride>0 && biasStride<=unsigned(std::numeric_limits<int>::max()),
+                   "Bias force STRIDE must be a positive int");
+    const unsigned current=std::gcd(biasStride,pressureCouplingStride);
+    if(divisor && divisor!=current) {
+      plumed_merror("Incompatible pressure-coupling gcd: bias " + firstLabel +
+                    " has STRIDE=" + std::to_string(firstStride) + " and gcd=" +
+                    std::to_string(divisor) + ", but bias " + action->getLabel() +
+                    " has STRIDE=" + std::to_string(biasStride) + " and gcd=" +
+                    std::to_string(current) + " for pressure stride " +
+                    std::to_string(pressureCouplingStride));
+    }
+    if(dependsOnEnergy(action.get())) {
+      if(energyStride && energyStride!=biasStride) {
+        plumed_merror("ENERGY-dependent biases must have the same force STRIDE: bias " +
+                      energyLabel + " has STRIDE=" + std::to_string(energyStride) +
+                      ", but bias " + action->getLabel() + " has STRIDE=" +
+                      std::to_string(biasStride));
+      }
+      energyStride=biasStride;
+      energyLabel=action->getLabel();
+    }
+    if(!divisor) {
+      divisor=current;
+      firstStride=biasStride;
+      firstLabel=action->getLabel();
+    }
+  }
+  return divisor ? divisor : 1;
+}
+
 void PlumedMain::backwardPropagate() {
+  const unsigned virialDivisor=getPressureVirialDivisor();
   if(!active) {
     return;
+  }
+  ActionToPutData* pressureBox=nullptr;
+  std::vector<double> incomingVirial;
+  if(virialDivisor>1) {
+    pressureBox=actionSet.selectWithLabel<ActionToPutData*>("Box");
+    if(pressureBox) {
+      // The host can fill a previously bound buffer before performCalc.
+      incomingVirial=pressureBox->mydata->get_force(pressureBox->getPntrToValue());
+    }
   }
   int iaction=0;
 // Stopwatch is stopped when sw goes out of scope
@@ -1710,6 +1799,12 @@ void PlumedMain::backwardPropagate() {
       traceActionNonFinite(actionSet,*p,step,"backward",false,true,comm);
     }
     iaction++;
+  }
+  if(pressureBox && !incomingVirial.empty()) {
+    // Preserve atomic MTS forces and raw internal virials. Correct only the
+    // PLUMED delta, including ENERGY's modification of the host virial.
+    pressureBox->mydata->rescale_force_delta(incomingVirial,1.0/virialDivisor,
+        pressureBox->getPntrToValue());
   }
 }
 

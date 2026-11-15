@@ -161,6 +161,11 @@ private:
   bool numThreadsLocked=false;
 /// Name of MD engine
   std::string MDEngine{"mdcode"};
+/// Host pressure updates consume virials at multiples of this stride.
+  unsigned pressureCouplingStride=1;
+/// Validate all biases and ENERGY dependencies, returning the common gcd.
+  unsigned getPressureVirialDivisor() const;
+
 
 /// Forward declaration.
   ForwardDecl<Log> log_fwd;

@@ -347,6 +347,17 @@
 
 \section ReferencePlumedH-2-11 New in PLUMED 2.11
 
+  Command API version 14 adds `setPressureCouplingStride` (positive int,
+  before initialization; default one). Biases must share a common
+  gcd(force STRIDE, pressure stride). ENERGY-dependent biases additionally
+  require a common force STRIDE. After backward propagation, only the host
+  virial increment due to PLUMED is divided by that common gcd:
+  W_out = W_in + (W_raw_out - W_in)/gcd. Atomic forces and raw internal virials
+  are unchanged. Hosts must consume virials at multiples of the supplied
+  stride in the same absolute-step convention; do not also apply a host-side
+  correction. ENERGY requires physical energy, forces and virial from the host.
+  A pressure stride of one preserves legacy behavior.
+
   A kernel built without a direct MPI dependency can use the MPI implementation
   supplied by its host. The host adapter is opt-in and uses the existing command
   interface: command API version 13 adds `injectMPIImplementation`, while the

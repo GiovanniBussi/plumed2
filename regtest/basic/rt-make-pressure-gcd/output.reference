@@ -1,0 +1,35 @@
+double mixed shared CV: PASS
+double one active bias: PASS
+double inactive biases: PASS
+double coprime: PASS
+double repeat no-update: PASS
+double no-force trial: PASS
+double ENERGY indirect: PASS
+double ENERGY plus VOLUME: PASS
+double two ENERGY biases: PASS
+double ENERGY repeat: PASS
+double nested virtual atoms: PASS
+double fit SIMPLE: PASS
+double fit OPTIMAL: PASS
+double fit OPTIMAL-FAST: PASS
+double reset cell: PASS
+double absent virial pointer: PASS
+float mixed shared CV: PASS
+float one active bias: PASS
+float inactive biases: PASS
+float coprime: PASS
+float repeat no-update: PASS
+float no-force trial: PASS
+float ENERGY indirect: PASS
+float ENERGY plus VOLUME: PASS
+float two ENERGY biases: PASS
+float ENERGY repeat: PASS
+float nested virtual atoms: PASS
+float fit SIMPLE: PASS
+float fit OPTIMAL: PASS
+float fit OPTIMAL-FAST: PASS
+float reset cell: PASS
+float absent virial pointer: PASS
+different gcd: rejected
+ENERGY different strides: rejected
+invalid pressure stride: rejected

@@ -23,6 +23,7 @@
 #define __PLUMED_bias_Bias_h
 
 #include "core/ActionPilot.h"
+#include "core/BiasStrideProvider.h"
 #include "core/ActionWithValue.h"
 #include "core/ActionWithArguments.h"
 
@@ -40,7 +41,8 @@ information as to how to go about implementing a new bias.
 class Bias :
   public ActionPilot,
   public ActionWithValue,
-  public ActionWithArguments {
+  public ActionWithArguments,
+  public BiasStrideProvider {
 /// the vector of the forces
   std::vector<double> outputForces;
 /// the pointer to the bias component
@@ -60,6 +62,10 @@ public:
   static void registerKeywords(Keywords&);
   explicit Bias(const ActionOptions&ao);
   void apply() override;
+/// Report the force stride for sparse pressure integration in the host.
+  unsigned getBiasStride() const override {
+    return getStride();
+  }
 /// Also resets the forces on the arguments, so that a bias that does not call
 /// setOutputForce for an argument at this step applies no force to it
   void clearDerivatives(const bool& force=false) override;
