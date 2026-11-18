@@ -39,7 +39,9 @@ averaged over seeds, is 0.246 (COORDINATION) / 0.236 (SAXS), compared with
 
 The difference between route-averaged Rg is 0.00173 (0.22 combined SE).
 The maximum spectral difference is 0.03599; across q, all differences are
-below 0.33 combined SE. Central-angle means differ by 0.00032 rad (0.11 SE).
+below 0.33 combined SE. Central-angle means differ by 0.00032 rad (0.11 SE). Paired-seed comparisons
+also agree: all spectral differences are below 0.66 paired SE, and all paired
+95% t intervals (three seeds, two degrees of freedom) contain zero.
 SAXS is faster in these local runs. Timings include LOAD compilation, use up
 to four concurrent simulations, and are not isolated hardware benchmarks.
 

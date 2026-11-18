@@ -143,7 +143,16 @@ def main():
             axes[0].errorbar(
                 b.Q,
                 vals.mean(axis=0),
-                yerr=vals.std(axis=0, ddof=1) / np.sqrt(len(vals)),
+                yerr=(
+                    vals.std(axis=0, ddof=1) / np.sqrt(len(vals))
+                    if len(vals) > 1
+                    else np.array(
+                        rr[0]["spectrum_block_se"]
+                        if phase == "joint"
+                        else rr[0]["iq_block_se"]
+                    )
+                    * (1.5 if phase == "reference" else 1)
+                ),
                 label=label,
                 color=color,
                 capsize=2,

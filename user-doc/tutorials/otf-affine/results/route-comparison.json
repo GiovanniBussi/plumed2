@@ -1,0 +1,48 @@
+{
+  "rg_mean": {
+    "mean_paired_difference": -0.00172568872127347,
+    "paired_standard_error": 0.004835041798830757,
+    "maximum_absolute_t": 0.35691288577707597,
+    "paired_95pct_intervals_all_contain_zero": true
+  },
+  "angle_mean": {
+    "mean_paired_difference": 0.0003234052329818364,
+    "paired_standard_error": 0.0015315692228621725,
+    "maximum_absolute_t": 0.21115939662032499,
+    "paired_95pct_intervals_all_contain_zero": true
+  },
+  "spectrum_mean": {
+    "mean_paired_difference": [
+      0.0036347703960283675,
+      0.00913298548805841,
+      0.016813286663797555,
+      0.024880638487580597,
+      0.03154167528556447,
+      0.0354486251007747,
+      0.03598790789014098,
+      0.033347976024380444,
+      0.028373915097456386,
+      0.022276964624235045
+    ],
+    "paired_standard_error": [
+      0.005534030815568317,
+      0.019040597607907647,
+      0.039136834262086466,
+      0.05896907161840189,
+      0.07330499628169351,
+      0.07907871908991326,
+      0.07602367708185943,
+      0.06638503626253546,
+      0.05384130889693278,
+      0.042064103648215216
+    ],
+    "maximum_absolute_t": 0.6568034254169751,
+    "paired_95pct_intervals_all_contain_zero": true
+  },
+  "seeds": [
+    -23456,
+    -12345,
+    0
+  ],
+  "degrees_of_freedom": 2
+}

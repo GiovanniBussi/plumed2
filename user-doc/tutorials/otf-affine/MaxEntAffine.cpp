@@ -779,8 +779,12 @@ void MaxEntAffine::update_affine() {
     for(unsigned i=0; i<lambda.size(); ++i) {
       lambda[i]=avglambda[i]/avg_counter;
     }
-    scale=scaleSum/avg_counter;
-    offset=offsetSum/avg_counter;
+    if(scaleRate!=0.0) {
+      scale=scaleSum/avg_counter;
+    }
+    if(offsetRate!=0.0) {
+      offset=offsetSum/avg_counter;
+    }
     affineFrozen=true;
   }
   // Exact before/after bias difference, including the coordinate-independent B.

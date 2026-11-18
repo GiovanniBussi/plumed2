@@ -149,8 +149,8 @@ def equations(exe, root):
         "AFFINE_KAPPA_OFFSET=0.000002", "AFFINE_KAPPA_OFFSET=0"
     )
     z = driver(exe, root / "fixed", fixed, frames)
-    np.testing.assert_allclose(z["m.scale"], 1.3, rtol=0, atol=1e-15)
-    np.testing.assert_allclose(z["m.offset"], -0.7, rtol=0, atol=1e-15)
+    np.testing.assert_array_equal(z["m.scale"], 1.3)
+    np.testing.assert_array_equal(z["m.offset"], -0.7)
     # Force a negative Euler proposal: match Davide's absolute-value reflection.
     reflected = text.replace(
         "AFFINE_KAPPA_SCALE=0.00001", "AFFINE_KAPPA_SCALE=10"
