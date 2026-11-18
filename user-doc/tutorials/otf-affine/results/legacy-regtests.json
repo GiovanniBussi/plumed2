@@ -1,0 +1,40 @@
+{
+  "rt-maxent-laplace": {
+    "status": "pass",
+    "reference_files": [
+      "res.LAGMULT.reference",
+      "avg.LAGMULT.reference",
+      "colvar.reference",
+      "forces.reference"
+    ]
+  },
+  "rt-maxent-restart": {
+    "status": "pass",
+    "reference_files": [
+      "colvar.reference",
+      "restart_check.reference"
+    ]
+  },
+  "rt-checkpoint-maxent": {
+    "status": "pass",
+    "reference_files": [
+      "restart_check.reference"
+    ]
+  },
+  "rt-maxent-1": {
+    "status": "pass",
+    "reference_files": [
+      "res.LAGMULT.reference",
+      "colvar.reference",
+      "forces.reference"
+    ]
+  },
+  "rt-maxent-2": {
+    "status": "pass",
+    "reference_files": [
+      "res.LAGMULT.reference",
+      "colvar.reference",
+      "forces.reference"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+inputfile initial.xyz
+outputfile final.xyz
+temperature 0.722
+tstep 0.001
+friction 1
+forcecutoff 2.5
+listcutoff 3
+nstep 3010000
+nconfig 1000 trajectory.xyz
+nstat 100 energies.dat
+idum 0
+wrapatoms false

@@ -1,0 +1,10 @@
+__pycache__/
+*.dylib*
+*.so*
+*.dll*
+*.orig
+runs/
+validation/
+*.cpt
+bck.*
+.mpl-cache/

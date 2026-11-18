@@ -1,0 +1,12 @@
+{
+  "max_absolute_difference": 2.220446049250313e-16,
+  "original_prior_function": "_grad_fm_reg_fun_default",
+  "original_commit": "4ddf15b808c2602e5b8191a67c2bad01ffa8bd5e",
+  "dynamics": {
+    "max_coordinate_error": 4.987705775998108e-08,
+    "coordinate_print_precision": "7 decimals",
+    "max_parameter_error": 4.163336342344337e-17,
+    "steps": 40,
+    "includes": "all phase boundaries, initial forces and original RNG"
+  }
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "route": "saxs",
+    "phase": "joint",
+    "seed": 0,
+    "dt": 0.001,
+    "nstep": 3010000,
+    "equilibration": 10,
+    "evolution": 2000,
+    "production": 1000,
+    "target": [
+      68.11477514898183,
+      64.16481667981803,
+      58.21837720125609,
+      51.07445799612549,
+      43.587521075681856,
+      36.49877382708412,
+      30.317866851195795,
+      25.2790175947341,
+      21.370240119788424,
+      18.412909725540878
+    ],
+    "source_clock": "istep = PLUMED_step-1; decay includes equilibration",
+    "averaging": "post-update states with istep>nequilib+nonthefly/2 and <=nequilib+nonthefly",
+    "plugin": "/Users/codex/agents/on-the-fly-forward-models/plumed/user-doc/tutorials/otf-affine/MaxEntAffine.cpp",
+    "runtime_seconds": 74.224784833,
+    "engine": "simplemd with LOAD-able initial polymer-force evaluation"
+  },
+  {
+    "route": "coordination",
+    "phase": "joint",
+    "seed": 0,
+    "dt": 0.001,
+    "nstep": 3010000,
+    "equilibration": 10,
+    "evolution": 2000,
+    "production": 1000,
+    "target": [
+      68.11477514898183,
+      64.16481667981803,
+      58.21837720125609,
+      51.07445799612549,
+      43.587521075681856,
+      36.49877382708412,
+      30.317866851195795,
+      25.2790175947341,
+      21.370240119788424,
+      18.412909725540878
+    ],
+    "source_clock": "istep = PLUMED_step-1; decay includes equilibration",
+    "averaging": "post-update states with istep>nequilib+nonthefly/2 and <=nequilib+nonthefly",
+    "plugin": "/Users/codex/agents/on-the-fly-forward-models/plumed/user-doc/tutorials/otf-affine/MaxEntAffine.cpp",
+    "runtime_seconds": 108.24101783399999,
+    "engine": "simplemd with LOAD-able initial polymer-force evaluation"
+  }
+]

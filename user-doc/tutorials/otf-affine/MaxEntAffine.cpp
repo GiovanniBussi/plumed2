@@ -1,0 +1,843 @@
+/* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   Copyright (c) 2016-2023 The plumed team
+   (see the PEOPLE file at the root of the distribution for a list of names)
+
+   See http://www.plumed.org for more information.
+
+   This file is part of plumed, version 2.
+
+   plumed is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   plumed is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License
+   along with plumed.  If not, see <http://www.gnu.org/licenses/>.
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#include "bias/Bias.h"
+#include <numeric>
+#include <cmath>
+#include "core/PlumedMain.h"
+#include "core/ActionRegister.h"
+#include "core/ActionWithValue.h"
+#include "tools/Communicator.h"
+#include "tools/File.h"
+#include "tools/Checkpoint.h"
+#include "core/Checkpointing.h"
+
+// The original implementation of this method was contributed
+// by Andrea Cesari (andreacesari90@gmail.com).
+// Copyright has been then transferred to PLUMED developers
+// (see https://github.com/plumed/plumed2/blob/master/.github/CONTRIBUTING.md)
+
+namespace PLMD {
+namespace bias {
+
+//+PLUMEDOC BIAS MAXENT
+/*
+Add a linear biasing potential on one or more variables that satisfies a maximum entropy principle.
+
+Add a linear biasing potential on one or more variables $f_{i}\left(\boldsymbol{x}\right)$ satisfying the maximum entropy principle as proposed in the paper cited below.
+
+!!! warning "unfinalized syntax"
+
+    Notice that syntax is still under revision and might change
+
+The resulting biasing potential is given by:
+
+$$
+  V_{BIAS}(\boldsymbol{x},t)=K_{B}T\sum_{i=1}^{\#arguments}f_{i}(\boldsymbol{x},t)\lambda_{i}(t)
+$$
+
+Lagrangian multipliers $\lambda_{i}$ are updated, every PACE steps, according to the following update rule:
+
+$$
+\lambda_{i}=\lambda_{i}+\frac{k_{i}}{1+\frac{t}{\tau_{i}}}\left(f_{i}(\boldsymbol{x})+\xi_{i}(\lambda_{i})-f_{exp,i}\right)
+$$
+
+The variable $k$ in the above expression sets the initial value of the learning rate and its units are $[observable]^{-2}ps^{-1}$. This variable can be set with the keyword KAPPA.
+The number of components for any KAPPA vector must be equal to the number of arguments for the action.
+
+The variable $\xi_{i}(\lambda)$ is related to the chosen prior to model experimental errors. If a GAUSSIAN prior is used then:
+
+$$
+\xi_{i}(\lambda)=-\lambda_{i}\sigma^{2}
+$$
+
+where $\sigma$ is the typical expected error on the observable $f_i$.
+For a LAPLACE prior:
+
+$$
+\xi_{i}(\lambda)=-\frac{\lambda_{i}\sigma^{2}}{1-\frac{\lambda^{2}\sigma^{2}}{2}}
+$$
+
+The value of $\xi(\lambda,t)$ is written in output as a component named: argument name followed by the string _error.
+Setting $\sigma=0$ is equivalent to enforce a pure Maximum Entropy restraint without any noise modelling.
+This method can be also used to enforce inequality restraint as shown in following examples.
+
+Notice that a similar method is available as [EDS](EDS.md), although with different features and using a different optimization algorithm.
+
+## Examples
+
+The following input tells plumed to restrain the distance between atoms 7 and 15
+and the distance between atoms 2 and 19, at different equilibrium
+values, and to print the energy of the restraint.
+The Lagrangian multiplier will be printed on a file called restraint.LAGMULT with a stride set by the variable PACE to 200ps.
+Moreover plumed will compute the average of each Lagrangian multiplier in the window [TSTART,TEND] and use that to continue the simulations with fixed Lagrangian multipliers.
+
+```plumed
+DISTANCE ATOMS=7,15 LABEL=d1
+DISTANCE ATOMS=2,19 LABEL=d2
+MAXENT ...
+ARG=d1,d2
+TYPE=EQUAL
+AT=0.2,0.5
+KAPPA=35000.0,35000.0
+TAU=0.02,0.02
+PACE=200
+TSTART=100
+TEND=500
+LABEL=restraint
+... MAXENT
+PRINT ARG=restraint.bias
+```
+
+Lagrangian multipliers will be printed on a file called restraint.bias
+The following input tells plumed to restrain the distance between atoms 7 and 15
+to be greater than 0.2 and to print the energy of the restraint
+
+```plumed
+DISTANCE ATOMS=7,15 LABEL=d
+MAXENT ARG=d TYPE=INEQUAL> AT=0.02 KAPPA=35000.0 TAU=3 LABEL=restraint
+PRINT ARG=restraint.bias
+```
+
+(See also [DISTANCE](DISTANCE.md) and [PRINT](PRINT.md)).
+
+## Restart
+
+With [CHECKPOINT](CHECKPOINT.md) the Lagrangian multipliers, their averages and works are stored in the checkpoint, the LAGMULT file is trimmed and not read, and the restart is exact.
+
+A run with [RESTART](RESTART.md) and no CHECKPOINT is __not exact__ in general: it reads the multipliers from the LAGMULT file and rebuilds their average between TSTART and TEND,
+but the file does not hold the whole state of the action.
+- The file is written before the multipliers are updated, so the multipliers obtained at the last update of the previous run are only in the file
+  if the MD code repeats the step at which it restarts (as GROMACS does when it restarts from a checkpoint). Otherwise that update is lost.
+- The average is rebuilt exactly only if the file has the multipliers of every update (PRINT_STRIDE equal to PACE, the default).
+- The multipliers are read back with the precision of the file (set it with FMT).
+- The works are not in the file, so they restart from zero.
+
+Use CHECKPOINT when an exact restart is needed.
+
+The works are in energy units: each update of the multipliers adds $k_B T \Delta\lambda_i s_i$ to the work of argument $i$.
+
+*/
+//+ENDPLUMEDOC
+
+class MaxEntAffine : public Bias {
+  bool affine=false, affineFrozen=false;
+  long long lastAffineStep=-1;
+  double scale=1.0, offset=0.0, scaleRate=0.0, offsetRate=0.0;
+  double scaleTau=50.0, offsetTau=50.0, priorStrength=1.0, learnStart=0.0;
+  double scaleSum=0.0, offsetSum=0.0;
+  void update_affine();
+  std::vector<double> at;
+  std::vector<double> kappa;
+  std::vector<double> lambda;
+  std::vector<double> avgx;
+  std::vector<double> work;
+  std::vector<double> oldlambda;
+  std::vector<double> tau;
+  std::vector<double> avglambda;
+  std::vector<double> avglambda_restart;
+  std::vector<double> apply_weights;
+  double sigma;
+  double tstart;
+  double tend;
+  double avgstep; //current number of samples over which to compute the average. Check if could be replaced bu getStep()
+  long long int pace_;
+  long long int stride_;
+  double totalWork;
+  double BetaReweightBias;
+  double simtemp;
+  std::vector<ActionWithValue*> biases;
+  std::string type;
+  std::string error_type;
+  double alpha;
+  double avg_counter;
+  int learn_replica;
+  Value* valueForce2;
+  Value* valueWork;
+  std::vector<Value*> valueError;
+  std::vector<Value*> valueArgWork;
+  std::vector<Value*> valueCoupling;
+  OFile lagmultOfile_;
+  IFile ifile;
+  std::string lagmultfname;
+  std::string ifilesnames;
+  std::string fmt;
+  bool isFirstStep;
+  bool reweight;
+  bool no_broadcast;
+  bool printFirstStep;
+  std::vector<bool> done_average;
+  int myrep,nrep;
+public:
+  explicit MaxEntAffine(const ActionOptions&);
+  void calculate() override;
+  void update() override;
+  void update_lambda();
+  static void registerKeywords(Keywords& keys);
+  bool hasCheckpointState() const override {
+    return true;
+  }
+  void writeCheckpoint(CheckpointWriter& w) override;
+  void readCheckpoint(CheckpointReader& r) override;
+  void ReadLagrangians(IFile &ifile);
+  void WriteLagrangians(std::vector<double> &lagmult,OFile &file);
+  double compute_error(const std::string &err_type,double l);
+  double convert_lambda(const std::string &type,double lold);
+  void check_lambda_boundaries(const std::string &err_type,double &l);
+};
+PLUMED_REGISTER_ACTION(MaxEntAffine,"MAXENT")
+
+void MaxEntAffine::registerKeywords(Keywords& keys) {
+  Bias::registerKeywords(keys);
+  keys.add("compulsory","KAPPA","0.0","specifies the initial value for the learning rate");
+  keys.add("compulsory","TAU","Specify the dumping time for the learning rate.");
+  keys.add("compulsory","TYPE","specify the restraint type. "
+           "EQUAL to restrain the variable at a given equilibrium value "
+           "INEQUAL< to restrain the variable to be smaller than a given value "
+           "INEQUAL> to restrain the variable to be greater than a given value");
+  keys.add("optional","ERROR_TYPE","specify the prior on the error to use."
+           "GAUSSIAN: use a Gaussian prior "
+           "LAPLACE: use a Laplace prior");
+  keys.add("optional","TSTART","time from where to start averaging the Lagrangian multiplier. By default no average is computed, hence lambda is updated every PACE steps");
+  keys.add("optional","TEND","time in ps where to stop to compute the average of Lagrangian multiplier. From this time until the end of the simulation Lagrangian multipliers are kept fix to the average computed between TSTART and TEND;");
+  keys.add("optional","ALPHA","default=1.0; To be used with LAPLACE KEYWORD, allows to choose a prior function proportional to a Gaussian times an exponential function. ALPHA=1 correspond to the LAPLACE prior.");
+  keys.add("compulsory","AT","the position of the restraint");
+  keys.add("optional","SIGMA","The typical errors expected on observable");
+  keys.add("optional","FILE","Lagrangian multipliers output file. The default name is: label name followed by the string .LAGMULT ");
+  keys.add("optional","LEARN_REPLICA","In a multiple replica environment specify which is the reference replica. By default replica 0 will be used.");
+  keys.add("optional","APPLY_WEIGHTS","Vector of weights containing 1 in correspondence of each replica that will receive the Lagrangian multiplier from the current one.");
+  keys.add("optional","PACE","the frequency for Lagrangian multipliers update");
+  keys.add("optional","PRINT_STRIDE","stride of Lagrangian multipliers output file. If no STRIDE is passed they are written every time they are updated (PACE).");
+  keys.add("optional","FMT","specify format for Lagrangian multipliers files (useful to decrease the number of digits in regtests)");
+  keys.addFlag("REWEIGHT",false,"to be used with plumed driver in order to reweight a trajectory a posteriori");
+  keys.addFlag("NO_BROADCAST",false,"If active will avoid Lagrangian multipliers to be communicated to other replicas.");
+  keys.add("optional","TEMP","the system temperature.  This is required if you are reweighting.");
+  keys.addOutputComponent("force2","default","scalar","the instantaneous value of the squared force due to this bias potential");
+  keys.addOutputComponent("work","default","scalar","the instantaneous value of the work done by the biasing force");
+  keys.addOutputComponent("_work","default","scalar","the instantaneous value of the work done by the biasing force for each argument. "
+                          "These quantities will named with the arguments of the bias followed by "
+                          "the character string _work.");
+  keys.addOutputComponent("_error","default","scalar","Instantaneous values of the discrepancy between the observable and the restraint center");
+  keys.addOutputComponent("_coupling","default","scalar","Instantaneous values of Lagrangian multipliers. They are also written by default in a separate output file.");
+  keys.addFlag("AFFINE",false,"Learn a shared affine scale and offset from raw observables (Gaussian EQUAL only, one replica).");
+  keys.add("optional","AFFINE_SCALE","Initial positive scale (default 1); negative Euler proposals are reflected as in the original benchmark.");
+  keys.add("optional","AFFINE_OFFSET","Initial offset (default 0).");
+  keys.add("optional","AFFINE_KAPPA_SCALE","Scale learning increment per update (default 0), including elapsed timestep.");
+  keys.add("optional","AFFINE_KAPPA_OFFSET","Offset learning increment per update (default 0), including elapsed timestep.");
+  keys.add("optional","AFFINE_TAU_SCALE","Scale decay time (default 50).");
+  keys.add("optional","AFFINE_TAU_OFFSET","Offset decay time (default 50).");
+  keys.add("optional","AFFINE_PRIOR","Strength of log(scale) regularization (default 1).");
+  keys.add("optional","AFFINE_START","Equilibration duration (default 0); TSTART/TEND are relative to this origin, while rate decay includes equilibration. PLUMED step equals original loop index plus one.");
+  keys.add("optional","AFFINE_LAMBDA","Initial couplings, one per raw observable (default zero).");
+  keys.addOutputComponent("scale","AFFINE","scalar","shared affine scale used in this force evaluation");
+  keys.addOutputComponent("offset","AFFINE","scalar","shared affine offset used in this force evaluation");
+  keys.addOutputComponent("frozen","AFFINE","scalar","one when all parameters are frozen");
+  keys.use("RESTART");
+  keys.addDOI("10.1021/acs.jctc.6b00944");
+}
+/// Build and configure the MAXENT bias action.
+///
+/// This constructor performs all one-time setup required before the MD loop:
+/// - allocate and initialize per-argument vectors (targets, couplings, averages);
+/// - set default control parameters (PACE/STRIDE, averaging counters, flags);
+/// - read user keywords and validate sizes/ranges against the number of arguments;
+/// - configure restart/read-write of Lagrangian multipliers and output components.
+///
+/// The constructor intentionally centralizes initialization so that subsequent
+/// `calculate()`, `update()`, and `update_lambda()` calls can assume consistent
+/// dimensions, defaults, and I/O state.
+// Constructor layout:
+//   1) member defaults (initializer list),
+//   2) keyword parsing and consistency checks,
+//   3) restart/readback handling for multipliers,
+//   4) output component and file configuration.
+MaxEntAffine::MaxEntAffine(const ActionOptions&ao):
+  PLUMED_BIAS_INIT(ao),
+  // Per-argument state vectors are sized once from ARG and reused during the run.
+  at(getNumberOfArguments()),
+  kappa(getNumberOfArguments(),0.0),
+  lambda(getNumberOfArguments(),0.0),
+  avgx(getNumberOfArguments(),0.0),
+  oldlambda(getNumberOfArguments(),0.0),
+  tau(getNumberOfArguments(),getTimeStep()),
+  avglambda(getNumberOfArguments(),0.0),
+  avglambda_restart(getNumberOfArguments(),0.0),
+  // Global control defaults; user keywords may override these values.
+  sigma(0.0),
+  pace_(100),
+  stride_(100),
+  alpha(1.0),
+  avg_counter(0.0),
+  isFirstStep(true),
+  reweight(false),
+  no_broadcast(false),
+  printFirstStep(true),
+  done_average(getNumberOfArguments(),false) {
+  nrep=getNumberOfReplicas();
+  myrep=getReplicaIndex();
+  parseFlag("NO_BROADCAST",no_broadcast);
+  avgstep=1.0;
+  tstart=-1.0;
+  tend=-1.0;
+  totalWork=0.0;
+  learn_replica=0;
+
+  parse("LEARN_REPLICA",learn_replica);
+  parseVector("APPLY_WEIGHTS",apply_weights);
+  if(apply_weights.size()==0) {
+    apply_weights.resize(nrep,1.0);
+  }
+  // with --parse-only the input of a run with several replicas is read by a single replica
+  if(apply_weights.size()!=static_cast<std::size_t>(nrep) && !plumed.parseOnlyMode()) {
+    error("APPLY_WEIGHTS should have one value per replica");
+  }
+  parseVector("KAPPA",kappa);
+  parseVector("AT",at);
+  parseVector("TAU",tau);
+  parse("TYPE",type);
+  if(type!="EQUAL" && type!="INEQUAL<" && type!="INEQUAL>") {
+    error("TYPE should be EQUAL, INEQUAL< or INEQUAL>, found " + type);
+  }
+  error_type="GAUSSIAN";
+  parse("ERROR_TYPE",error_type);
+  if(error_type!="GAUSSIAN" && error_type!="LAPLACE") {
+    error("ERROR_TYPE should be GAUSSIAN or LAPLACE, found " + error_type);
+  }
+  parse("ALPHA",alpha);
+  parse("SIGMA",sigma);
+  parse("TSTART",tstart);
+  if(tstart <0 && tstart != -1.0) {
+    error("TSTART should be a positive number");
+  }
+  parse("TEND",tend);
+  if(tend<0 && tend != -1.0) {
+    error("TEND should be a positive number");
+  }
+  if(tend<tstart) {
+    error("TEND should be >= TSTART");
+  }
+  lagmultfname=getLabel()+".LAGMULT";
+  parse("FILE",lagmultfname);
+  parse("FMT",fmt);
+  parse("PACE",pace_);
+  if(pace_<=0 ) {
+    error("frequency for Lagrangian multipliers update (PACE) is nonsensical");
+  }
+  stride_=pace_;  //if no STRIDE is passed, then Lagrangian multipliers willbe printed at each update
+  parse("PRINT_STRIDE",stride_);
+  if(stride_<=0 ) {
+    error("frequency for Lagrangian multipliers printing (STRIDE) is nonsensical");
+  }
+  simtemp=getkBT();
+  parseFlag("REWEIGHT",reweight);
+  if(simtemp<=0 && reweight) {
+    error("Set the temperature (TEMP) if you want to do reweighting.");
+  }
+
+  parseFlag("AFFINE",affine);
+  if(affine) {
+    parse("AFFINE_SCALE",scale);
+    parse("AFFINE_OFFSET",offset);
+    parse("AFFINE_KAPPA_SCALE",scaleRate);
+    parse("AFFINE_KAPPA_OFFSET",offsetRate);
+    parse("AFFINE_TAU_SCALE",scaleTau);
+    parse("AFFINE_TAU_OFFSET",offsetTau);
+    parse("AFFINE_PRIOR",priorStrength);
+    parse("AFFINE_START",learnStart);
+    std::vector<double> initial;
+    parseVector("AFFINE_LAMBDA",initial);
+    if(!initial.empty()) {
+      if(initial.size()!=lambda.size()) {
+        error("AFFINE_LAMBDA requires one value per argument");
+      }
+      lambda=initial;
+    }
+    // Original code seeds the forward-model averaging sums with initial A/B.
+    // Zero-rate parameters explicitly stay fixed in this extension.
+    scaleSum=(scaleRate==0.0 ? 0.0 : scale);
+    offsetSum=(offsetRate==0.0 ? 0.0 : offset);
+    if(alpha!=1.0) {
+      error("AFFINE supports ensemble regularization one; ALPHA retains its legacy Laplace meaning");
+    }
+    if(pace_!=1) {
+      error("AFFINE source-faithful updates require PACE=1");
+    }
+    if(type!="EQUAL" || error_type!="GAUSSIAN" || reweight || nrep!=1 || learn_replica!=0 || no_broadcast || apply_weights[0]!=1.0) {
+      error("AFFINE requires Gaussian EQUAL restraints, one replica, no REWEIGHT/NO_BROADCAST and unit APPLY_WEIGHTS");
+    }
+    for(double v : {
+          scale,offset,scaleRate,offsetRate,scaleTau,offsetTau,priorStrength,learnStart,tstart,tend,sigma
+        }) {
+      if(!std::isfinite(v)) {
+        error("AFFINE parameters must be finite");
+      }
+    }
+    if(!(scale>0) || !std::isfinite(scale) || !std::isfinite(offset) || !(scaleTau>0) || !(offsetTau>0) || !(scaleRate>=0) || !(offsetRate>=0) || !(priorStrength>=0) || !(learnStart>=0) || !(simtemp>0)) {
+      error("AFFINE requires finite valid initial state, nonnegative rates/prior/start, positive decay times and kBT");
+    }
+    for(unsigned i=0; i<lambda.size(); ++i) {
+      if(!std::isfinite(lambda[i]) || !(tau[i]>0) || !(kappa[i]>=0)) {
+        error("Invalid AFFINE couplings or learning schedule");
+      }
+    }
+    if((tstart>=0)!=(tend>=0) || (tend>=0 && tend<=tstart)) {
+      error("AFFINE averaging requires TEND>TSTART>=0, or neither keyword");
+    }
+    if(getRestart() && !plumed.checkpointing.isRestartingFromCheckpoint()) {
+      error("AFFINE restart requires CHECKPOINT; LAGMULT does not contain the full affine state");
+    }
+    for(const auto& name : {
+          "scale", "offset", "frozen"
+        }) {
+      addComponent(name);
+      componentIsNotPeriodic(name);
+    }
+    log.printf("  LOAD-able affine MAXENT implementation; kBT=%g, learning origin=%g\n",simtemp,learnStart);
+  }
+  checkRead();
+
+  log.printf("  at");
+  for(unsigned i=0; i<at.size(); i++) {
+    log.printf(" %f",at[i]);
+  }
+  log.printf("\n");
+  log.printf("  with initial learning rate for optimization of");
+  for(unsigned i=0; i<kappa.size(); i++) {
+    log.printf(" %f",kappa[i]);
+  }
+  log.printf("\n");
+  log.printf("Dumping times for the learning rates are (ps): ");
+  for(unsigned i=0; i<tau.size(); i++) {
+    log.printf(" %f",tau[i]);
+  }
+  log.printf("\n");
+  log.printf("Lagrangian multipliers are updated every %lld steps (PACE)\n",pace_);
+  log.printf("Lagrangian multipliers output file %s\n",lagmultfname.c_str());
+  log.printf("Lagrangian multipliers are written every %lld steps (PRINT_STRIDE)\n",stride_);
+  if(fmt.length()>0) {
+    log.printf("The format for real number in Lagrangian multipliers file is %s\n",fmt.c_str());
+  }
+  if(tstart >-1.0 && tend>-1.0) {
+    log.printf("Lagrangian multipliers are averaged from %lf ps to %lf ps\n",tstart,tend);
+  }
+  if(no_broadcast) {
+    log.printf("Using NO_BROADCAST options. Lagrangian multipliers will not be comunicated to other replicas.\n");
+  }
+  addComponent("force2");
+  componentIsNotPeriodic("force2");
+  addComponent("work");
+  componentIsNotPeriodic("work");
+  valueForce2=getPntrToComponent("force2");
+  valueWork=getPntrToComponent("work");
+
+  std::string comp;
+  for(unsigned i=0; i< getNumberOfArguments() ; i++) {
+    comp=getPntrToArgument(i)->getName()+"_coupling";
+    addComponent(comp);
+    componentIsNotPeriodic(comp);
+    valueCoupling.push_back(getPntrToComponent(comp));
+    comp=getPntrToArgument(i)->getName()+"_work";
+    addComponent(comp);
+    componentIsNotPeriodic(comp);
+    valueArgWork.push_back(getPntrToComponent(comp));
+    work.push_back(0.); // initialize the work value
+    comp=getPntrToArgument(i)->getName()+"_error";
+    addComponent(comp);
+    componentIsNotPeriodic(comp);
+    valueError.push_back(getPntrToComponent(comp));
+  }
+  std::string fname;
+  fname=lagmultfname;
+  ifile.link(*this);
+  if(getRestart()) {
+    // at a restart from a step given by the MD engine the lines from that step on are removed first (see RESTART)
+    plumed.checkpointing.trimOutputFileAtRestart(*this,fname);
+  }
+  if(ifile.FileExist(fname)) {
+    ifile.open(fname);
+    if(getRestart() && plumed.checkpointing.isRestartingFromCheckpoint()) {
+      log.printf("  Restarting from the checkpoint: %s is not read\n",fname.c_str());
+    } else if(getRestart()) {
+      log.printf("  Restarting from: %s\n",fname.c_str());
+      ReadLagrangians(ifile);
+      printFirstStep=false;
+    }
+    ifile.reset(false);
+  }
+
+  lagmultOfile_.link(*this);
+  lagmultOfile_.open(fname);
+  if(fmt.length()>0) {
+    fmt=" "+fmt;
+    lagmultOfile_.fmtField(fmt);
+  }
+}
+////MEMBER FUNCTIONS
+// The multipliers, their running averages and works, the counters and the flags of
+// the first step; the components are written by Bias. With a checkpoint the
+// LAGMULT file is trimmed and not read.
+void MaxEntAffine::writeCheckpoint(CheckpointWriter& w) {
+  w.write("lambda",lambda);
+  w.write("oldlambda",oldlambda);
+  w.write("avglambda",avglambda);
+  w.write("work",work);
+  std::vector<long long> done;
+  for(unsigned i=0; i<done_average.size(); ++i) {
+    done.push_back(done_average[i]);
+  }
+  w.write("done_average",done);
+  w.write("avg_counter",avg_counter);
+  w.write("totalWork",totalWork);
+  w.write("BetaReweightBias",BetaReweightBias);
+  w.write("isFirstStep",(long long) isFirstStep);
+  w.write("printFirstStep",(long long) printFirstStep);
+  if(affine) {
+    w.write("affine_last_step",lastAffineStep);
+    w.write("affine_scale",scale);
+    w.write("affine_offset",offset);
+    w.write("affine_scale_sum",scaleSum);
+    w.write("affine_offset_sum",offsetSum);
+    w.write("affine_frozen",(long long)affineFrozen);
+    w.write("affine_start",learnStart);
+  }
+  writeComponentValues(w);
+}
+
+void MaxEntAffine::readCheckpoint(CheckpointReader& r) {
+  const unsigned n=getNumberOfArguments();
+  std::vector<double> l,ol,al,wk;
+  std::vector<long long> done;
+  r.read("lambda",l);
+  r.read("oldlambda",ol);
+  r.read("avglambda",al);
+  r.read("work",wk);
+  r.read("done_average",done);
+  if(l.size()!=n || ol.size()!=n || al.size()!=n || wk.size()!=n || done.size()!=n) {
+    error("the checkpoint was written with a different number of arguments");
+  }
+  lambda=l;
+  oldlambda=ol;
+  avglambda=al;
+  work=wk;
+  for(unsigned i=0; i<n; ++i) {
+    done_average[i]=done[i]!=0;
+  }
+  r.read("avg_counter",avg_counter);
+  r.read("totalWork",totalWork);
+  r.read("BetaReweightBias",BetaReweightBias);
+  long long b;
+  r.read("isFirstStep",b);
+  isFirstStep=b!=0;
+  r.read("printFirstStep",b);
+  printFirstStep=b!=0;
+  if(affine) {
+    r.read("affine_last_step",lastAffineStep);
+    r.read("affine_scale",scale);
+    r.read("affine_offset",offset);
+    r.read("affine_scale_sum",scaleSum);
+    r.read("affine_offset_sum",offsetSum);
+    r.read("affine_frozen",b);
+    affineFrozen=b!=0;
+    double storedStart;
+    r.read("affine_start",storedStart);
+    if(storedStart!=learnStart) {
+      error("AFFINE_START differs from checkpoint");
+    }
+    if(!(scale>0) || !std::isfinite(scale) || !std::isfinite(offset)) {
+      error("Invalid affine checkpoint state");
+    }
+  }
+  readComponentValues(r);
+}
+
+void MaxEntAffine::ReadLagrangians(IFile &inputFile) {
+  // The multipliers written at step s are the ones obtained by the last update before s
+  // (the file is written before the multipliers are updated). The average between TSTART
+  // and TEND is rebuilt in the same way as update_lambda() builds it, one term per update.
+  double t;
+  long long int lastupdate=-pace_;
+  bool missing=false;
+  while(inputFile.scanField("time",t)) {
+    for(unsigned j=0; j<getNumberOfArguments(); ++j) {
+      inputFile.scanField(getPntrToArgument(j)->getName()+"_coupling",lambda[j]);
+    }
+    inputFile.scanField();
+    const long long int s=std::llround(t/getTimeStep());
+    if(s<=0) {
+      continue;
+    }
+    const long long int u=((s-1)/pace_)*pace_;
+    if(u==lastupdate) {
+      continue;
+    }
+    if(u!=lastupdate+pace_) {
+      missing=true;
+    }
+    lastupdate=u;
+    const double utime=u*getTimeStep();
+    if(tend>=0 && utime>=tend) {
+      // from TEND on the multipliers are the average
+      for(unsigned j=0; j<getNumberOfArguments(); ++j) {
+        avglambda[j]=lambda[j];
+        done_average[j]=true;
+      }
+    } else if(utime>=tstart && utime<=tend) {
+      avg_counter++;
+      for(unsigned j=0; j<getNumberOfArguments(); ++j) {
+        avglambda[j]+=convert_lambda(type,lambda[j]);
+      }
+    }
+  }
+  for(unsigned j=0; j<getNumberOfArguments(); ++j) {
+    oldlambda[j]=convert_lambda(type,lambda[j]);
+  }
+  if(missing && tend>=0) {
+    log.printf("  WARNING: the file does not have the multipliers of every update (PRINT_STRIDE larger than PACE?): the average between TSTART and TEND is approximate\n");
+  }
+  log.printf("  the works restart from zero\n");
+}
+void MaxEntAffine::WriteLagrangians(std::vector<double> &lagmult,OFile &file) {
+  if(printFirstStep) {
+    unsigned ncv=getNumberOfArguments();
+    file.printField("time",getTimeStep()*getStep());
+    for(unsigned i=0; i<ncv; ++i) {
+      file.printField(getPntrToArgument(i)->getName()+"_coupling",lagmult[i]);
+    }
+    file.printField();
+  } else {
+    if(!isFirstStep) {
+      unsigned ncv=getNumberOfArguments();
+      file.printField("time",getTimeStep()*getStep());
+      for(unsigned i=0; i<ncv; ++i) {
+        file.printField(getPntrToArgument(i)->getName()+"_coupling",lagmult[i]);
+      }
+      file.printField();
+    }
+  }
+}
+double MaxEntAffine::compute_error(const std::string &err_type,double l) {
+  double sigma2=std::pow(sigma,2.0);
+  double l2=convert_lambda(type,l);
+  double return_error=0;
+  if(err_type=="GAUSSIAN" && sigma!=0.0) {
+    return_error=-l2*sigma2;
+  } else {
+    if(err_type=="LAPLACE" && sigma!=0) {
+      return_error=-l2*sigma2/(1.0-l2*l2*sigma2/(alpha+1));
+    }
+  }
+  return return_error;
+}
+double MaxEntAffine::convert_lambda(const std::string &typeName,const double lold) {
+  double return_lambda=0;
+  if(typeName=="EQUAL") {
+    return_lambda=lold;
+  } else {
+    if(typeName=="INEQUAL>") {
+      if(lold>0.0) {
+        return_lambda=0.0;
+      } else {
+        return_lambda=lold;
+      }
+    } else {
+      if(typeName=="INEQUAL<") {
+        if(lold<0.0) {
+          return_lambda=0.0;
+        } else {
+          return_lambda=lold;
+        }
+      }
+    }
+  }
+  return return_lambda;
+}
+void MaxEntAffine::check_lambda_boundaries(const std::string &err_type,double &l) {
+  if(err_type=="LAPLACE" && sigma !=0 ) {
+    double l2=convert_lambda(type,l);
+    if(l2 <-(std::sqrt(alpha+1)/sigma-0.01)) {
+      l=-(std::sqrt(alpha+1)/sigma-0.01);
+      log.printf("Lambda exceeded the allowed range\n");
+    }
+    if(l2>(std::sqrt(alpha+1)/sigma-0.01)) {
+      l=std::sqrt(alpha+1)/sigma-0.01;
+      log.printf("Lambda exceeded the allowed range\n");
+    }
+  }
+}
+
+void MaxEntAffine::update_lambda() {
+
+  double totalWork_=0.0;
+  const double time=getTime();
+  const double step=getStep();
+  double KbT=simtemp;
+  double learning_rate;
+  if(reweight) {
+    BetaReweightBias=plumed.getBias()/KbT;
+  } else {
+    BetaReweightBias=0.0;
+  }
+
+  // the multipliers obtained at this update are part of the average if time is in [TSTART,TEND]:
+  // count them before the average is computed (at time==TEND the sum had one more term than the counter)
+  if(time>=tstart && time <=tend) {
+    avg_counter++;
+  }
+  for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+    const double k=kappa[i];
+    double cv=(getArgument(i)+compute_error(error_type,lambda[i])-at[i]);
+    if(reweight) {
+      learning_rate=1.0*k/(1+step/tau[i]);
+    } else {
+      learning_rate=1.0*k/(1+time/tau[i]);
+    }
+    lambda[i]+=learning_rate*cv*std::exp(-BetaReweightBias); //update Lagrangian multipliers and reweight them if REWEIGHT is set
+    check_lambda_boundaries(error_type,lambda[i]);      //check that Lagrangians multipliers not exceed the allowed range
+    if(time>=tstart && time <=tend && !done_average[i]) {
+      avglambda[i]+=convert_lambda(type,lambda[i]); //compute the average of Lagrangian multipliers over the required time window
+    }
+    if(time>=tend && tend >=0) { //setting tend<0 will disable this feature
+      if(!done_average[i]) {
+        avglambda[i]=avglambda[i]/avg_counter;
+        done_average[i]=true;
+        lambda[i]=avglambda[i];
+      } else {
+        lambda[i]=avglambda[i];  //keep Lagrangian multipliers fixed to the previously computed average.
+      }
+    }
+    work[i]+=KbT*(convert_lambda(type,lambda[i])-oldlambda[i])*getArgument(i); //compute the work performed in updating lambda (in energy units, as the bias)
+    totalWork_+=work[i];
+    totalWork=totalWork_;
+    oldlambda[i]=convert_lambda(type,lambda[i]);
+  }
+}
+
+// Per-update rates include dt (PACE=1). Decay uses the absolute loop clock;
+// averaging uses time relative to AFFINE_START.
+// Match Davide: update at current coordinates BEFORE computing their bias forces.
+// Guard in calculate ensures at most one affine update per MD step.
+void MaxEntAffine::update_affine() {
+  const double clock=(getStep()-1)*getTimeStep();
+  const double time=clock-learnStart;
+  if(time<=0.0 || affineFrozen) {
+    return;
+  }
+  const auto previous=lambda;
+  const double oldScale=scale, oldOffset=offset;
+  if(tend<0 || time<=tend) {
+    double sum=0.0, dot=0.0;
+    for(unsigned i=0; i<lambda.size(); ++i) {
+      sum+=previous[i];
+      dot+=previous[i]*getArgument(i);
+      lambda[i]=previous[i]+kappa[i]/(1+clock/tau[i])*(oldScale*getArgument(i)+oldOffset-at[i]-previous[i]*sigma*sigma);
+    }
+    scale=oldScale-scaleRate/(1+clock/scaleTau)*(dot+priorStrength/oldScale);
+    offset=oldOffset-offsetRate/(1+clock/offsetTau)*sum;
+    if(scale<0.0) {
+      scale=-scale;  // Exact reflection used by Davide.
+    }
+    if(!(scale>0.0) || !std::isfinite(scale) || !std::isfinite(offset)) {
+      error("AFFINE nonpositive/nonfinite scale or offset at learning time "+std::to_string(time)+"; old scale="+std::to_string(oldScale)+", proposed scale="+std::to_string(scale)+", lambda*x="+std::to_string(dot));
+    }
+    for(double l:lambda)
+      if(!std::isfinite(l)) {
+        error("AFFINE nonfinite lambda at learning time "+std::to_string(time));
+      }
+    // Half-open window (TSTART,TEND], one post-update sample per PACE.
+    if(tstart>=0 && time>tstart && time<=tend) {
+      ++avg_counter;
+      for(unsigned i=0; i<lambda.size(); ++i) {
+        avglambda[i]+=lambda[i];
+      }
+      scaleSum+=scale;
+      offsetSum+=offset;
+    }
+  }
+  if(tend>=0 && time>tend) {
+    if(avg_counter==0) {
+      error("AFFINE averaging window contains no updates");
+    }
+    for(unsigned i=0; i<lambda.size(); ++i) {
+      lambda[i]=avglambda[i]/avg_counter;
+    }
+    scale=scaleSum/avg_counter;
+    offset=offsetSum/avg_counter;
+    affineFrozen=true;
+  }
+  // Exact before/after bias difference, including the coordinate-independent B.
+  totalWork=0.0;
+  for(unsigned i=0; i<lambda.size(); ++i) {
+    work[i]+=simtemp*(lambda[i]*(scale*getArgument(i)+offset)-previous[i]*(oldScale*getArgument(i)+oldOffset));
+    totalWork+=work[i];
+    oldlambda[i]=lambda[i];
+  }
+}
+
+void MaxEntAffine::calculate() {
+  if(affine) {
+    if(getStep()!=lastAffineStep) {
+      update_affine();
+      lastAffineStep=getStep();
+    }
+    getPntrToComponent("scale")->set(scale);
+    getPntrToComponent("offset")->set(offset);
+    getPntrToComponent("frozen")->set(affineFrozen ? 1.0 : 0.0);
+  }
+  double totf2=0.0;
+  double ene=0.0;
+  double KbT=simtemp;
+  valueWork->set(totalWork);
+  for(unsigned i=0; i<getNumberOfArguments(); ++i) {
+    // xi(lambda) of the current multiplier (it was never computed and always printed as zero)
+    valueError[i]->set(compute_error(error_type,lambda[i]));
+    valueArgWork[i]->set(work[i]);
+    valueCoupling[i]->set(lambda[i]);
+    const double f=-KbT*convert_lambda(type,lambda[i])*apply_weights[myrep]*(affine ? scale : 1.0);
+    totf2+=f*f;
+    ene+=KbT*convert_lambda(type,lambda[i])*(affine ? scale*getArgument(i)+offset : getArgument(i))*apply_weights[myrep];
+    setOutputForce(i,f);
+  }
+  setBias(ene);
+  valueForce2->set(totf2);
+}
+
+void MaxEntAffine::update() {
+
+  if(getStep()%stride_ == 0) {
+    WriteLagrangians(lambda,lagmultOfile_);
+  }
+  if(getStep()%pace_ == 0) {
+    if(!affine) {
+      update_lambda();
+    }
+    if(!no_broadcast) {
+      if(comm.Get_rank()==0) { //Comunicate Lagrangian multipliers from reference replica to higher ones
+        multi_sim_comm.Bcast(lambda,learn_replica);
+      }
+    }
+    comm.Bcast(lambda,0);
+  }
+  isFirstStep=false;
+}
+
+}
+
+}

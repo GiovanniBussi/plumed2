@@ -1,0 +1,25 @@
+{
+  "plumed_baseline": "422109dc3e9aa3aa72a55f326dee473231a1039f",
+  "original_source": "https://github.com/DavideDiVora/MD_refinement_on-the-fly",
+  "original_commit": "4ddf15b808c2602e5b8191a67c2bad01ffa8bd5e",
+  "original_target_file": "data/posterior_0.2_0.01_0.002_50000.pkl",
+  "original_target_file_sha256": "16414fa46e273840fe513e8f1b3a891b33b933ff3123e87461838f4ef71e8f6b",
+  "prior": "log A (explicit _grad_fm_reg_fun_default, hard-coded before 2565484)",
+  "source_step": "PLUMED getStep()-1",
+  "seeds": [
+    0,
+    -12345,
+    -23456
+  ],
+  "units": "reduced Lennard-Jones; numeric coordinates nm; kBT=.722 energy units",
+  "box": [
+    100,
+    100,
+    100
+  ],
+  "initial": "Davide generate_chain(10,1): straight chain along z",
+  "main_text": "original results preserved",
+  "rng": "Davide ran1/shuffle, matching historical PLUMED Random before f2a7809c6; original Python seed initialization",
+  "engine_extension": "SimpleMDInit.cpp: initial PLUMED forces plus original RNG",
+  "averaging": "Original forward sums seeded with initial A/B; adds initial value divided by averaging count on freeze (A shift 1e-6 in the benchmark)"
+}

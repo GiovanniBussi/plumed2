@@ -1,0 +1,26 @@
+{
+  "plumID": "new",
+  "project_name": "Simultaneous on-the-fly refinement of structural ensembles and forward models: PLUMED reproduction",
+  "url": "https://raw.githubusercontent.com/GiovanniBussi/plumed2/agents/on-the-fly-forward-models/reproduction/artifacts/otf-affine-reproduction.zip",
+  "plumed_input_files": [
+    "plumed-coordination.dat",
+    "plumed-saxs.dat"
+  ],
+  "category": "methods",
+  "keywords": [
+    "maximum entropy",
+    "ensemble refinement",
+    "forward model refinement",
+    "SAXS",
+    "polymer",
+    "simplemd"
+  ],
+  "instructions": "See README.md. PLUMED 2.11.0-dev at 422109dc3; compiler/development headers for LOAD MaxEntAffine.cpp; isdb for SAXS. Python numpy/scipy/matplotlib for analysis. cp plumed-coordination.dat (or plumed-saxs.dat) plumed.dat; plumed mklib SimpleMDInit.cpp; plumed --load ./SimpleMDInit.<platform extension> simplemd < simplemd.in. Inputs include a LOAD-able MAXENT replacement; see source conventions and validation report. SimpleMDInit.cpp matches initial polymer-force handling in the original tool. Original ran1 RNG and phase/update/averaging conventions retained. REPORT.md/SI.tex describe finite-time optimization residuals.",
+  "plumed_version": "2.11.0-dev, commit 422109dc3, unmodified kernel with LOAD-able MAXENT replacement",
+  "contributor": "Giovanni Bussi",
+  "publication": "unpublished",
+  "contact": "Giovanni Bussi",
+  "contact_email": "bussi@sissa.it",
+  "status": "Prepared for submission; no NEST record assigned. Public archive publication is recorded in project notes.",
+  "requirements_source": "https://www.plumed-nest.org/contribute.html"
+}
