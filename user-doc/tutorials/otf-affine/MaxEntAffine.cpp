@@ -354,6 +354,7 @@ MaxEntAffine::MaxEntAffine(const ActionOptions&ao):
 
   parseFlag("AFFINE",affine);
   if(affine) {
+    BetaReweightBias=0.0; // Serialized legacy field; REWEIGHT is unsupported here.
     parse("AFFINE_SCALE",scale);
     parse("AFFINE_OFFSET",offset);
     parse("AFFINE_KAPPA_SCALE",scaleRate);

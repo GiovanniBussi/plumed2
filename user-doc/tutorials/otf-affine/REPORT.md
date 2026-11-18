@@ -144,7 +144,9 @@ figures; larger sampled production/learning arrays are retained locally as
 inputs is supported without those arrays. No machine-specific binary is needed.
 
 NEST metadata and the ZIP are prepared for submission; no curated NEST record
-has been assigned or claimed. Publishing the record requires the NEST submission
+has been assigned or claimed. An automated form submission was rejected with
+HTTP 403 because an interactive CAPTCHA is required; the official contribution
+form must be completed in a browser. The response is retained in project notes. Publishing the record requires the NEST submission
 and curator acceptance. The reproduction is independent of any upstream merge.
 The source-faithful action's timing, averaging quirk and limited combinations
 warrant separate API review before proposing a general built-in MAXENT extension.

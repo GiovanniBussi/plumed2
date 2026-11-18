@@ -21,6 +21,6 @@
   "publication": "unpublished",
   "contact": "Giovanni Bussi",
   "contact_email": "bussi@sissa.it",
-  "status": "Prepared for submission; no NEST record assigned. Public archive publication is recorded in project notes.",
+  "status": "Ready for interactive submission. Automated form POST was rejected (HTTP 403: CAPTCHA/custom key required). No NEST record assigned.",
   "requirements_source": "https://www.plumed-nest.org/contribute.html"
 }
