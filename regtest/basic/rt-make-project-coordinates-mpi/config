@@ -1,0 +1,5 @@
+type=make
+plumed_link=runtime
+plumed_needs="tools:mpi"
+mpiprocs=2
+extra_files="../rt-make-project-coordinates/checks.h"

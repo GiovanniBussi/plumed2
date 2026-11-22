@@ -1,0 +1,11 @@
+ab: lattice oracle, image invariance, forces and full virial pass
+ac: lattice oracle, image invariance, forces and full virial pass
+bc: lattice oracle, image invariance, forces and full virial pass
+a: lattice oracle, image invariance, forces and full virial pass
+b: lattice oracle, image invariance, forces and full virial pass
+c: lattice oracle, image invariance, forces and full virial pass
+COORDINATION: direct and neighbor-list oracles and derivatives pass
+RMSD: user-projected reference and derivatives pass
+FIT_TO_TEMPLATE: both orderings and all fit types pass
+Virtual atoms, successive projections and RESET_CELL derivatives pass
+Invalid syntax and missing cell rejected

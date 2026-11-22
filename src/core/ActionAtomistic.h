@@ -91,6 +91,10 @@ class ActionAtomistic :
   std::vector<Value*>   xpos, ypos, zpos, masv, chargev;
   void updateUniqueLocal( const bool& useunique, const std::vector<int>& g2l );
 protected:
+/// Mark a shared coordinate/box edit before the first asynchronous launch pass.
+  void setGlobalCoordinateModifier() {
+    modifiesGlobalAtoms=true;
+  }
   bool                  massesWereSet;
   bool                  chargesWereSet;
 /// masses and charges are constant and were copied for the current list of atoms: they are not copied again
