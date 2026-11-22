@@ -62,6 +62,10 @@ int main(int argc, char** argv) {
         p.cmd("setVirial",&virial[0][0]);
         p.cmd("calc");
         p.cmd("getBias",&bias);
+        // The cell is a root-owned host input; its force is exported only on
+        // that rank. Compare the summed host virial with the serial result.
+        Box totalVirial{};
+        MPI_Allreduce(&virial[0][0],&totalVirial[0][0],9,MPI_DOUBLE,MPI_SUM,world);
         close(bias,expected.energy,"MPI bias",1e-10);
         for(unsigned a=0; a<2; ++a)
           for(unsigned j=0; j<3; ++j) {
@@ -69,7 +73,7 @@ int main(int argc, char** argv) {
           }
         for(unsigned i=0; i<3; ++i)
           for(unsigned j=0; j<3; ++j) {
-            close(virial[i][j],expected.virial[i][j],"MPI virial",1e-10);
+            close(totalVirial[i][j],expected.virial[i][j],"MPI virial",1e-10);
           }
       }
       if(rank==0) {
