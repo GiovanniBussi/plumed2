@@ -1,0 +1,46 @@
+name: GROMACS Conda macOS fork test
+
+on:
+  push:
+    branches: [agents/conda-gromacs/macos-test]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gromacs-conda-macos-test
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    if: github.repository == 'giovannibussi/plumed2' || github.repository == 'GiovanniBussi/plumed2'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install pyyaml
+      - run: python3 conda/gromacs/package.py prepare
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs/manifest.json
+          if-no-files-found: error
+
+  mac:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: osx-arm64
+            os: macos-15
+          - platform: osx-64
+            os: macos-15-intel
+    uses: ./.github/workflows/gromacs-conda-build.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}
+      cuda_variants: '["cpu"]'
+      channel_runtime_check: false

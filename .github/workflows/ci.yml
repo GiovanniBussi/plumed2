@@ -7,6 +7,7 @@ on:
     branches:
       - '**'
       - '!agents/conda-gromacs/build-test'
+      - '!agents/conda-gromacs/macos-test'
     tags:
       - '*'
   pull_request:
