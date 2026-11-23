@@ -1,0 +1,19 @@
+name: GROMACS Conda fork build test
+
+on:
+  push:
+    branches: [agents/conda-gromacs/build-test]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gromacs-conda-fork-test
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.repository == 'giovannibussi/plumed2' || github.repository == 'GiovanniBussi/plumed2'
+    uses: ./.github/workflows/gromacs-publication.yml
+    with:
+      upload: false
