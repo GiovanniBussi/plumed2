@@ -6,7 +6,7 @@ mkdir -p "$results"
 kernel="$CONDA_PREFIX/lib/libplumedKernel.so"
 if [[ $(uname) == Darwin ]]; then kernel="$CONDA_PREFIX/lib/libplumedKernel.dylib"; fi
 export PLUMED_KERNEL="$kernel" OMP_DYNAMIC=FALSE
-unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
+unset OMP_NUM_THREADS PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
 gmx="$CONDA_PREFIX/bin/gmx"
 if [[ $GROMACS_MPI == openmpi ]]; then gmx="$CONDA_PREFIX/bin/gmx_mpi"; fi
 "$gmx" --version > "$results/version.txt" 2>&1

@@ -6,8 +6,8 @@ suite="$GITHUB_WORKSPACE/.ci/md-integration/gromacs"
 results="$RUNNER_TEMP/gromacs-results"
 kernel="$CONDA_PREFIX/lib/libplumedKernel.so"
 if [[ $(uname) == Darwin ]]; then kernel="$CONDA_PREFIX/lib/libplumedKernel.dylib"; fi
-export PLUMED_KERNEL="$kernel" OMP_NUM_THREADS=2 OMP_DYNAMIC=FALSE
-unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
+export PLUMED_KERNEL="$kernel" OMP_DYNAMIC=FALSE
+unset OMP_NUM_THREADS PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
 gmx="$CONDA_PREFIX/bin/gmx"
 arguments=(--backend "$GROMACS_MPI" --kernel "$kernel" --gromacs-source "$GROMACS_SOURCE"
   --results "$results/numerical")
