@@ -33,9 +33,15 @@ jobs:
     outputs:
       matrix: ${{ steps.prepare.outputs.matrix }}
       platforms: ${{ steps.prepare.outputs.platforms }}
+      cuda_variants: ${{ steps.prepare.outputs.cuda_variants }}
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install pyyaml
       - run: python3 conda/gromacs/test_manifest.py
+      - run: python3 conda/tests/cuda_targets.py
       - id: prepare
         run: python3 conda/gromacs/package.py prepare
       - uses: actions/upload-artifact@v6
@@ -53,6 +59,7 @@ jobs:
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
+      cuda_variants: ${{ needs.prepare.outputs.cuda_variants }}
       channel_runtime_check: ${{ inputs.upload && github.repository == 'plumed/plumed2' && github.ref == 'refs/heads/master' }}
 
   packages:

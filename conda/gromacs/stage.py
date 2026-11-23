@@ -91,6 +91,9 @@ def main():
         for key in ("name", "version", "build", "subdir", "sha256")
     }
     write(source / "plumed-provenance.json", manifest)
+    (source / "cuda-targets.py").write_bytes(
+        (ROOT / "conda/cuda-targets.py").read_bytes()
+    )
     with open(os.environ["GITHUB_ENV"], "a") as stream:
         stream.write("GROMACS_SOURCE=" + str(source) + "\n")
 

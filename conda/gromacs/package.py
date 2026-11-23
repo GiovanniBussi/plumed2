@@ -2,12 +2,14 @@
 
 import argparse
 import datetime
+import functools
 import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -39,11 +41,22 @@ def git(*args):
     return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
 
 
+@functools.lru_cache(maxsize=1)
+def cuda_versions():
+    return subprocess.check_output(
+        [sys.executable, str(ROOT / "conda/gpu-plan.py"), "--cuda-versions"], text=True
+    ).split()
+
+
+def cuda_variants():
+    return ["cpu"] + ["cuda" + v.replace(".", "") for v in cuda_versions()]
+
+
 def matrix():
     return [
         {"platform": platform, "os": runner, "mpi": mpi, "gpu": gpu}
         for platform, runner in PLATFORMS.items()
-        for gpu in (["cpu", "cuda"] if platform == "linux-64" else ["cpu"])
+        for gpu in (cuda_variants() if platform == "linux-64" else ["cpu"])
         for mpi in ("tmpi", "openmpi")
     ]
 
@@ -75,7 +88,11 @@ def prepare():
     )
     files = [ROOT / "patches" / (config["patch_engine"] + ".config")]
     files += sorted((ROOT / "patches" / (config["patch_engine"] + ".diff")).rglob("*"))
-    files += [ROOT / "src/wrapper/Plumed.h", ROOT / "patches/patch.sh"]
+    files += [
+        ROOT / "src/wrapper/Plumed.h",
+        ROOT / "patches/patch.sh",
+        ROOT / "conda/cuda-targets.py",
+    ]
     manifest = {
         "schema": 1,
         "snapshot_date": date.isoformat(),
@@ -97,12 +114,14 @@ def prepare():
         },
         "gromacs": config,
         "matrix": matrix(),
+        "cuda_versions": cuda_versions(),
     }
     write(HERE / "manifest.json", manifest)
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a") as stream:
             stream.write("matrix=" + json.dumps({"include": matrix()}) + "\n")
+            stream.write("cuda_variants=" + json.dumps(cuda_variants()) + "\n")
             stream.write(
                 "platforms="
                 + json.dumps(
@@ -134,6 +153,13 @@ def environment():
         "CONDA_CHANNEL_PRIORITY": "strict",
         "CPU_COUNT": "4",
     }
+    gpu = os.environ.get("GROMACS_GPU", "cpu")
+    if gpu != "cpu":
+        version = next(
+            v for v in manifest["cuda_versions"] if "cuda" + v.replace(".", "") == gpu
+        )
+        entries["GROMACS_CUDA_VERSION"] = version
+        entries["CONDA_OVERRIDE_CUDA"] = version
     with open(os.environ["GITHUB_ENV"], "a") as stream:
         stream.writelines(f"{key}={value}\n" for key, value in entries.items())
 
@@ -300,7 +326,7 @@ def main():
     parser.add_argument("--directory", default="packages")
     parser.add_argument("--platform", choices=PLATFORMS)
     parser.add_argument("--mpi", choices=("tmpi", "openmpi"))
-    parser.add_argument("--gpu", choices=("cpu", "cuda"))
+    parser.add_argument("--gpu")
     args = parser.parse_args()
     if args.command == "record":
         if not all((args.platform, args.mpi, args.gpu)):

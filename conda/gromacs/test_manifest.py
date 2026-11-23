@@ -51,7 +51,7 @@ class ManifestChecks(unittest.TestCase):
         self.addCleanup(self.patch.stop)
 
     def test_complete_matrix(self):
-        self.assertEqual(len(package.verify(self.root)), 10)
+        self.assertEqual(len(package.verify(self.root)), 12)
         self.assertEqual(len(package.PLATFORMS), 4)
         self.assertTrue(
             any(
@@ -120,7 +120,7 @@ class ManifestChecks(unittest.TestCase):
             patch.object(package.subprocess, "run") as run,
         ):
             package.upload(self.root)
-        self.assertEqual(run.call_count, 10)
+        self.assertEqual(run.call_count, 12)
         for call in run.call_args_list:
             command = call.args[0]
             self.assertEqual(

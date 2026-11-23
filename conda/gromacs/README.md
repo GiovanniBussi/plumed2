@@ -1,7 +1,7 @@
 # GROMACS Conda snapshots
 
 After integration, select **Actions → Publish GROMACS Conda test packages →
-Run workflow**. The default builds and uploads all ten variants. Clear **upload**
+Run workflow**. The default builds and uploads all twelve variants. Clear **upload**
 to build downloadable artifacts only. Uploads require a manual run on upstream
 master and `CONDA_UPLOAD_TOKEN`; branch and fork builds cannot publish.
 
@@ -10,7 +10,7 @@ the triggered PLUMED checkout. It freezes that checkout's full SHA and one UTC
 snapshot date before starting the platform builds. No later fetch of master is
 used for patching. `config.json` pins the GROMACS archive checksum and version.
 
-| Platform | CPU | CUDA 12.9 |
+| Platform | CPU | CUDA 12.9 and 13.0 |
 |---|---|---|
 | Linux x86-64 | thread-MPI, Open MPI | thread-MPI, Open MPI |
 | Linux ARM64 | thread-MPI, Open MPI | |
@@ -19,7 +19,10 @@ used for patching. `config.json` pins the GROMACS archive checksum and version.
 
 All builds use mixed precision, OpenMP, conda-forge toolchains, FFTW and hwloc.
 CPU builds use SSE2 on x86 and NEON on ARM to avoid requiring the builder's CPU.
-CUDA builds target NVIDIA SM 75/80/86/89/90 and are tested on their CPU path.
+CUDA builds use the same compiler-activation/NVCC-derived fat-binary target
+policy as PLUMED CUDA, including PTX fallback. Toolkit versions come directly
+from the PLUMED CUDA plugin policy (currently 12.9 and 13.0). They are tested
+on their CPU path.
 GPU numerical execution is **not** validated by this workflow.
 
 Package identity includes GROMACS version, date, PLUMED short SHA, MPI/GPU variant
@@ -48,7 +51,7 @@ workflow, then start a fresh GROMACS publication run. The GROMACS workflow does
 not replace channel PLUMED with its minimal test kernel.
 
 All builds and mandatory tests must pass before upload. The uploader verifies
-the complete ten-package manifest, uploads only those archives, and refuses to
+the complete twelve-package manifest, uploads only those archives, and refuses to
 overwrite different existing bytes. Identical already-uploaded test packages
 are skipped on an upload retry. Upload is not transactional: a network failure
 can leave a partial set, recorded in job logs. Retrying just the upload uses

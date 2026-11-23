@@ -22,21 +22,21 @@ requirements:
     - cmake >=3.28
     - ninja
     - python
-    - {{ compiler('cuda') }}  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+    - {{ compiler('cuda') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
   host:
     - fftw
     - libhwloc 2.*
     - llvm-openmp  # [osx]
     - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
-    - cuda-version 12.9  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
-    - cuda-cudart-dev  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
-    - libcufft-dev  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+    - cuda-version {{ environ.get('GROMACS_CUDA_VERSION', '12.9') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
+    - cuda-cudart-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
+    - libcufft-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
   run:
     - plumed >={{ environ['GROMACS_PLUMED_VERSION'] }}
     - fftw
     - libhwloc 2.*
     - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
-    - __cuda >=12.9  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+    - __cuda >={{ environ.get('GROMACS_CUDA_VERSION', '12.9') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
   run_constrained:
     - gromacs <0a0
 test:

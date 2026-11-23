@@ -17,15 +17,7 @@ nvcc=${CUDACXX:-nvcc}
 actual_cuda=$("$nvcc" --version | sed -n 's/.*release \([0-9][0-9]*\.[0-9][0-9]*\),.*/\1/p')
 echo "Building CUDA variant $cuda_compiler_version with NVCC $actual_cuda"
 [[ $actual_cuda == "$cuda_compiler_version" ]]
-gencode=${NVCC_GENCODE:-}
-if [[ -z $gencode ]]; then
-  while read -r sm; do
-    [[ $sm =~ ^sm_[0-9]+$ ]] || continue
-    gencode+=" -gencode=arch=compute_${sm#sm_},code=$sm"
-  done < <("$nvcc" --list-gpu-code)
-  latest=$("$nvcc" --list-gpu-arch | awk '/^compute_[0-9]+$/' | sort -V | tail -n 1)
-  gencode+=" -gencode=arch=$latest,code=$latest"
-fi
+gencode=$(python "$SRC_DIR/conda/cuda-targets.py" --format nvcc --nvcc "$nvcc")
 # Fat binaries include all configured GPU targets. Device LTO is left off so
 # each target carries normal device code through the separate link step.
 python "$policy" --module cuda_coordination -- make -j"${CPU_COUNT:-4}" CXX="$CXX" NVCC="$nvcc" \

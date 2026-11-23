@@ -15,8 +15,10 @@ if [[ $GROMACS_MPI == openmpi ]]; then
 else
   options+=(-DGMX_MPI=OFF -DGMX_THREAD_MPI=ON)
 fi
-if [[ $GROMACS_GPU == cuda ]]; then
-  options+=(-DGMX_GPU=CUDA -DCMAKE_CUDA_ARCHITECTURES='75-real;80-real;86-real;89-real;90')
+if [[ $GROMACS_GPU != cpu ]]; then
+  cuda_archs=$(python cuda-targets.py --format cmake --nvcc "${CUDACXX:-nvcc}")
+  export GROMACS_CUDA_ARCHITECTURES="$cuda_archs"
+  options+=(-DGMX_GPU=CUDA "-DCMAKE_CUDA_ARCHITECTURES=$cuda_archs")
 else
   options+=(-DGMX_GPU=OFF)
 fi
@@ -25,6 +27,7 @@ if [[ $(uname) == Darwin ]]; then
 fi
 marker=$(python -c 'import json; d=json.load(open("plumed-provenance.json")); print("PLUMED_"+d["snapshot_date"]+"_g"+d["plumed_commit"][:12])')
 cmake -S . -B build -G Ninja ${CMAKE_ARGS:-} \
+  "-DCMAKE_CXX_FLAGS=$CXXFLAGS" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" \
   -DGMX_VERSION_STRING_OF_FORK="$marker" \
   -DGMX_OPENMP=ON -DGMX_USE_PLUMED=ON -DGMX_BUILD_OWN_FFTW=OFF \
@@ -35,5 +38,12 @@ cmake -S . -B build -G Ninja ${CMAKE_ARGS:-} \
 cmake --build build -j"${CPU_COUNT:-4}"
 cmake --install build
 mkdir -p "$PREFIX/share/gromacs-plumed"
-cp plumed-provenance.json "$PREFIX/share/gromacs-plumed/provenance.json"
+python - <<'PY'
+import json, os
+from pathlib import Path
+d = json.loads(Path('plumed-provenance.json').read_text())
+d['cuda_architectures'] = os.environ.get('GROMACS_CUDA_ARCHITECTURES', '').split(';') if os.environ.get('GROMACS_CUDA_ARCHITECTURES') else []
+d['cuda_toolkit_version'] = os.environ.get('cuda_compiler_version') if os.environ['GROMACS_GPU'] != 'cpu' else None
+Path(os.environ['PREFIX'], 'share/gromacs-plumed/provenance.json').write_text(json.dumps(d, indent=2)+'\n')
+PY
 cp applied-plumed.patch "$PREFIX/share/gromacs-plumed/"

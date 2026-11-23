@@ -9,6 +9,9 @@ on:
       platform:
         type: string
         required: true
+      cuda_variants:
+        type: string
+        required: true
       channel_runtime_check:
         type: boolean
         default: false
@@ -59,11 +62,10 @@ jobs:
       fail-fast: false
       matrix:
         mpi: [tmpi, openmpi]
-        gpu: ${{ fromJSON(inputs.platform == 'linux-64' && '["cpu", "cuda"]' || '["cpu"]') }}
+        gpu: ${{ fromJSON(inputs.platform == 'linux-64' && inputs.cuda_variants || '["cpu"]') }}
     env:
       GROMACS_MPI: ${{ matrix.mpi }}
       GROMACS_GPU: ${{ matrix.gpu }}
-      CONDA_OVERRIDE_CUDA: '12.9'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v7
@@ -93,8 +95,13 @@ jobs:
           source activate base
           unset CC CXX
           conda index "$CONDA_BLD_PATH"
+          variants=()
+          if [[ $GROMACS_GPU != cpu ]]; then
+            python -c 'import json,os; json.dump({"cuda_compiler_version": [os.environ["GROMACS_CUDA_VERSION"]], "cxx_compiler_version": ["14"]}, open(os.environ["RUNNER_TEMP"]+"/cuda-variant.yaml", "w"))'
+            variants+=(-m "$RUNNER_TEMP/cuda-variant.yaml")
+          fi
           conda build -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
-            -m conda/gromacs/variants.yaml
+            -m conda/gromacs/variants.yaml "${variants[@]}"
       - name: Validate installed package with the matching temporary kernel
         run: |
           source activate base
