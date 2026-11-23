@@ -71,6 +71,8 @@ conda create -n gmx -c plumed/label/test -c conda-forge \
 The temporary fork-only push trigger lives on the separate
 `agents/conda-gromacs/build-test` branch. Do not merge that trigger upstream.
 Its package and minimal-runtime artifacts permit installation testing before
-the manual entry exists on the default branch. Install both artifact archives
-with conda-forge dependencies if testing before a matching full PLUMED snapshot
-has been published.
+the manual entry exists on the default branch. If testing before a compatible full PLUMED snapshot is published, place the
+GROMACS and temporary PLUMED archives in a local channel under their platform
+subdirectory, run `conda index`, then install both exact package specifications
+from that local channel with conda-forge dependencies. Recent Conda versions
+do not allow mixing archive filenames and named packages in `conda create`.

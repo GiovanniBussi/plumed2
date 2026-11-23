@@ -9,16 +9,15 @@ if [[ $(uname) == Darwin ]]; then kernel="$CONDA_PREFIX/lib/libplumedKernel.dyli
 export PLUMED_KERNEL="$kernel" OMP_NUM_THREADS=2 OMP_DYNAMIC=FALSE
 unset PLUMED_MPI_WRAPPER PLUMED_MPI_WRAPPER_FORCE
 gmx="$CONDA_PREFIX/bin/gmx"
-arguments=()
+arguments=(--backend "$GROMACS_MPI" --kernel "$kernel" --gromacs-source "$GROMACS_SOURCE"
+  --results "$results/numerical")
 if [[ $GROMACS_MPI == openmpi ]]; then
   gmx="$CONDA_PREFIX/bin/gmx_mpi"
   arguments+=(--launcher "$CONDA_PREFIX/bin/mpiexec" --launcher-kind openmpi)
 fi
 "$gmx" --version > "$RUNNER_TEMP/gromacs-version.txt" 2>&1
 python "$GITHUB_WORKSPACE/conda/gromacs/test-provenance.py" "$CONDA_PREFIX" "$RUNNER_TEMP/gromacs-version.txt"
-python "$suite/check.py" --backend "$GROMACS_MPI" --gmx "$gmx" \
-  --kernel "$kernel" --gromacs-source "$GROMACS_SOURCE" \
-  --results "$results/numerical" "${arguments[@]}"
+python "$suite/check.py" --gmx "$gmx" "${arguments[@]}"
 # Verify automatic discovery after prefix relocation, with no kernel environment
 # variable and no build-prefix library path. A single rank also tests MPI startup.
 mkdir -p "$results/discovery"
@@ -26,10 +25,10 @@ cp "$suite/plumed.dat" "$results/discovery/"
 (
   cd "$results/discovery"
   unset PLUMED_KERNEL LD_LIBRARY_PATH DYLD_LIBRARY_PATH
-  extra=()
+  extra=(-ntomp 1 -pin off -nb cpu -pme cpu -update cpu)
   if [[ $GROMACS_MPI == tmpi ]]; then extra+=(-ntmpi 1); fi
   "$gmx" mdrun -s "$results/numerical/base.tpr" -plumed plumed.dat \
-    -nsteps 1 -ntomp 1 -pin off -nb cpu -pme cpu -update cpu "${extra[@]}" > run.log 2>&1
+    -nsteps 1 "${extra[@]}" > run.log 2>&1
 )
 if [[ $GROMACS_MPI == tmpi ]]; then
   python "$suite/exchange/validate_mpi_modes.py" --gmx "$gmx" --kernel "$kernel" --output "$results/tmpi"
