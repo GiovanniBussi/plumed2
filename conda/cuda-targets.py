@@ -11,10 +11,10 @@ def targets(nvcc):
     real, virtual = set(), set()
     if configured:
         for code in re.findall(r"\bcode=(\[[^\]]+\]|[^\s]+)", configured):
-            real.update(re.findall(r"\bsm_(\d+)\b", code))
-            virtual.update(re.findall(r"\bcompute_(\d+)\b", code))
+            real.update(re.findall(r"\bsm_(\d+[af]?)\b", code))
+            virtual.update(re.findall(r"\bcompute_(\d+[af]?)\b", code))
         if not real:
-            raise ValueError("NVCC_GENCODE contains no numeric GPU targets")
+            raise ValueError("NVCC_GENCODE contains no GPU targets")
     else:
         output = subprocess.check_output([nvcc, "--list-gpu-code"], text=True)
         real.update(re.findall(r"^sm_(\d+)$", output, re.MULTILINE))
@@ -24,9 +24,14 @@ def targets(nvcc):
             raise ValueError("NVCC reported no supported numeric GPU architectures")
         virtual.add(max(available, key=int))
     # Keep a PTX fallback even with activation packages listing only native code.
-    if not virtual:
-        virtual.add(max(real, key=int))
-    return sorted(real, key=int), sorted(virtual, key=int)
+    if not any(v.isdecimal() for v in virtual):
+        # Generic PTX is forward compatible; a/f-specific PTX is restricted.
+        virtual.add(str(max(int(re.match(r"\d+", v)[0]) for v in real)))
+
+    def order(value):
+        return int(re.match(r"\d+", value)[0]), value
+
+    return sorted(real, key=order), sorted(virtual, key=order)
 
 
 def main():

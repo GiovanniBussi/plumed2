@@ -19,7 +19,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ stdlib('c') }}
-    - cmake >=3.28
+    - cmake >={{ '4.1' if gpu != 'cpu' else '3.28' }}
     - ninja
     - python
     - {{ compiler('cuda') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
@@ -31,6 +31,7 @@ requirements:
     - cuda-version {{ environ.get('GROMACS_CUDA_VERSION', '12.9') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
     - cuda-cudart-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
     - cuda-cccl  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
+    - cuda-profiler-api  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
     - libcufft-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
   run:
     - plumed >=2.11
