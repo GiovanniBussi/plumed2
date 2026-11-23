@@ -92,6 +92,36 @@ PlumedHandle PlumedHandle::dlopen(const char* path) {
   return PlumedHandle(path);
 }
 
+void PlumedHandle::setExchangeStep(bool exchange) {
+  if(local) {
+    local->setExchangeStep(exchange);
+  } else {
+    int api=0;
+    cmd("getApiVersion",&api);
+    if(api>=13) {
+      const int flag=exchange ? 1 : 0;
+      cmd("setExchangeStep",&flag);
+    } else if(exchange) {
+      plumed_error()<<"This loaded guest kernel cannot receive exchange context; use the current kernel for nested replica exchange";
+    }
+  }
+}
+
+void PlumedHandle::performCalcNoUpdate(bool calculationOnly) {
+  if(local) {
+    local->performCalcNoUpdate(calculationOnly);
+  } else {
+    if(calculationOnly) {
+      int api=0;
+      cmd("getApiVersion",&api);
+      if(api<13) {
+        plumed_error()<<"This loaded guest kernel cannot safely evaluate auxiliary nested calculations; use the current kernel";
+      }
+    }
+    cmd(calculationOnly ? "performCalcNoForces" : "performCalcNoUpdate");
+  }
+}
+
 void PlumedHandle::cmd(std::string_view key,const TypesafePtr & ptr) {
   if(local) {
     local->cmd(key,ptr);
