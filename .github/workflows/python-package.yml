@@ -5,6 +5,7 @@ on:
     # Branch pushes build wheels on forks; upstream uses tags and pull requests.
     branches:
       - "**"
+      - '!agents/conda-gromacs/build-test'
     tags:
       - "v*"
   pull_request:
