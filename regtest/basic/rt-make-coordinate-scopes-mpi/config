@@ -1,0 +1,5 @@
+type=make
+plumed_link=static
+plumed_needs="tools:mpi"
+mpiprocs=2
+extra_files="../rt-make-coordinate-scopes/checks.h"

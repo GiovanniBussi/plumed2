@@ -62,6 +62,9 @@ class ActionSet:
     std::vector<Value*> pdbmass, pdbcharge;
     std::vector<Value*> mass, charge;
     std::vector<Value*> vatommass, vatomcharge;
+    std::vector<ActionAtomistic*> coordinateScopes;
+    std::vector<ActionAtomistic*> pairedCoordinateScopes;
+    std::unordered_map<const Action*,ActionAtomistic*> virtualAtomScopes;
   };
   mutable Index index;
   void updateIndex() const;
@@ -71,6 +74,14 @@ public:
   ~ActionSet();
 /// Clear and deletes all the included pointers.
   void clearDelete();
+/// Validate/link a fully constructed coordinate modifier before appending it.
+  void linkCoordinateScope(Action* action);
+  ActionAtomistic* getOpenCoordinateScope() const;
+/// Check atom references, without restricting ordinary scalar CV dependencies.
+  void checkVirtualAtomScope(const Action* consumer, const Action* producer) const;
+  bool virtualAtomIsVisible(const Action* consumer, const Action* producer) const;
+/// Pair actual endpoint activation, including activation through dependencies.
+  void activateCoordinateScopes();
 
 /// Extract pointers to all Action's of type T
 /// To extract all Colvar , use select<Colvar*>();

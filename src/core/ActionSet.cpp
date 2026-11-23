@@ -24,6 +24,8 @@
 #include "ActionToPutData.h"
 #include "ActionWithValue.h"
 #include "ActionWithVirtualAtom.h"
+#include "ActionAtomistic.h"
+#include "ActionPilot.h"
 #include "GenericMolInfo.h"
 #include <algorithm>
 
@@ -46,6 +48,80 @@ void ActionSet::clearDelete() {
     (*this)[i].reset();
   }
   clear();
+  index=Index();
+}
+
+ActionAtomistic* ActionSet::getOpenCoordinateScope() const {
+  updateIndex();
+  return index.coordinateScopes.empty() ? nullptr : index.coordinateScopes.back();
+}
+
+void ActionSet::linkCoordinateScope(Action* action) {
+  auto* aa=action->castToActionAtomistic();
+  if(!aa || !aa->coordinateScope || !aa->coordinateScope->end) {
+    return;
+  }
+  auto* opener=getOpenCoordinateScope();
+  if(!opener) {
+    action->error("unmatched " + action->getName() + " END");
+  }
+  if(opener->getName()!=action->getName()) {
+    action->error("expected " + opener->getName() + " END to close " + opener->getLabel()
+                  + ", instead of " + action->getName() + " END");
+  }
+  auto* openPilot=dynamic_cast<ActionPilot*>(opener);
+  auto* closePilot=dynamic_cast<ActionPilot*>(aa);
+  plumed_assert(openPilot && closePilot);
+  closePilot->setStride(openPilot->getStride());
+  aa->coordinateScope->opener=opener;
+  opener->coordinateScope->closer=aa;
+}
+
+void ActionSet::checkVirtualAtomScope(const Action* consumer, const Action* producer) const {
+  if(virtualAtomIsVisible(consumer,producer)) {
+    return;
+  }
+  const auto* opener=index.virtualAtomScopes.at(producer);
+  consumer->error("virtual atom " + producer->getLabel() + " belongs to the closed "
+                  + opener->getName() + " scope " + opener->getLabel());
+}
+
+bool ActionSet::virtualAtomIsVisible(const Action* consumer, const Action* producer) const {
+  updateIndex();
+  const auto found=index.virtualAtomScopes.find(producer);
+  if(found==index.virtualAtomScopes.end()) {
+    return true;
+  }
+  const auto* closer=found->second->coordinateScope->closer;
+  if(!closer) {
+    return true;
+  }
+  const auto pos=index.positions.find(consumer);
+  const std::size_t consumerPosition=pos==index.positions.end() ? size() : pos->second;
+  const auto closePos=index.positions.find(closer);
+  return closePos==index.positions.end() || consumerPosition<=closePos->second;
+}
+
+void ActionSet::activateCoordinateScopes() {
+  updateIndex();
+  // Activating a dependency can in turn activate an earlier paired modifier.
+  // Repeat to a fixed point before the atom-sharing lists and launch barriers
+  // are prepared. Never create cyclic Action dependencies between endpoints.
+  bool changed;
+  do {
+    changed=false;
+    for(auto* aa:index.pairedCoordinateScopes) {
+      auto* closer=aa->coordinateScope->closer;
+      if(aa->isActive()!=closer->isActive()) {
+        if(aa->isActive()) {
+          closer->activate();
+        } else {
+          aa->activate();
+        }
+        changed=true;
+      }
+    }
+  } while(changed);
 }
 
 ActionShortcut* ActionSet::getShortcutActionWithLabel( const std::string& s ) const {
@@ -119,6 +195,17 @@ void ActionSet::updateIndex() const {
     Action* p=(*this)[i].get();
     index.labels[p->getLabel()].push_back(p);
     index.positions[p]=i;
+    if(auto* aa=p->castToActionAtomistic()) {
+      if(aa->coordinateScope) {
+        if(aa->coordinateScope->end) {
+          plumed_assert(!index.coordinateScopes.empty());
+          index.pairedCoordinateScopes.push_back(index.coordinateScopes.back());
+          index.coordinateScopes.pop_back();
+        } else {
+          index.coordinateScopes.push_back(aa);
+        }
+      }
+    }
     if( auto* sc=dynamic_cast<ActionShortcut*>(p) ) {
       // the last shortcut with a given label is returned
       index.shortcuts[sc->shortcutlabel]=sc;
@@ -158,6 +245,9 @@ void ActionSet::updateIndex() const {
         }
       }
       if( vv->castToActionWithVirtualAtom() || vv->getName()=="ARGS2VATOM" ) {
+        if(!index.coordinateScopes.empty()) {
+          index.virtualAtomScopes.emplace(p,index.coordinateScopes.back());
+        }
         const std::string & l=vv->getLabel();
         index.xpos.push_back( vv->copyOutput( l + ".x") );
         index.ypos.push_back( vv->copyOutput( l + ".y") );

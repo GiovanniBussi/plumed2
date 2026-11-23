@@ -1,14 +1,13 @@
 0 launch a
 0 launch b
-0 launch f
 0 launch h
 0 calculate (launched) h
 0 calculate (launched) a
 0 calculate (launched) b
 0 launch e
 0 calculate (launched) e
-0 cancelLaunch f
-0 calculate f
+0 launch f
+0 calculate (launched) f
 0 calculate g
 0 calculate g
 0 calculate g

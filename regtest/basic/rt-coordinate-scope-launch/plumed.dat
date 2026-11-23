@@ -1,0 +1,20 @@
+# Both endpoints are barriers; independent actions within each frame launch early.
+LOAD FILE=ScopeLaunchTest.cpp
+a: LAUNCH_TEST ATOMS=1,2
+apeer: LAUNCH_TEST ATOMS=1,2
+FIT_TO_TEMPLATE REFERENCE=align.pdb TYPE=OPTIMAL
+b: LAUNCH_TEST ATOMS=3,4
+bpeer: LAUNCH_TEST ATOMS=3,4
+RESET_CELL
+c: LAUNCH_TEST ATOMS=5,6
+cpeer: LAUNCH_TEST ATOMS=5,6
+RESET_CELL END
+d: LAUNCH_TEST ATOMS=7,8
+dpeer: LAUNCH_TEST ATOMS=7,8
+FIT_TO_TEMPLATE END
+e: LAUNCH_TEST ATOMS=9,10
+epeer: LAUNCH_TEST ATOMS=9,10
+late: LATE_SCOPE_MOVE
+z: LAUNCH_TEST ATOMS=11,12
+RESTRAINT ARG=a,b,c,d,e AT=0,0,0,0,0 SLOPE=1,2,3,4,5
+PRINT ARG=a,b,c,d,e,apeer,bpeer,cpeer,dpeer,epeer,z FILE=colvar FMT=%12.8f

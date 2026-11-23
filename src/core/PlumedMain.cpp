@@ -813,6 +813,7 @@ void PlumedMain::cmd(std::string_view word,const TypesafePtr & val) {
             natoms.push_back( dd->getNumberOfAtoms() );
           }
         }
+        pilots.clear();
         actionSet.clearDelete();
         inputs.clear();
         for(unsigned i=0; i<natoms.size(); ++i) {
@@ -1439,6 +1440,7 @@ void PlumedMain::readInputWords(const std::vector<std::string> & words, const bo
       plumed_merror(msg);
     }
     action->checkRead();
+    actionSet.linkCoordinateScope(action.get());
     actionSet.emplace_back(std::move(action));
     // update the lists incrementally: rebuilding them by scanning the whole action set
     // after every line makes reading the input quadratic in the number of actions
@@ -1508,6 +1510,8 @@ void PlumedMain::prepareDependencies() {
       active=true;
     }
   };
+
+  actionSet.activateCoordinateScopes();
 
 // This stops the driver calculation if there is not a read action
   if( !active && !inputsAreActive() ) {
@@ -1726,7 +1730,12 @@ void PlumedMain::justCalculate() {
         if(aa && !launched) {
           aa->retrieveAtoms();
         }
-        if(p->checkNumericalDerivatives()) {
+        if(aa) {
+          aa->saveCoordinateScope();
+        }
+        if(aa && aa->coordinateScope && aa->coordinateScope->end) {
+          aa->coordinateScope->opener->swapCoordinateScope();
+        } else if(p->checkNumericalDerivatives()) {
           p->calculateNumericalDerivatives();
         } else {
           p->calculate();
@@ -1797,7 +1806,16 @@ void PlumedMain::backwardPropagate() {
         swh=stopwatch.startStop("5A " + spaces + actionNumberLabel+" "+p->getLabel());
       }
 
-      p->apply();
+      auto* aa=p->castToActionAtomistic();
+      if(aa) {
+        aa->beforeCoordinateScopeApply();
+      }
+      if(!aa || !aa->coordinateScope || !aa->coordinateScope->end) {
+        p->apply();
+      }
+      if(aa) {
+        aa->afterCoordinateScopeApply();
+      }
       traceActionNonFinite(actionSet,*p,step,"backward",false,true,comm);
     }
     iaction++;

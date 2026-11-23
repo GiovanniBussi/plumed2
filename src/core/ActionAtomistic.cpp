@@ -65,6 +65,9 @@ ActionAtomistic::ActionAtomistic(const ActionOptions&ao):
   }
   // We now get all the information about atoms that are lying about
   getAtomValuesFromPlumedObject( plumed, xpos, ypos, zpos, masv, chargev );
+  for(auto* value:xpos) {
+    globalAtomVisible.push_back(plumed.getActionSet().virtualAtomIsVisible(this,value->getPntrToAction()));
+  }
   if( xpos.size()!=ypos.size() || xpos.size()!=zpos.size() || xpos.size()!=masv.size() || xpos.size()!=chargev.size() ) {
     error("mismatch between value arrays");
   }
@@ -78,6 +81,103 @@ void ActionAtomistic::getAtomValuesFromPlumedObject( const PlumedMain& plumed, s
 
 void ActionAtomistic::registerKeywords( Keywords& keys ) {
   (void) keys; // avoid warning
+}
+
+void ActionAtomistic::registerCoordinateScopeKeywords(Keywords& keys) {
+  keys.addFlag("END",false,"restore the coordinates and cell at the matching opening action; coordinate scopes must nest strictly");
+}
+
+bool ActionAtomistic::initializeCoordinateScope() {
+  coordinateScope=std::make_unique<CoordinateScope>();
+  parseFlag("END",coordinateScope->end);
+  // The scheduler must know this is a barrier before the first calculation,
+  // including an END that restores only the cell or unchanged coordinates.
+  modifiesGlobalAtoms=true;
+  if(coordinateScope->end) {
+    // Restoration needs the shared cell, but no extra MD atom communication.
+    requestAtoms({});
+    checkRead();
+  }
+  return coordinateScope->end;
+}
+
+void ActionAtomistic::saveCoordinateScope() {
+  if(!coordinateScope || !coordinateScope->closer) {
+    return;
+  }
+  auto& scope=*coordinateScope;
+  if(scope.coordinates.empty()) {
+    for(unsigned j=0; j<xpos.size(); ++j) {
+      if(!globalAtomVisible[j]) {
+        continue;
+      }
+      scope.coordinates.push_back(xpos[j]);
+      scope.coordinates.push_back(ypos[j]);
+      scope.coordinates.push_back(zpos[j]);
+    }
+    scope.positions.resize(scope.coordinates.size());
+  }
+  for(std::size_t j=0; j<scope.coordinates.size(); ++j) {
+    const auto* value=scope.coordinates[j];
+    // A virtual atom's data also contains its cached derivatives. Save only
+    // coordinate values, so restoring a frame never overwrites a Jacobian.
+    scope.positions[j].assign(value->data.begin(),value->data.begin()+value->getNumberOfValues());
+  }
+  scope.box=boxValue->getPntrToAction()->castToPbcAction()->getPbc().getBox();
+}
+
+void ActionAtomistic::swapCoordinateScope() {
+  auto& scope=*coordinateScope;
+  for(std::size_t j=0; j<scope.coordinates.size(); ++j) {
+    auto& data=scope.coordinates[j]->data;
+    for(std::size_t k=0; k<scope.positions[j].size(); ++k) {
+      std::swap(data[k],scope.positions[j][k]);
+    }
+  }
+  auto& pbc=boxValue->getPntrToAction()->castToPbcAction()->getPbc();
+  const Tensor box=pbc.getBox();
+  pbc.setBox(scope.box);
+  scope.box=box;
+}
+
+void ActionAtomistic::beforeCoordinateScopeApply() {
+  if(!coordinateScope || !coordinateScope->end) {
+    return;
+  }
+  auto* opener=coordinateScope->opener;
+  auto& scope=*opener->coordinateScope;
+  // Temporarily re-enter the interior frame for backward consumers that read
+  // live coordinates. Scalar CV outputs and derivative caches are untouched.
+  opener->swapCoordinateScope();
+  const std::size_t n=scope.coordinates.size()+1;
+  scope.outsideForces.resize(n);
+  scope.outsideHasForce.resize(n);
+  for(std::size_t j=0; j<n; ++j) {
+    auto* value=j+1==n ? opener->boxValue : scope.coordinates[j];
+    auto& outside=scope.outsideForces[j];
+    outside.resize(value->inputForce.size());
+    std::fill(outside.begin(),outside.end(),0.0);
+    outside.swap(value->inputForce);
+    scope.outsideHasForce[j]=value->hasForce;
+    value->hasForce=false;
+  }
+}
+
+void ActionAtomistic::afterCoordinateScopeApply() {
+  if(!coordinateScope || !coordinateScope->closer) {
+    return;
+  }
+  auto& scope=*coordinateScope;
+  const std::size_t n=scope.coordinates.size()+1;
+  for(std::size_t j=0; j<n; ++j) {
+    auto* value=j+1==n ? boxValue : scope.coordinates[j];
+    const auto& outside=scope.outsideForces[j];
+    for(std::size_t k=0; k<outside.size(); ++k) {
+      value->inputForce[k]+=outside[k];
+    }
+    value->hasForce=value->hasForce || scope.outsideHasForce[j];
+  }
+  swapCoordinateScope();
 }
 
 
@@ -113,6 +213,9 @@ void ActionAtomistic::requestAtoms(const std::vector<AtomNumber> & a, const bool
     atom_value_ind[i] = indexes[i].index()<nfirst ? std::pair<std::size_t,std::size_t>(0,indexes[i].index())
                         : getValueIndices( indexes[i] );
     requirements[atom_value_ind[i].first] = true;
+    if(atom_value_ind[i].first>0) {
+      plumed.getActionSet().checkVirtualAtomScope(this,xpos[atom_value_ind[i].first]->getPntrToAction());
+    }
     if( atom_value_ind[i].first==0 ) {
       unique.push_back(indexes[i]);
     } else if( atom_value_ind[i].second>0 ) {
@@ -401,6 +504,23 @@ void ActionAtomistic::interpretAtomList(std::vector<std::string>& strings, const
       action->error("it was not possible to interpret atom name " + strings[i]);
     }
   }
+  // Validate selections too (e.g. GROUP, which need not call requestAtoms).
+  // Real atoms use the common fast path; keep numbering of expired atoms so
+  // numeric references cannot silently refer to a different virtual atom.
+  const std::size_t first=xpos.empty() ? 0 : xpos[0]->getNumberOfValues();
+  for(const auto& atom:t) {
+    if(atom.index()<first) {
+      continue;
+    }
+    std::size_t offset=atom.index();
+    for(auto* value:xpos) {
+      if(offset<value->getNumberOfValues()) {
+        action->plumed.getActionSet().checkVirtualAtomScope(action,value->getPntrToAction());
+        break;
+      }
+      offset-=value->getNumberOfValues();
+    }
+  }
 }
 
 std::pair<std::size_t, std::size_t> ActionAtomistic::getValueIndices( const AtomNumber& i ) const {
@@ -579,6 +699,9 @@ inline void rotateVector( const Tensor& r, const double x, const double y, const
 void ActionAtomistic::translateAllGlobalPositions(const Vector& shift) {
   modifiesGlobalAtoms=true;
   for(unsigned j=0; j<xpos.size(); ++j) {
+    if(!globalAtomVisible[j]) {
+      continue;
+    }
     auto & xp=xpos[j]->data;
     auto & yp=ypos[j]->data;
     auto & zp=zpos[j]->data;
@@ -594,6 +717,9 @@ void ActionAtomistic::translateAllGlobalPositions(const Vector& shift) {
 void ActionAtomistic::rotateAllGlobalPositions(const Tensor& rotation) {
   modifiesGlobalAtoms=true;
   for(unsigned j=0; j<xpos.size(); ++j) {
+    if(!globalAtomVisible[j]) {
+      continue;
+    }
     auto & xp=xpos[j]->data;
     auto & yp=ypos[j]->data;
     auto & zp=zpos[j]->data;
@@ -611,6 +737,9 @@ void ActionAtomistic::rotateAllGlobalPositions(const Tensor& rotation) {
 void ActionAtomistic::rotateAllGlobalPositions(const Tensor& rotation, const Vector& shiftBefore, const Vector& shiftAfter) {
   modifiesGlobalAtoms=true;
   for(unsigned j=0; j<xpos.size(); ++j) {
+    if(!globalAtomVisible[j]) {
+      continue;
+    }
     auto & xp=xpos[j]->data;
     auto & yp=ypos[j]->data;
     auto & zp=zpos[j]->data;
@@ -628,6 +757,9 @@ void ActionAtomistic::rotateAllGlobalPositions(const Tensor& rotation, const Vec
 Vector ActionAtomistic::getTotalForceOnAllAtoms() const {
   Vector totForce;
   for(unsigned j=0; j<xpos.size(); ++j) {
+    if(!globalAtomVisible[j]) {
+      continue;
+    }
     const auto & fx=xpos[j]->inputForce;
     const auto & fy=ypos[j]->inputForce;
     const auto & fz=zpos[j]->inputForce;
@@ -642,6 +774,9 @@ Vector ActionAtomistic::getTotalForceOnAllAtoms() const {
 Vector ActionAtomistic::rotateForcesOnAllAtoms(const Tensor& rotation) {
   Vector totForce;
   for(unsigned j=0; j<xpos.size(); ++j) {
+    if(!globalAtomVisible[j]) {
+      continue;
+    }
     auto & fx=xpos[j]->inputForce;
     auto & fy=ypos[j]->inputForce;
     auto & fz=zpos[j]->inputForce;

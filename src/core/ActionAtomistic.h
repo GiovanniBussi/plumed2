@@ -50,6 +50,24 @@ class ActionAtomistic :
   friend class DomainDecomposition;
   friend class colvar::SelectMassCharge;
   friend class ActionWithVirtualAtom;
+  friend class ActionSet;
+
+/// Allocated only for registered coordinate modifiers; restoration buffers are
+/// populated only when an END has matched the opener during input parsing.
+  struct CoordinateScope {
+    bool end=false;
+    ActionAtomistic* opener=nullptr;
+    ActionAtomistic* closer=nullptr;
+    std::vector<Value*> coordinates;
+    std::vector<std::vector<double>> positions, outsideForces;
+    std::vector<bool> outsideHasForce;
+    Tensor box;
+  };
+  std::unique_ptr<CoordinateScope> coordinateScope;
+  void saveCoordinateScope();
+  void swapCoordinateScope();
+  void beforeCoordinateScopeApply();
+  void afterCoordinateScopeApply();
 
   std::vector<AtomNumber> indexes;         // the set of needed atoms
   std::vector<std::size_t>   value_depends;   // The list of values that are being used
@@ -89,8 +107,15 @@ class ActionAtomistic :
 
 /// Values that hold information about atom positions and charges
   std::vector<Value*>   xpos, ypos, zpos, masv, chargev;
+/// Keep atom numbering stable, but exclude expired scope-local virtual atoms
+/// from subsequent global coordinate and force transformations.
+  std::vector<bool> globalAtomVisible;
   void updateUniqueLocal( const bool& useunique, const std::vector<int>& g2l );
 protected:
+/// Register optional typed END support. Call before parsing opening parameters;
+/// return immediately from the constructor when this returns true (an END).
+  bool initializeCoordinateScope();
+  static void registerCoordinateScopeKeywords(Keywords& keys);
   bool                  massesWereSet;
   bool                  chargesWereSet;
 /// masses and charges are constant and were copied for the current list of atoms: they are not copied again

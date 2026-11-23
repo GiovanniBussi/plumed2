@@ -1,0 +1,51 @@
+Coordinate scope correctness checks
+===================================
+
+Four modifiers share optional ACTION END support. The input stack is per kernel
+and strict across modifier types. Unmatched tails retain legacy behavior.
+Only a matched opener saves coordinates and the shared Pbc box. END swaps that
+entry state back; backward propagation temporarily swaps into the interior frame
+without recalculating CVs or overwriting virtual-atom Jacobians. At END.apply,
+outside atomic forces and virial are saved and cleared. The opener applies its
+existing derivative map only to interior contributions, then merges the bypassed
+outside contributions and restores the outer frame again.
+
+The serial fixture checks:
+- all three fit methods, RESET_CELL, WHOLEMOLECULES and WRAPAROUND;
+- restoration versus an unmodified run, and forces/full virial versus the sum
+  of independently biased inside-only and outside-only runs;
+- atomic and all nine affine-strain central differences, on image-stable inputs;
+- same-type and mixed nesting, and biases after END on earlier/interior CVs;
+- changing coordinates/cells across reused steps and nonzero incoming MD forces;
+- earlier COM, interior COM and nonlinear GHOST, and deferred scalar outputs;
+- exclusion of expired virtual atoms from later modifier force/coordinate maps;
+- invalid nesting/options, labels/numeric/group/@allatoms references to expired
+  atoms, INCLUDE, incremental parsing, two simultaneous kernels and clear;
+- inherited stride, skipped steps, and dependency activation off the pilot stride.
+
+Virtual atom numbers stay reserved after scope closure. An atom-reference
+selection including an expired virtual atom fails explicitly, even if indirect
+through GROUP or @allatoms. @mdatoms still selects only the host atoms. A CV
+computed inside, or scalar outputs from an interior virtual atom, can be used
+outside: these scalar dependencies do not change its definition frame.
+
+The adjacent rt-make-coordinate-scopes-mpi fixture compares serial with native
+MPI for sparse atom requests (four of six MD atoms), scattered and changing
+ownership, and an empty rank on each side. Both host atomic forces and the sum
+of host cell-force tensors must agree with the serial oracle. Use matching
+Open MPI compiler/launcher wrappers; e.g. set PLUMED_MPIRUN to
+'/opt/local/bin/mpiexec-openmpi-mp --host localhost:2 --bind-to none'.
+
+rt-coordinate-scope-launch checks the existing launch scheduler. Each coordinate
+frame interval contains two independent actions that must launch before either
+is consumed. No launch crosses a scope opener or END, including the first step.
+The fixture retains a deliberately late-discovered coordinate mutation to test
+cancellation. Numerical reference files are independently generated with
+PLUMED_LAUNCH=no; launch-enabled outputs match byte-for-byte locally.
+
+Future coordinate modifiers, including PROJECT_COORDINATES once merged, should
+call registerCoordinateScopeKeywords(keys) in registerKeywords and return early
+from their constructor when initializeCoordinateScope() returns true. The shared
+forward/backward hooks handle END; retain the action's own calculate/apply maps.
+The current registration interface requires an ActionPilot and inherits its
+schedule at END. Do not add process-global scope stacks or disable launch.

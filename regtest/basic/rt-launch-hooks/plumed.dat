@@ -20,8 +20,8 @@ p3: POSITION ATOM=3 NOPBC
 p4: POSITION ATOM=4 NOPBC
 pc: POSITION ATOM=c NOPBC
 p7: POSITION ATOM=7 NOPBC
-# f comes after an action that moves the atoms. At the first step this is not known yet:
-# f is launched with a and b, and the launch is cancelled. Then it is launched after FIT_TO_TEMPLATE
+# f comes after a declared coordinate barrier, including on the first step:
+# it is launched only after FIT_TO_TEMPLATE has calculated.
 FIT_TO_TEMPLATE REFERENCE=align.pdb TYPE=SIMPLE
 f: LAUNCH_TEST ATOMS=8,9
 p8: POSITION ATOM=8 NOPBC

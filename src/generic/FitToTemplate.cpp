@@ -160,6 +160,40 @@ The latter means that before the [RMSD](RMSD.md) statement one should use [WRAPA
 the ligand.
 
 
+## Restoring the preceding coordinate frame
+
+An optional `FIT_TO_TEMPLATE END` restores the coordinates and cell present immediately
+before the matching opening action. The closing line needs no opening parameters.
+For example:
+
+```plumed
+#SETTINGS INPUTFILES=regtest/basic/rt63/align.pdb
+FIT_TO_TEMPLATE REFERENCE=regtest/basic/rt63/align.pdb TYPE=OPTIMAL
+# These coordinates are in the modified frame.
+DUMPATOMS ATOMS=1-20 FILE=modified.xyz
+FIT_TO_TEMPLATE END
+# These coordinates are in the preceding frame.
+DUMPATOMS ATOMS=1-20 FILE=original.xyz
+```
+
+Scopes nest strictly across FIT_TO_TEMPLATE, RESET_CELL, WHOLEMOLECULES and
+WRAPAROUND. Close the innermost modifier first, using its own action name.
+END is optional: an unclosed modifier retains its existing behavior and does not
+store restoration snapshots. Multiple unclosed scopes at input end are allowed.
+
+CVs computed inside a scope can be used and biased after END. Forces and cell
+forces from calculations outside the scope bypass its coordinate transformation.
+Virtual atoms defined before the scope are transformed and restored with the
+other atoms. A virtual atom defined inside is available only up to its matching
+END (including nested scopes); referencing it as an atom afterward is an error.
+Ordinary scalar outputs computed inside remain usable afterward.
+
+END inherits the opening action's STRIDE and both endpoints execute together,
+including when a dependency activates the opening action. On skipped steps,
+interior actions see the incoming, unmodified frame. Thus an interior CV
+calculated more frequently than the modifier can alternate between frames;
+use the default STRIDE=1 unless this behavior is intended.
+
 */
 //+ENDPLUMEDOC
 
@@ -205,6 +239,7 @@ PLUMED_REGISTER_ACTION(FitToTemplate,"FIT_TO_TEMPLATE")
 void FitToTemplate::registerKeywords( Keywords& keys ) {
   Action::registerKeywords( keys );
   ActionAtomistic::registerKeywords( keys );
+  registerCoordinateScopeKeywords(keys);
   keys.add("compulsory","STRIDE","1","the frequency with which molecules are reassembled.  Unless you are completely certain about what you are doing leave this set equal to 1!");
   keys.add("compulsory","REFERENCE","a file in pdb format containing the reference structure and the atoms involved in the CV.");
   keys.add("compulsory","TYPE","SIMPLE","the manner in which RMSD alignment is performed.  Should be OPTIMAL or SIMPLE.");
@@ -218,6 +253,9 @@ FitToTemplate::FitToTemplate(const ActionOptions&ao):
   ActionAtomistic(ao),
   ActionWithValue(ao),
   nopbc(false) {
+  if(initializeCoordinateScope()) {
+    return;
+  }
   std::string reference;
   parse("REFERENCE",reference);
   type.assign("SIMPLE");

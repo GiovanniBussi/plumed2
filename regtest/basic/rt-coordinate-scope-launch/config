@@ -1,0 +1,4 @@
+type=driver
+plumed_needs="tools:dlopen"
+extra_files="../rt-launch-hooks/LaunchTest.cpp ../rt-launch-hooks/align.pdb ../rt-launch-hooks/helix.input.gro"
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --igro helix.input.gro --dump-forces ff --dump-full-virial"

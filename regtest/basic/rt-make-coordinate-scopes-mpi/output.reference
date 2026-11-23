@@ -1,0 +1,6 @@
+FIT_TO_TEMPLATE REFERENCE=fit.pdb TYPE=SIMPLE NOPBC: distributed forces and virial match serial with changing ownership
+FIT_TO_TEMPLATE REFERENCE=fit.pdb TYPE=OPTIMAL NOPBC: distributed forces and virial match serial with changing ownership
+FIT_TO_TEMPLATE REFERENCE=fit.pdb TYPE=OPTIMAL-FAST NOPBC: distributed forces and virial match serial with changing ownership
+RESET_CELL: distributed forces and virial match serial with changing ownership
+WHOLEMOLECULES ENTITY0=1-4: distributed forces and virial match serial with changing ownership
+WRAPAROUND ATOMS=4 AROUND=1: distributed forces and virial match serial with changing ownership
