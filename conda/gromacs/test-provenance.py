@@ -14,7 +14,9 @@ for key in expected:
         raise ValueError("Installed provenance mismatch: " + key)
 if installed["patch_mode"] != "runtime":
     raise ValueError("Package did not use runtime patching")
-marker = "PLUMED_" + expected["snapshot_date"] + "_g" + expected["plumed_commit"][:12]
+marker = (
+    "PLUMED_" + expected["snapshot_date"] + "_g" + expected["plumed_commit"][:12]
+).replace("-", "_")  # GROMACS normalizes fork-marker dashes for pkg-config.
 if marker not in version_file.read_text():
     raise ValueError("gmx --version lost the PLUMED patch identity")
 print("Installed package patch provenance verified:", expected["plumed_commit"])

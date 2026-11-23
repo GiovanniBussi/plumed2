@@ -100,7 +100,7 @@ jobs:
           conda index "$CONDA_BLD_PATH"
           variants=(-m conda/gromacs/variants.yaml)
           if [[ $GROMACS_GPU != cpu ]]; then
-            python -c 'import json,os; json.dump({"cuda_compiler_version": [os.environ["GROMACS_CUDA_VERSION"]], "cxx_compiler_version": ["14"]}, open(os.environ["RUNNER_TEMP"]+"/cuda-variant.yaml", "w"))'
+            python -c 'import json,os; json.dump({"cuda_compiler": ["cuda-nvcc"], "cuda_compiler_version": [os.environ["GROMACS_CUDA_VERSION"]], "cxx_compiler_version": ["14"]}, open(os.environ["RUNNER_TEMP"]+"/cuda-variant.yaml", "w"))'
             variants+=(-m "$RUNNER_TEMP/cuda-variant.yaml")
           fi
           conda build -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
