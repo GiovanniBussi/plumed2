@@ -215,7 +215,7 @@ void ProjectCoordinates::calculate() {
       cellCorrection[3*i+j]=derivative;
     }
   }
-  rotateAllGlobalPositions(projector);
+  transformAllGlobalPositions(projector);
   pbcAction->getPbc().setBox(auxiliary);
 }
 

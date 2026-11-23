@@ -133,6 +133,16 @@ public:
   void rotateAllGlobalPositions(const Tensor& rotation);
 /// Move all the atoms, including virtual ones, in the shared position arrays: pos -> matmul(rotation,pos-shiftBefore)+shiftAfter
   void rotateAllGlobalPositions(const Tensor& rotation, const Vector& shiftBefore, const Vector& shiftAfter);
+/// Apply a linear transformation to all atoms, including virtual ones: pos -> matmul(matrix,pos).
+/// The matrix need not be orthogonal or invertible. Alias of rotateAllGlobalPositions().
+  void transformAllGlobalPositions(const Tensor& matrix) {
+    rotateAllGlobalPositions(matrix);
+  }
+/// Apply an affine transformation to all atoms: pos -> matmul(matrix,pos-shiftBefore)+shiftAfter.
+/// Includes virtual atoms. The matrix need not be orthogonal or invertible.
+  void transformAllGlobalPositions(const Tensor& matrix, const Vector& shiftBefore, const Vector& shiftAfter) {
+    rotateAllGlobalPositions(matrix,shiftBefore,shiftAfter);
+  }
 /// Get the sum of the forces on all the atoms, including virtual ones
   Vector getTotalForceOnAllAtoms() const;
 /// Rotate the forces on all the atoms, including virtual ones: f -> matmul(rotation,f).
