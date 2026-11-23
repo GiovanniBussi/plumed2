@@ -1,0 +1,3 @@
+sparse exact MST, displacement reuse, wrapping, rebuild and cell changes PASS
+ties, duplicates, topology changes, dense fallback and invalid inputs PASS
+local/global actions, dump stride, numerical forces and virial PASS

@@ -36,6 +36,7 @@ class Pbc;
 class PDB;
 class GenericMolInfo;
 class Tree;
+class DynamicTree;
 
 namespace colvar {
 class SelectMassCharge;
@@ -86,11 +87,21 @@ class ActionAtomistic :
   // EMST
   GenericMolInfo* actionMoldat{nullptr};
   std::unique_ptr<Tree> tree;
+  std::unique_ptr<DynamicTree> dynamicTree;
+  bool dynamicEmst=false;
+  double emstBuffer=0.2;
 
 /// Values that hold information about atom positions and charges
   std::vector<Value*>   xpos, ypos, zpos, masv, chargev;
   void updateUniqueLocal( const bool& useunique, const std::vector<int>& g2l );
 protected:
+/// Dynamic reconstruction is applied to local positions during retrieval.
+  bool usesDynamicEmst() const {
+    return dynamicEmst;
+  }
+  double getEmstBuffer() const {
+    return emstBuffer;
+  }
   bool                  massesWereSet;
   bool                  chargesWereSet;
 /// masses and charges are constant and were copied for the current list of atoms: they are not copied again
@@ -194,6 +205,9 @@ public:
 /// calling getPosition(int) in an Action where DoNotRetrieve() was called might
 /// lead to undefined behavior.
   void doNotRetrieve() {
+    if(dynamicEmst && getName()!="WHOLEMOLECULES") {
+      error("DYNAMIC_EMST requires an action that retrieves atom coordinates");
+    }
     donotretrieve=true;
   }
 /// Skip atom forces - use with care.

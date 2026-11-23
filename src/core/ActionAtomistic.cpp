@@ -34,6 +34,7 @@
 #include "tools/Pbc.h"
 #include "tools/PDB.h"
 #include "tools/Tree.h"
+#include "tools/DynamicTree.h"
 #include "tools/OpenMP.h"
 
 namespace PLMD {
@@ -58,6 +59,13 @@ ActionAtomistic::ActionAtomistic(const ActionOptions&ao):
   donotforce(false),
   massesWereSet(false),
   chargesWereSet(false) {
+  if(keywords.exists("DYNAMIC_EMST")) {
+    parseFlag("DYNAMIC_EMST",dynamicEmst);
+    parse("EMST_BUFFER",emstBuffer);
+    if(!std::isfinite(emstBuffer) || emstBuffer<=0) {
+      error("EMST_BUFFER must be finite and positive");
+    }
+  }
   ActionWithValue* bv = plumed.getActionSet().selectWithLabel<ActionWithValue*>("Box");
   actionMoldat=plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
   if( bv ) {
@@ -77,7 +85,9 @@ void ActionAtomistic::getAtomValuesFromPlumedObject( const PlumedMain& plumed, s
 }
 
 void ActionAtomistic::registerKeywords( Keywords& keys ) {
-  (void) keys; // avoid warning
+  keys.addFlag("DYNAMIC_EMST",false,"reconstruct this action's atoms using the exact minimum spanning tree of current periodic distances, without a reference structure; see DYNAMIC_EMST in the manual");
+  keys.addLinkInDocForFlag("DYNAMIC_EMST","dynamic-emst.md");
+  keys.add("compulsory","EMST_BUFFER","0.2","length buffer for reusing the DYNAMIC_EMST candidate graph, in the length units selected by UNITS; the MST is updated at every evaluation");
 }
 
 
@@ -85,6 +95,7 @@ void ActionAtomistic::requestAtoms(const std::vector<AtomNumber> & a, const bool
   plumed_massert(!lockRequestAtoms,"requested atom list can only be changed in the prepare() method");
   // this makes the EMST invalid so that it will be regenerated at next request
   tree.reset();
+  dynamicTree.reset();
   int nat=a.size();
   indexes=a;
   actionPositions.resize(nat);
@@ -481,6 +492,13 @@ void ActionAtomistic::retrieveAtoms( const bool& force ) {
     j+=n;
   }
   massesAndChargesRetrieved=constantMassesAndCharges;
+  if(dynamicEmst) {
+    if(!dynamicTree) {
+      dynamicTree=std::make_unique<DynamicTree>();
+    }
+    dynamicTree->update(actionPositions,actionPbc,emstBuffer);
+    makeWhole();
+  }
 }
 
 void ActionAtomistic::setForcesOnAtoms(const std::vector<double>& forcesToApply, unsigned& ind) {
@@ -669,7 +687,15 @@ Vector ActionAtomistic::rotateForcesOnAllAtoms(const Tensor& rotation) {
 }
 
 void ActionAtomistic::makeWhole() {
-  if(actionMoldat && actionMoldat->isWhole()) {
+  if(dynamicEmst) {
+    // Build once from the retrieved frame, before calculate(). Repeated calls
+    // (including numerical derivatives) use the same topology for that frame.
+    if(dynamicTree) {
+      const auto& parent=dynamicTree->getParents();
+      const auto& child=dynamicTree->getChildren();
+      actionPbc.makeWhole(actionPositions,parent.size(),parent.data(),child.data());
+    }
+  } else if(actionMoldat && actionMoldat->isWhole()) {
     // make sure the tree has been constructed
     if(!tree) {
       tree=std::make_unique<Tree>(actionMoldat);

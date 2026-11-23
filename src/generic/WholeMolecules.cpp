@@ -30,6 +30,7 @@
 #include "core/GenericMolInfo.h"
 #include "tools/OpenMP.h"
 #include "tools/Tree.h"
+#include "tools/DynamicTree.h"
 
 #include <vector>
 #include <map>
@@ -128,6 +129,7 @@ class WholeMolecules:
   std::vector<Vector> refs= {};
   bool doemst=false;
   bool addref=false;
+  std::vector<DynamicTree> dynamicTrees;
 public:
   explicit WholeMolecules(const ActionOptions&ao);
   static void registerKeywords( Keywords& keys );
@@ -213,10 +215,13 @@ WholeMolecules::WholeMolecules(const ActionOptions&ao):
   }
 
   // if using PDBs reorder atoms in groups based on proximity in PDB file
-  if(infomoldat && infomoldat->isWhole()) {
+  if(infomoldat && infomoldat->isWhole() && !usesDynamicEmst()) {
     doemst=true;
   }
 
+  if(doemst_tmp && usesDynamicEmst()) {
+    error("EMST and DYNAMIC_EMST cannot be used together");
+  }
   if(doemst_tmp && ! doemst) {
     error("cannot enable EMST if MOLINFO is not WHOLE");
   }
@@ -294,13 +299,16 @@ WholeMolecules::WholeMolecules(const ActionOptions&ao):
   // parent of each atom of a group (the previous atom, or its root in the tree), as an
   // index in the group
   parents.resize(groups.size());
+  if(usesDynamicEmst()) {
+    dynamicTrees.resize(groups.size());
+  }
   std::size_t maxsize=0;
   for(unsigned i=0; i<groups.size(); ++i) {
     std::map<AtomNumber,unsigned> local;
     for(unsigned j=0; j<groups[i].size(); ++j) {
       local.emplace(groups[i][j],j);
     }
-    for(unsigned j=0; j+1<groups[i].size(); ++j) {
+    for(unsigned j=0; !usesDynamicEmst() && j+1<groups[i].size(); ++j) {
       const auto it=local.find(roots[i][j]);
       plumed_assert(it!=local.end() && it->second<=j) << "the parent of an atom must come before it";
       parents[i].push_back(it->second);
@@ -331,7 +339,13 @@ void WholeMolecules::calculate() {
     }
     // link j: from atom parents[i][j] to atom j+1 (only the atoms that are moved change)
     const std::vector<Vector> orig(pos);
-    getPbc().makeWhole(pos, n-1, parents[i].data(), children.data());
+    if(usesDynamicEmst()) {
+      auto& dt=dynamicTrees[i];
+      dt.update(pos,getPbc(),getEmstBuffer());
+      getPbc().makeWhole(pos,dt.getParents().size(),dt.getParents().data(),dt.getChildren().data());
+    } else {
+      getPbc().makeWhole(pos, n-1, parents[i].data(), children.data());
+    }
     for(unsigned j=1; j<n; ++j) {
       if(pos[j][0]!=orig[j][0] || pos[j][1]!=orig[j][1] || pos[j][2]!=orig[j][2]) {
         setGlobalPosition(p_groups[i][j], pos[j]);

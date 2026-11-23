@@ -1,6 +1,9 @@
 Actions
 -------
 
+Atomistic actions can opt into [dynamic minimum spanning tree reconstruction](dynamic-emst.md)
+with `DYNAMIC_EMST`, without a whole reference structure.
+
 Every line in a PLUMED input file gives the input for an action or a [shortcut](shortcuts.md). The input for an action 
 can all be on a single line as shown below:
 
