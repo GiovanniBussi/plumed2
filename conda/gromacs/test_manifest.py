@@ -27,15 +27,16 @@ class ManifestChecks(unittest.TestCase):
         self.records = {}
         for item in self.manifest["matrix"]:
             platform, mpi, gpu = (item[k] for k in ("platform", "mpi", "gpu"))
-            filename = f"gromacs-plumed-test-{platform}-{mpi}-{gpu}.conda"
-            (self.root / filename).write_bytes(b"package fixture")
+            filename = f"gromacs-plumed-test-{mpi}-{gpu}.conda"
+            (self.root / platform).mkdir(exist_ok=True)
+            (self.root / platform / filename).write_bytes(b"package fixture")
             record = {
                 "platform": platform,
                 "mpi": mpi,
                 "gpu": gpu,
                 "source": copy.deepcopy(self.manifest),
                 "package": filename,
-                "sha256": package.digest(self.root / filename),
+                "sha256": package.digest(self.root / platform / filename),
                 "index": {
                     "name": "gromacs-plumed",
                     "version": self.manifest["package_version"],
@@ -66,8 +67,8 @@ class ManifestChecks(unittest.TestCase):
             package.verify(self.root)
 
     def test_corrupt_package(self):
-        filename = next(iter(self.records.values()))["package"]
-        (self.root / filename).write_bytes(b"corrupt")
+        record = next(iter(self.records.values()))
+        (self.root / record["platform"] / record["package"]).write_bytes(b"corrupt")
         with self.assertRaisesRegex(ValueError, "digest mismatch"):
             package.verify(self.root)
 

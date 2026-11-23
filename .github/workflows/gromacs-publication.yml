@@ -87,3 +87,52 @@ jobs:
         run: |
           python3 -m pip install anaconda-client
           python3 conda/gromacs/package.py upload
+
+  channel-install:
+    name: Channel install (${{ matrix.platform }}, ${{ matrix.mpi }}, ${{ matrix.gpu }})
+    needs: [prepare, packages]
+    if: ${{ inputs.upload && github.repository == 'plumed/plumed2' && github.ref == 'refs/heads/master' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      GROMACS_MPI: ${{ matrix.mpi }}
+      GROMACS_GPU: ${{ matrix.gpu }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-package-${{ matrix.platform }}-${{ matrix.mpi }}-${{ matrix.gpu }}
+          path: packages
+      - run: python3 conda/gromacs/package.py environment
+      - name: Install Conda
+        run: |
+          curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
+          source ./conda-ci install
+      - name: Install the exact published package and verify biased MD
+        env:
+          PACKAGE_RECORD: packages/${{ matrix.platform }}-${{ matrix.mpi }}-${{ matrix.gpu }}.json
+        run: |
+          source activate base
+          spec=$(python -c 'import json,os; d=json.load(open(os.environ["PACKAGE_RECORD"]))["index"]; print(d["name"]+"="+d["version"]+"="+d["build"])')
+          # Anaconda indexing can lag a successful archive upload.
+          for attempt in 1 2 3 4 5; do
+            if conda create -y -p "$RUNNER_TEMP/published" --override-channels \
+              -c plumed/label/test -c conda-forge "$spec" python=3.12; then
+              break
+            fi
+            if [[ $attempt == 5 ]]; then exit 1; fi
+            sleep 30
+          done
+          conda activate "$RUNNER_TEMP/published"
+          bash conda/gromacs/test-channel.sh
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: gromacs-channel-results-${{ matrix.platform }}-${{ matrix.mpi }}-${{ matrix.gpu }}
+          path: ${{ runner.temp }}/channel-results

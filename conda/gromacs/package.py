@@ -188,7 +188,8 @@ def record(directory, platform, mpi, gpu):
     index = package_index(package)
     if manifest["plumed_commit"][:12] not in index["build"]:
         raise ValueError("Package build string lost patch source identity")
-    shutil.copy2(package, directory / package.name)
+    (directory / platform).mkdir(parents=True, exist_ok=True)
+    shutil.copy2(package, directory / platform / package.name)
     write(
         directory / f"{platform}-{mpi}-{gpu}.json",
         {
@@ -242,7 +243,7 @@ def verify(directory):
             "gromacs-plumed-"
         ):
             raise ValueError("Invalid package path")
-        if digest(directory / filename) != record["sha256"]:
+        if digest(directory / p / filename) != record["sha256"]:
             raise ValueError("Package digest mismatch")
         index = record["index"]
         if index["subdir"] != p or index["version"] != manifest["package_version"]:
@@ -253,7 +254,9 @@ def verify(directory):
         ):
             raise ValueError("Unexpected package identity")
         records.append(record)
-    if {p.name for p in directory.glob("*.conda")} != {r["package"] for r in records}:
+    if {str(p.relative_to(directory)) for p in directory.rglob("*.conda")} != {
+        r["platform"] + "/" + r["package"] for r in records
+    }:
         raise ValueError("Missing or unexpected archives")
     print(f"Verified {len(records)} packages from {manifest['plumed_commit']}")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -311,7 +314,7 @@ def upload(directory):
                 "plumed",
                 "--label",
                 "test",
-                str(Path(directory) / record["package"]),
+                str(Path(directory) / record["platform"] / record["package"]),
             ],
             check=True,
             env=environment,
