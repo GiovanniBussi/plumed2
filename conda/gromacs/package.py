@@ -324,14 +324,21 @@ def upload(directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", choices=("prepare", "environment", "record", "verify", "upload")
+        "command",
+        choices=("prepare", "environment", "record", "verify", "upload", "spec"),
     )
     parser.add_argument("--directory", default="packages")
     parser.add_argument("--platform", choices=PLATFORMS)
     parser.add_argument("--mpi", choices=("tmpi", "openmpi"))
     parser.add_argument("--gpu")
+    parser.add_argument("--archive")
     args = parser.parse_args()
-    if args.command == "record":
+    if args.command == "spec":
+        if not args.archive:
+            parser.error("spec requires --archive")
+        index = package_index(args.archive)
+        print(index["name"] + "=" + index["version"] + "=" + index["build"])
+    elif args.command == "record":
         if not all((args.platform, args.mpi, args.gpu)):
             parser.error("record requires --platform, --mpi and --gpu")
         record(args.directory, args.platform, args.mpi, args.gpu)
