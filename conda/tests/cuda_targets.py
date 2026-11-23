@@ -25,6 +25,26 @@ class Targets(unittest.TestCase):
         ):
             self.assertEqual(module.targets("nvcc"), (["80"], ["80"]))
 
+    def test_activation_preserves_hopper_and_blackwell_targets(self):
+        flags = (
+            "-gencode arch=compute_89,code=sm_89 "
+            "-gencode arch=compute_90a,code=sm_90a "
+            "-gencode arch=compute_100f,code=sm_100f "
+            "-gencode arch=compute_121f,code=sm_121f "
+            "-gencode arch=compute_121,code=compute_121"
+        )
+        with patch.dict(os.environ, {"NVCC_GENCODE": flags}):
+            self.assertEqual(
+                module.targets("nvcc"), (["89", "90a", "100f", "121f"], ["121"])
+            )
+
+    def test_specialized_ptx_also_gets_generic_forward_fallback(self):
+        with patch.dict(
+            os.environ,
+            {"NVCC_GENCODE": "-gencode arch=compute_90a,code=[sm_90a,compute_90a]"},
+        ):
+            self.assertEqual(module.targets("nvcc"), (["90a"], ["90", "90a"]))
+
     def test_nvcc_capabilities_not_a_hardcoded_old_gpu(self):
         with (
             patch.dict(os.environ, {"NVCC_GENCODE": ""}),
