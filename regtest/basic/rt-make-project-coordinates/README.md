@@ -22,8 +22,15 @@ For box vectors stored as rows in `h`, the coordinate map is
 `Q = transpose(h) D transpose(inverse(h))`, where `D` retains the selected
 fractional coordinates. Forces map with `transpose(Q)`. Under simultaneous
 affine strain of coordinates and box, projected positions transform affinely.
-The auxiliary cell is obtained by orthogonalizing the discarded vectors against
-the retained subspace and each other; its retained rows are unchanged.
+The auxiliary cell keeps the selected lattice vectors exactly unchanged. For
+`PLANE=ab`, `a` and `b` keep their lengths and mutual angle; only `c` is replaced
+by a nonzero vector perpendicular to their plane. This auxiliary vector is
+distinct from `Q c`, which is zero. For `AXIS=a`, `a` is unchanged and the other
+two box vectors become nonzero auxiliary vectors perpendicular to `a` and each
+other. They keep the box nonsingular without shortening projected distances.
+For `PLANE=ab`, an original image shift `n_a a + n_b b + n_c c` becomes
+`n_a a + n_b b`, an output-box lattice vector. This proves invariance under
+independent original-cell image shifts; the other selectors follow identically.
 
 Let `W` be the incoming virial, `b` the auxiliary cell and `db` its analytic
 derivative for one strain component. The correction is the contraction

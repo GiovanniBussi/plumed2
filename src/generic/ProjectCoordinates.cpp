@@ -33,11 +33,27 @@ Alternatively, AXIS=a, AXIS=b or AXIS=c retains just one fractional coordinate.
 For a tilted cell this is an oblique, rather than an orthogonal, projection.
 The direction being removed follows the instantaneous cell.
 
-The retained lattice vectors are unchanged. The remaining cell vectors are
-orthogonalized against the retained subspace and one another. This auxiliary
-cell remains nonsingular, and ordinary minimum-image distances between projected
-positions give the distances in the retained periodic lattice. Its volume and
-discarded cell directions do not describe a physical projected system.
+The output box keeps the selected lattice vectors exactly unchanged. For
+PLANE=ab, both $a$ and $b$ keep their original lengths and mutual angle; only
+$c$ is replaced by a nonzero auxiliary vector perpendicular to their plane.
+The coordinate projection sends the original $c$ to zero; the auxiliary vector
+is a separate construction that keeps the output box nonsingular. For AXIS=a,
+$a$ is unchanged, and the other two box vectors are replaced by nonzero
+auxiliary vectors perpendicular to $a$ and to each other. Analogous rules apply
+to the other selectors.
+
+These auxiliary directions cannot shorten distances between projected positions,
+so ordinary minimum-image distances give the distances in the retained periodic
+lattice. The auxiliary cell volume and auxiliary directions do not describe a
+physical projected system.
+
+Projected PBC distances are invariant under independent shifts of input atoms
+by any original lattice vector. For PLANE=ab, shifting an atom by
+$n_a a+n_b b+n_c c$, with integer coefficients, changes its projected position
+only by $n_a a+n_b b$. This is a lattice vector of the output box, so PBC
+distances are unchanged. The same argument applies to the other selectors.
+Thus these periodic distances do not require making molecules whole before
+projection. CVs that use a whole structure without PBC may still require it.
 
 This operation affects all real atoms and all virtual atoms defined before it.
 Forces and cell derivatives are propagated to the original system, including
