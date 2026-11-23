@@ -1,0 +1,81 @@
+name: Publish GROMACS Conda test packages
+
+on:
+  workflow_call:
+    inputs:
+      upload:
+        type: boolean
+        default: false
+    secrets:
+      CONDA_UPLOAD_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload validated packages to plumed/label/test (upstream master only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gromacs-conda-publication
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.prepare.outputs.matrix }}
+      platforms: ${{ steps.prepare.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: prepare
+        run: python3 conda/gromacs/package.py prepare
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs/manifest.json
+          if-no-files-found: error
+
+  platform:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    uses: ./.github/workflows/gromacs-conda-build.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}
+      channel_runtime_check: ${{ inputs.upload && github.repository == 'plumed/plumed2' && github.ref == 'refs/heads/master' }}
+
+  packages:
+    needs: [prepare, platform]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: gromacs-package-*
+          path: packages
+          merge-multiple: true
+      - run: python3 conda/gromacs/package.py verify
+      - name: Publish validated GROMACS packages
+        if: ${{ inputs.upload && github.repository == 'plumed/plumed2' && github.ref == 'refs/heads/master' }}
+        env:
+          CONDA_UPLOAD_TOKEN: ${{ secrets.CONDA_UPLOAD_TOKEN }}
+        run: |
+          python3 -m pip install anaconda-client
+          python3 conda/gromacs/package.py upload

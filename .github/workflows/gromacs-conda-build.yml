@@ -1,0 +1,139 @@
+name: Build GROMACS Conda packages
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      platform:
+        type: string
+        required: true
+      channel_runtime_check:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  patcher:
+    name: Minimal PLUMED (${{ inputs.platform }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs
+      - run: python3 conda/gromacs/package.py environment
+      - name: Install Conda build tools
+        run: |
+          curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
+          source ./conda-ci install
+          source ./conda-ci install-conda-build
+      - name: Build minimal serial PLUMED from this commit
+        run: |
+          source activate base
+          unset CC CXX
+          conda build -c conda-forge --no-anaconda-upload conda/gromacs/minimal \
+            -m conda/gromacs/variants.yaml
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-patcher-${{ inputs.platform }}
+          path: ${{ runner.temp }}/gromacs-conda-bld/${{ inputs.platform }}/plumed-*.conda
+          if-no-files-found: error
+          retention-days: 14
+
+  build:
+    name: GROMACS (${{ inputs.platform }}, ${{ matrix.mpi }}, ${{ matrix.gpu }})
+    needs: patcher
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        mpi: [tmpi, openmpi]
+        gpu: ${{ fromJSON(inputs.platform == 'linux-64' && '["cpu", "cuda"]' || '["cpu"]') }}
+    env:
+      GROMACS_MPI: ${{ matrix.mpi }}
+      GROMACS_GPU: ${{ matrix.gpu }}
+      CONDA_OVERRIDE_CUDA: '12.9'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-source-manifest
+          path: conda/gromacs
+      - run: python3 conda/gromacs/package.py environment
+      - name: Install Conda build tools
+        run: |
+          curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
+          source ./conda-ci install
+          source ./conda-ci install-conda-build
+      - uses: actions/download-artifact@v7
+        with:
+          name: gromacs-patcher-${{ inputs.platform }}
+          path: ${{ runner.temp }}/gromacs-conda-bld/${{ inputs.platform }}
+      - name: Install temporary patcher and apply runtime patch
+        run: |
+          source activate base
+          patchers=("$CONDA_BLD_PATH/${{ inputs.platform }}"/plumed-*.conda)
+          test "${#patchers[@]}" -eq 1
+          conda create -y -p "$RUNNER_TEMP/patcher" -c conda-forge "${patchers[0]}" python=3.12
+          conda activate "$RUNNER_TEMP/patcher"
+          python conda/gromacs/stage.py
+      - name: Build GROMACS Conda archive
+        run: |
+          source activate base
+          unset CC CXX
+          conda index "$CONDA_BLD_PATH"
+          conda build -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
+            -m conda/gromacs/variants.yaml
+      - name: Validate installed package with the matching temporary kernel
+        run: |
+          source activate base
+          packages=("$CONDA_BLD_PATH/${{ inputs.platform }}"/gromacs-plumed-*.conda)
+          patchers=("$CONDA_BLD_PATH/${{ inputs.platform }}"/plumed-*.conda)
+          test "${#packages[@]}" -eq 1
+          conda create -y -p "$RUNNER_TEMP/installed" -c conda-forge \
+            "${packages[0]}" "${patchers[0]}" python=3.12 numpy
+          conda activate "$RUNNER_TEMP/installed"
+          bash conda/gromacs/test-installed.sh
+      - name: Validate against the published full PLUMED runtime before upload
+        if: inputs.channel_runtime_check
+        run: |
+          source activate base
+          packages=("$CONDA_BLD_PATH/${{ inputs.platform }}"/gromacs-plumed-*.conda)
+          conda create -y -p "$RUNNER_TEMP/channel-runtime" --override-channels \
+            -c plumed/label/test -c conda-forge "${packages[0]}" python=3.12 numpy
+          conda activate "$RUNNER_TEMP/channel-runtime"
+          # Separate fresh output directory for the full-runtime validation.
+          mv "$RUNNER_TEMP/gromacs-results" "$RUNNER_TEMP/gromacs-minimal-results"
+          bash conda/gromacs/test-installed.sh
+      - name: Collect validated package and digest manifest
+        run: |
+          source activate base
+          python conda/gromacs/package.py record --platform '${{ inputs.platform }}' \
+            --mpi '${{ matrix.mpi }}' --gpu '${{ matrix.gpu }}'
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-package-${{ inputs.platform }}-${{ matrix.mpi }}-${{ matrix.gpu }}
+          path: packages/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve installed-package test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gromacs-results-${{ inputs.platform }}-${{ matrix.mpi }}-${{ matrix.gpu }}
+          path: |
+            ${{ runner.temp }}/gromacs-results/
+            ${{ runner.temp }}/gromacs-minimal-results/
+            ${{ runner.temp }}/gromacs-version.txt
+          retention-days: 14

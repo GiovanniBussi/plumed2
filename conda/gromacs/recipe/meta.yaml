@@ -1,0 +1,52 @@
+{% set version = environ['GROMACS_PACKAGE_VERSION'] %}
+{% set revision = environ['GROMACS_BUILD_NUMBER'] | int %}
+{% set sha = environ['GROMACS_PLUMED_SHA'] %}
+{% set mpi = environ['GROMACS_MPI'] %}
+{% set gpu = environ['GROMACS_GPU'] %}
+package:
+  name: gromacs-plumed
+  version: {{ version }}
+source:
+  path: {{ environ['GROMACS_SOURCE'] }}
+build:
+  number: {{ revision }}
+  string: {{ mpi }}_{{ gpu }}_plumed_g{{ sha[:12] }}_h{{ PKG_HASH }}_{{ revision }}
+  script_env:
+    - GROMACS_MPI={{ mpi }}
+    - GROMACS_GPU={{ gpu }}
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ stdlib('c') }}
+    - cmake >=3.28
+    - ninja
+    - python
+    - {{ compiler('cuda') }}  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+  host:
+    - fftw
+    - libhwloc 2.*
+    - llvm-openmp  # [osx]
+    - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
+    - cuda-version 12.9  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+    - cuda-cudart-dev  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+    - libcufft-dev  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+  run:
+    - plumed >={{ environ['GROMACS_PLUMED_VERSION'] }}
+    - fftw
+    - libhwloc 2.*
+    - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
+    - __cuda >=12.9  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+test:
+  commands:
+    - gmx --version  # [environ.get('GROMACS_MPI') == 'tmpi']
+    - gmx_mpi --version  # [environ.get('GROMACS_MPI') == 'openmpi']
+    - test -f "$PREFIX/share/gromacs-plumed/provenance.json"
+about:
+  home: https://www.gromacs.org/
+  license: LGPL-2.1-or-later
+  license_file: COPYING
+  summary: GROMACS with the dated PLUMED development patch
+extra:
+  plumed_patch_commit: {{ sha }}
+  plumed_snapshot: {{ environ['GROMACS_PLUMED_VERSION'] }}
