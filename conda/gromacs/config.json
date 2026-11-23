@@ -3,6 +3,5 @@
   "source_url": "https://ftp.gromacs.org/gromacs/gromacs-2026.4.tar.gz",
   "source_sha256": "58eda60979b124fcf9dff8b1b63cedfbc72fdb36d99e921dc1bdc310571098b6",
   "source_commit": "6c69f720aa7378fddfee67f99d51aff21ccfb0a2",
-  "patch_engine": "gromacs-2026.4",
-  "cuda_version": "12.9"
+  "patch_engine": "gromacs-2026.4"
 }
