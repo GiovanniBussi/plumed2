@@ -30,6 +30,7 @@ requirements:
     - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
     - cuda-version {{ environ.get('GROMACS_CUDA_VERSION', '12.9') }}  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
     - cuda-cudart-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
+    - cuda-cccl  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
     - libcufft-dev  # [linux64 and environ.get('GROMACS_GPU', 'cpu') != 'cpu']
   run:
     - plumed >=2.11
