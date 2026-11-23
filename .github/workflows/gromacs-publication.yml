@@ -35,6 +35,7 @@ jobs:
       platforms: ${{ steps.prepare.outputs.platforms }}
     steps:
       - uses: actions/checkout@v6
+      - run: python3 conda/gromacs/test_manifest.py
       - id: prepare
         run: python3 conda/gromacs/package.py prepare
       - uses: actions/upload-artifact@v6

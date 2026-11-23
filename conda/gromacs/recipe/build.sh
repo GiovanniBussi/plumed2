@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Conda relocates this embedded host-prefix path into each installed environment.
+# PLUMED_KERNEL remains an explicit user override of the default.
+export CXXFLAGS="${CXXFLAGS:-} -D__PLUMED_DEFAULT_KERNEL=$PREFIX/lib/libplumedKernel$SHLIB_EXT"
 options=()
 case "$target_platform" in
   linux-64|osx-64) options+=(-DGMX_SIMD=SSE2) ;;
@@ -13,7 +16,7 @@ else
   options+=(-DGMX_MPI=OFF -DGMX_THREAD_MPI=ON)
 fi
 if [[ $GROMACS_GPU == cuda ]]; then
-  options+=(-DGMX_GPU=CUDA -DGMX_CUDA_TARGET_SM='75;80;86;89;90')
+  options+=(-DGMX_GPU=CUDA -DCMAKE_CUDA_ARCHITECTURES='75-real;80-real;86-real;89-real;90')
 else
   options+=(-DGMX_GPU=OFF)
 fi
