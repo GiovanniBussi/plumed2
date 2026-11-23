@@ -42,12 +42,13 @@ modules, Python wrappers or plugins. These `gromacs_test_...` packages are
 temporary CI artifacts and are **never uploaded**. GROMACS owns MPI and injects
 it into the runtime kernel.
 
-Installed GROMACS depends on the full `plumed` package, at least as recent as the
-snapshot date, from `plumed/label/test`. Before an upstream publication, every
-variant must also pass its numerical/exchange/restart tests against a full
-runtime resolved from that channel. If no sufficiently recent compatible full
-PLUMED snapshot exists, publish one using the separate PLUMED publication
-workflow, then start a fresh GROMACS publication run. The GROMACS workflow does
+Installed GROMACS depends on the full `plumed >=2.11` package from
+`plumed/label/test` (dated development snapshots satisfy this version floor).
+Before an upstream publication, every variant must also pass its numerical/exchange/restart tests against a full
+runtime resolved from that channel. If no compatible full PLUMED snapshot passes
+these checks, publish one using the separate PLUMED publication workflow, then
+start a fresh GROMACS publication run. Patch-source date/hash provenance is
+independent of this runtime compatibility requirement. The GROMACS workflow does
 not replace channel PLUMED with its minimal test kernel.
 
 All builds and mandatory tests must pass before upload. The uploader verifies
@@ -55,7 +56,10 @@ the complete twelve-package manifest, uploads only those archives, and refuses t
 overwrite different existing bytes. Identical already-uploaded test packages
 are skipped on an upload retry. Upload is not transactional: a network failure
 can leave a partial set, recorded in job logs. Retrying just the upload uses
-the existing artifacts; rebuilding uses a new run/attempt revision.
+the existing artifacts; rebuilding uses a new run/attempt revision. Final native
+channel-install jobs install the exact published builds and run biased MD/MPI
+checks against the full channel runtime. A failure there is reported after
+publication and cannot roll back earlier uploads.
 
 Example installation (choose the displayed date and desired build):
 
