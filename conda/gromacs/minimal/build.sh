@@ -11,7 +11,7 @@ else
 fi
 export CPPFLAGS="${CPPFLAGS:-} -D__PLUMED_DEFAULT_KERNEL=$PREFIX/lib/libplumedKernel$SHLIB_EXT"
 ./configure --prefix="$PREFIX" --disable-mpi --disable-libsearch --disable-python \
-  --disable-doc --disable-static-patch --disable-static-archive \
+  --disable-doc --disable-static-patch --disable-static-archive --disable-basic-warnings \
   --disable-dependency-tracking \
   --enable-modules=none:cltools:colvar:bias:generic:setup:function:vatom
 make -j"${CPU_COUNT:-4}"

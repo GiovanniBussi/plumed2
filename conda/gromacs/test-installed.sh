@@ -19,6 +19,18 @@ python "$GITHUB_WORKSPACE/conda/gromacs/test-provenance.py" "$CONDA_PREFIX" "$RU
 python "$suite/check.py" --backend "$GROMACS_MPI" --gmx "$gmx" \
   --kernel "$kernel" --gromacs-source "$GROMACS_SOURCE" \
   --results "$results/numerical" "${arguments[@]}"
+# Verify automatic discovery after prefix relocation, with no kernel environment
+# variable and no build-prefix library path. A single rank also tests MPI startup.
+mkdir -p "$results/discovery"
+cp "$suite/plumed.dat" "$results/discovery/"
+(
+  cd "$results/discovery"
+  unset PLUMED_KERNEL LD_LIBRARY_PATH DYLD_LIBRARY_PATH
+  extra=()
+  if [[ $GROMACS_MPI == tmpi ]]; then extra+=(-ntmpi 1); fi
+  "$gmx" mdrun -s "$results/numerical/base.tpr" -plumed plumed.dat \
+    -nsteps 1 -ntomp 1 -pin off -nb cpu -pme cpu -update cpu "${extra[@]}" > run.log 2>&1
+)
 if [[ $GROMACS_MPI == tmpi ]]; then
   python "$suite/exchange/validate_mpi_modes.py" --gmx "$gmx" --kernel "$kernel" --output "$results/tmpi"
   python "$suite/exchange/validate_expanded.py" --gmx "$gmx" --kernel "$kernel" \

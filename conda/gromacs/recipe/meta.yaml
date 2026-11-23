@@ -37,6 +37,8 @@ requirements:
     - libhwloc 2.*
     - openmpi  # [environ.get('GROMACS_MPI') == 'openmpi']
     - __cuda >=12.9  # [linux64 and environ.get('GROMACS_GPU') == 'cuda']
+  run_constrained:
+    - gromacs <0a0
 test:
   commands:
     - gmx --version  # [environ.get('GROMACS_MPI') == 'tmpi']

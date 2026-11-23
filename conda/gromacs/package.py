@@ -174,8 +174,30 @@ def record(directory, platform, mpi, gpu):
             "index": index,
             "source": manifest,
             "gpu_execution_tested": False,
+            "runtime_validation": runtime_validation(),
         },
     )
+
+
+def runtime_validation():
+    """Keep actual installed kernel package identities beside numerical results."""
+    records = {}
+    for name in ("installed", "channel-runtime"):
+        prefix = Path(os.environ["RUNNER_TEMP"]) / name
+        paths = list((prefix / "conda-meta").glob("plumed-*.json"))
+        if not paths:
+            continue
+        if len(paths) != 1:
+            raise ValueError("Ambiguous installed PLUMED runtime")
+        index = read(paths[0])
+        records[name] = {
+            key: index.get(key)
+            for key in ("name", "version", "build", "subdir", "sha256", "url")
+        }
+        source = prefix / "lib/plumed/conda-source.json"
+        if source.exists():
+            records[name]["source"] = read(source)
+    return records
 
 
 def verify(directory):

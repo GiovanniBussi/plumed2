@@ -43,6 +43,13 @@ def main():
         ROOT / "src/wrapper/Plumed.h"
     ).read_bytes():
         raise ValueError("Patched wrapper differs from triggered PLUMED checkout")
+    # Make the staged source independent of the temporary patcher's symlinks.
+    for name in ("Plumed.h", "Plumed.inc", "Plumed.cmake"):
+        path = source / name
+        if path.is_symlink():
+            content = path.read_bytes()
+            path.unlink()
+            path.write_bytes(content)
     diff = "".join(
         "".join(
             difflib.unified_diff(

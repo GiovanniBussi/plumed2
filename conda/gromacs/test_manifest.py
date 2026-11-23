@@ -1,6 +1,8 @@
 """Exercise publication gates against missing, mixed and corrupted artifacts."""
 
 import copy
+import io
+import json
 import os
 import tempfile
 import unittest
@@ -100,6 +102,61 @@ class ManifestChecks(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "manual upstream master"),
         ):
             package.upload(self.root)
+
+    def test_upload_selects_only_validated_gromacs_archives(self):
+        context = {
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "plumed/plumed2",
+            "GITHUB_REF": "refs/heads/master",
+            "CONDA_UPLOAD_TOKEN": "test-only-token",
+        }
+        with (
+            patch.dict(os.environ, context),
+            patch.object(
+                package.urllib.request,
+                "urlopen",
+                return_value=io.BytesIO(b'{"files": []}'),
+            ),
+            patch.object(package.subprocess, "run") as run,
+        ):
+            package.upload(self.root)
+        self.assertEqual(run.call_count, 10)
+        for call in run.call_args_list:
+            command = call.args[0]
+            self.assertEqual(
+                command[:6],
+                ["anaconda", "upload", "--user", "plumed", "--label", "test"],
+            )
+            self.assertNotIn("--force", command)
+            self.assertNotIn("test-only-token", " ".join(command))
+            self.assertTrue(Path(command[-1]).name.startswith("gromacs-plumed-"))
+
+    def test_identical_upload_retry_does_not_upload_again(self):
+        files = [
+            {
+                "basename": r["platform"] + "/" + r["package"],
+                "sha256": r["sha256"],
+                "labels": ["test"],
+            }
+            for r in self.records.values()
+        ]
+        context = {
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "plumed/plumed2",
+            "GITHUB_REF": "refs/heads/master",
+            "CONDA_UPLOAD_TOKEN": "test-only-token",
+        }
+        with (
+            patch.dict(os.environ, context),
+            patch.object(
+                package.urllib.request,
+                "urlopen",
+                return_value=io.BytesIO(json.dumps({"files": files}).encode()),
+            ),
+            patch.object(package.subprocess, "run") as run,
+        ):
+            package.upload(self.root)
+        run.assert_not_called()
 
 
 if __name__ == "__main__":
