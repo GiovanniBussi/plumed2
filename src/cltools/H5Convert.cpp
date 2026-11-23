@@ -87,8 +87,8 @@ PLUMED_REGISTER_CLTOOL(H5Convert,"h5convert")
 
 void H5Convert::registerKeywords( Keywords& keys ) {
   CLTool::registerKeywords( keys );
-  keys.add("compulsory","--input","the file to convert (- for text standard input)");
-  keys.add("compulsory","--output","the converted file (HDF5 if its extension is .h5, text otherwise; - for text standard output)");
+  keys.add("compulsory","--input/-i","the file to convert (- for text standard input)");
+  keys.add("compulsory","--output/-o","the converted file (HDF5 if its extension is .h5, text otherwise; - for text standard output)");
 }
 
 H5Convert::H5Convert(const CLToolOptions& co ):

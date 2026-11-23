@@ -47,6 +47,12 @@ assert b"1.2345678901234567" in expected
 assert b"#! SET description a constant with spaces" in expected
 print("named conversion: OK")
 
+success("h5convert", "-i", "-", "-o=short options.h5", input=text)
+assert success("h5convert", "-i=short options.h5", "-o", "-") == expected
+success("h5convert", "--input", "input", "-o", "mixed.h5")
+assert success("h5convert", "-i", "mixed.h5", "--output=-") == expected
+print("short and mixed aliases with streams and spaced filenames: OK")
+
 assert success("h5convert", "--input", "first.h5", "--output", "-") == expected
 assert not Path("-").exists()
 print("text stdout: OK")
