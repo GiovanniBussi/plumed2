@@ -1,0 +1,77 @@
+{
+  "source_url": "https://files.rcsb.org/download/1S72.pdb",
+  "source_sha256": "8d8dc3e2bf605928b6d2063d1db28b3ac8c410b5082a825f70ee47e9a147d4a8",
+  "reference_sha256": "7707d91128caae1f37aa636c182753fb800e16f51150340f30f7c272804c8df4",
+  "baseline_kernel_sha256": "f4ab2df9861c9810825db0f0aa0431b33aaf15c01bb80bd6705a3d7423bdfa65",
+  "kernel_sha256": "2228c44ab743c962360cba2559b1b4d96899b5f67ef4c6bddcc8cc64dbd8d618",
+  "trials": 3,
+  "selections": {
+    "triplets": [
+      {
+        "atoms": 8613,
+        "residues": 2871
+      }
+    ],
+    "rna": [
+      {
+        "atoms": 61512,
+        "residues": 2871
+      }
+    ],
+    "all": [
+      {
+        "atoms": 99039,
+        "residues": 14705
+      }
+    ],
+    "repeat": [
+      {
+        "atoms": 8613,
+        "residues": 2871
+      },
+      {
+        "atoms": 8613,
+        "residues": 2871
+      },
+      {
+        "atoms": 8613,
+        "residues": 2871
+      },
+      {
+        "atoms": 8613,
+        "residues": 2871
+      }
+    ],
+    "distinct": [
+      {
+        "atoms": 8613,
+        "residues": 2871
+      },
+      {
+        "atoms": 8613,
+        "residues": 2871
+      },
+      {
+        "atoms": 8613,
+        "residues": 2871
+      }
+    ],
+    "one-per-residue": [
+      {
+        "atoms": 14705,
+        "residues": 14705
+      }
+    ]
+  },
+  "baseline_commit": "832f9c9a154e074ed707f0cd320c284589564004",
+  "tested_source_commit": "12c58e0c194be9cf9a07ecf9ff76118e66157f8b",
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)",
+  "configuration": [
+    "--disable-mpi",
+    "--disable-openmp",
+    "--disable-libsearch",
+    "--enable-modules=reset"
+  ],
+  "platform": "macOS arm64",
+  "observation_date": "2026-11-24"
+}
