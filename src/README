@@ -13,7 +13,7 @@ All the other directories are "modules". Modules are of three type:
 * default on, can be disabled with ./configure --enable-modules=-modulename
 * default off, can be enabled with ./configure --enable-modules=+modulename
 
-Configure stores module overrides in the ENABLED and DISABLED variables in
+Configure stores module overrides in the PLUMED_MODULE_ENABLED and PLUMED_MODULE_DISABLED variables in
 ../Makefile.conf. Unlisted modules follow their current module.yml default,
 including modules added after configuration. Required dependencies are enabled
 during configuration. Legacy modulename.on and modulename.off files are ignored.

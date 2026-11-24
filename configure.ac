@@ -269,18 +269,18 @@ for modules_file in src/*/module.yml; do
 done
 
 # These are overrides, not a snapshot: new modules retain their live defaults.
-ENABLED=" "
-DISABLED=" "
+PLUMED_MODULE_ENABLED=" "
+PLUMED_MODULE_DISABLED=" "
 modules_excluded=" "
 plumed_module_enable() {
-  ENABLED=`echo "$ENABLED" | sed "s/ $[]1 / /g"`
-  ENABLED="$ENABLED$[]1 "
-  DISABLED=`echo "$DISABLED" | sed "s/ $[]1 / /g"`
+  PLUMED_MODULE_ENABLED=`echo "$PLUMED_MODULE_ENABLED" | sed "s/ $[]1 / /g"`
+  PLUMED_MODULE_ENABLED="$PLUMED_MODULE_ENABLED$[]1 "
+  PLUMED_MODULE_DISABLED=`echo "$PLUMED_MODULE_DISABLED" | sed "s/ $[]1 / /g"`
 }
 plumed_module_disable() {
-  DISABLED=`echo "$DISABLED" | sed "s/ $[]1 / /g"`
-  DISABLED="$DISABLED$[]1 "
-  ENABLED=`echo "$ENABLED" | sed "s/ $[]1 / /g"`
+  PLUMED_MODULE_DISABLED=`echo "$PLUMED_MODULE_DISABLED" | sed "s/ $[]1 / /g"`
+  PLUMED_MODULE_DISABLED="$PLUMED_MODULE_DISABLED$[]1 "
+  PLUMED_MODULE_ENABLED=`echo "$PLUMED_MODULE_ENABLED" | sed "s/ $[]1 / /g"`
 }
 
 AC_ARG_ENABLE([modules],
@@ -310,8 +310,8 @@ AC_ARG_ENABLE([modules],
      case "$modules_mod" in
      (none|all|reset)
        modules_excluded=" "
-       ENABLED=" "
-       DISABLED=" "
+       PLUMED_MODULE_ENABLED=" "
+       PLUMED_MODULE_DISABLED=" "
        AC_MSG_NOTICE([Setting modules to ${modules_mod}])
        for modules_file in src/*/module.yml; do
          modules_kind=$(src/maketools/module-header type "$modules_file")
@@ -362,7 +362,7 @@ AC_ARG_ENABLE([modules],
 # Evaluate dependencies only after the complete ordered selection expression.
 # The resolver checks conflicts before printing any automatic additions.
 plumed_resolve_modules() {
-modules_added=$(src/maketools/resolve-modules src "$ENABLED" "$DISABLED" "$modules_excluded") ||
+modules_added=$(src/maketools/resolve-modules src "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED" "$modules_excluded") ||
   AC_MSG_ERROR([cannot satisfy module dependencies])
 if test -n "$modules_added"; then
   while read -r modules_mod modules_reason; do
@@ -382,7 +382,7 @@ if test "$enable_kenref" = yes; then
   plumed_module_enable kenref
 fi
 plumed_resolve_modules
-AC_MSG_NOTICE([Module overrides: ENABLED=$ENABLED DISABLED=$DISABLED])
+AC_MSG_NOTICE([Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED])
 
 
 
@@ -1144,7 +1144,7 @@ KENREF_MIN_VERSION=2.0.0          # floor that catches a stale/mismatched kenref
 AC_SUBST([KENREF_PLUMED_INCLUDE], [""])
 
 kenref_module_on=no
-kenref_modules=$(src/maketools/module-selection src --overrides "$ENABLED" "$DISABLED") ||
+kenref_modules=$(src/maketools/module-selection src --overrides "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED") ||
   AC_MSG_ERROR([invalid module selection])
 case " $(echo "$kenref_modules" | tr '\n' ' ') " in
   (*" kenref "*) kenref_module_on=yes ;;
@@ -2025,18 +2025,18 @@ build_dir=`pwd`
 
 
 # Library probes can remove modules; never silently re-enable unavailable ones.
-src/maketools/resolve-modules src "$ENABLED" "$DISABLED" "$modules_excluded" check ||
+src/maketools/resolve-modules src "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED" "$modules_excluded" check ||
   AC_MSG_ERROR([module dependencies are not satisfied after feature checks])
-modules_final=$(src/maketools/module-selection src --overrides "$ENABLED" "$DISABLED") ||
+modules_final=$(src/maketools/module-selection src --overrides "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED") ||
   AC_MSG_ERROR([cannot report enabled modules])
 modules_final=$(echo "$modules_final" | tr '\n' ' ')
 AC_MSG_NOTICE([Enabled modules: $modules_final])
 
 # Normalize the two persistent override lists; no module state files are written.
-ENABLED=$(echo "$ENABLED" | xargs)
-DISABLED=$(echo "$DISABLED" | xargs)
-AC_SUBST([ENABLED])
-AC_SUBST([DISABLED])
+PLUMED_MODULE_ENABLED=$(echo "$PLUMED_MODULE_ENABLED" | xargs)
+PLUMED_MODULE_DISABLED=$(echo "$PLUMED_MODULE_DISABLED" | xargs)
+AC_SUBST([PLUMED_MODULE_ENABLED])
+AC_SUBST([PLUMED_MODULE_DISABLED])
 
 # This is to replace tags in Makefile.conf.in
 # saving the result to Makefile.conf

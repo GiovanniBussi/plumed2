@@ -184,7 +184,7 @@ try:
             )
             assert decode("completion-scripts.h") == expected
         generated = Path(directory) / "generated"
-        subprocess.run(
+        generated_result = subprocess.run(
             [
                 os.environ.get("CMAKE", "cmake"),
                 "-DSRC=" + str(source),
@@ -193,18 +193,24 @@ try:
                 "-P",
                 str(source / "cmake-msvc/generate.cmake"),
             ],
-            check=True,
+            check=False,
             capture_output=True,
             text=True,
             timeout=120,
         )
+        assert generated_result.returncode == 0, (
+            generated_result.stdout + generated_result.stderr
+        )
         settings = dict(
             line.split("=", 1)
             for line in (generated / "Makefile.conf").read_text().splitlines()
-            if line.startswith(("ENABLED=", "DISABLED="))
+            if line.startswith(("PLUMED_MODULE_ENABLED=", "PLUMED_MODULE_DISABLED="))
         )
-        assert set(settings["ENABLED"].split()) == default_modules
-        assert set(settings["DISABLED"].split()) == set(headers) - default_modules
+        assert set(settings["PLUMED_MODULE_ENABLED"].split()) == default_modules
+        assert (
+            set(settings["PLUMED_MODULE_DISABLED"].split())
+            == set(headers) - default_modules
+        )
 
         catalogue = Path(directory) / "ModuleMap.inc"
         script = Path(directory) / "catalogue.cmake"

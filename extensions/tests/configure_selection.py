@@ -83,11 +83,12 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         # Record the real configure override state immediately before compiler
         # probes. The full native build checks the final AC_SUBST output too.
         snapshot = re.search(
-            r"Module overrides: ENABLED=(.*?) DISABLED=(.*)", result.stdout
+            r"Module overrides: PLUMED_MODULE_ENABLED=(.*?) PLUMED_MODULE_DISABLED=(.*)",
+            result.stdout,
         )
         if snapshot:
             (root / "Makefile.conf").write_text(
-                f"ENABLED={snapshot[1].strip()}\nDISABLED={snapshot[2].strip()}\n"
+                f"PLUMED_MODULE_ENABLED={snapshot[1].strip()}\nPLUMED_MODULE_DISABLED={snapshot[2].strip()}\n"
             )
         return result
 
@@ -160,10 +161,10 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     settings = dict(
         line.split("=", 1) for line in (root / "Makefile.conf").read_text().splitlines()
     )
-    settings["ENABLED"] = " ".join(
-        name for name in settings["ENABLED"].split() if name != "bias"
+    settings["PLUMED_MODULE_ENABLED"] = " ".join(
+        name for name in settings["PLUMED_MODULE_ENABLED"].split() if name != "bias"
     )
-    settings["DISABLED"] += " bias"
+    settings["PLUMED_MODULE_DISABLED"] += " bias"
     (root / "Makefile.conf").write_text(
         "\n".join(f"{key}={value}" for key, value in settings.items()) + "\n"
     )
@@ -171,8 +172,8 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         [
             "src/maketools/resolve-modules",
             "src",
-            settings["ENABLED"],
-            settings["DISABLED"],
+            settings["PLUMED_MODULE_ENABLED"],
+            settings["PLUMED_MODULE_DISABLED"],
             "",
             "check",
         ],
@@ -255,10 +256,10 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     )
 
     for text in (
-        "ENABLED=\n",
-        "ENABLED=\nENABLED=alpha\nDISABLED=\n",
-        "ENABLED=alpha\nDISABLED=alpha\n",
-        "ENABLED=$(touch sentinel)\nDISABLED=\n",
+        "PLUMED_MODULE_ENABLED=\n",
+        "PLUMED_MODULE_ENABLED=\nPLUMED_MODULE_ENABLED=alpha\nPLUMED_MODULE_DISABLED=\n",
+        "PLUMED_MODULE_ENABLED=alpha\nPLUMED_MODULE_DISABLED=alpha\n",
+        "PLUMED_MODULE_ENABLED=$(touch sentinel)\nPLUMED_MODULE_DISABLED=\n",
     ):
         configuration.write_text(text)
         result = subprocess.run(
@@ -271,6 +272,10 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         )
         assert result.returncode != 0, text
         assert not (root / "sentinel").exists()
+    configuration.write_bytes(saved)
+    expected = selected()
+    configuration.write_bytes(saved + b"ENABLED=unrelated\nDISABLED=core\n")
+    assert selected() == expected  # Generic Make variables must not collide.
     configuration.write_bytes(saved)
 
     obsolete = root / "src/legacy-module/module.type"

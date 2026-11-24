@@ -429,7 +429,7 @@ be used in place of the previous one:
 
 If you repeat the `--enable-modules` keyword only the last instance will be used. Thus `./configure --enable-modules=adjmat --enable-modules=-ves` will _not_ do what you expect!
 
-Module overrides are stored in the `ENABLED` and `DISABLED` variables in the
+Module overrides are stored in the `PLUMED_MODULE_ENABLED` and `PLUMED_MODULE_DISABLED` variables in the
 generated `Makefile.conf`. Modules in neither list follow their current
 `module.yml` default. Newly added modules therefore follow their defaults without
 running configure again. Legacy `.on` and `.off` files are ignored. Reconfigure

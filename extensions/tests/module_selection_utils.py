@@ -39,6 +39,9 @@ def selected_from_config(root, name, headers):
     )
     if headers[name]["type"] == "always":
         return True
-    if name in settings["DISABLED"].split():
+    if name in settings["PLUMED_MODULE_DISABLED"].split():
         return False
-    return name in settings["ENABLED"].split() or headers[name]["type"] == "default-on"
+    return (
+        name in settings["PLUMED_MODULE_ENABLED"].split()
+        or headers[name]["type"] == "default-on"
+    )

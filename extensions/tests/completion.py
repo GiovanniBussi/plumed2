@@ -239,7 +239,7 @@ def check_installation(shell, program, root, env):
             shutil.copy2(source / relative, target)
         (fixture / "scripts").mkdir()
         (fixture / "Makefile.conf").write_text(
-            "ENABLED=\nDISABLED=\nGCCDEP=c++\n"
+            "PLUMED_MODULE_ENABLED=\nPLUMED_MODULE_DISABLED=\nGCCDEP=c++\n"
             "SOEXT=" + env["TEST_SOEXT"] + "\n"
             "bindir=/prefix/bin\nlibdir=/prefix/lib\n"
             "includedir=/prefix/include\nhtmldir=/prefix/share/doc/plumed\n"

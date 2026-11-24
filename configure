@@ -620,8 +620,8 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-DISABLED
-ENABLED
+PLUMED_MODULE_DISABLED
+PLUMED_MODULE_ENABLED
 build_dir
 program_name
 pkgconfig_bin
@@ -2442,18 +2442,18 @@ for modules_file in src/*/module.yml; do
 done
 
 # These are overrides, not a snapshot: new modules retain their live defaults.
-ENABLED=" "
-DISABLED=" "
+PLUMED_MODULE_ENABLED=" "
+PLUMED_MODULE_DISABLED=" "
 modules_excluded=" "
 plumed_module_enable() {
-  ENABLED=`echo "$ENABLED" | sed "s/ $1 / /g"`
-  ENABLED="$ENABLED$1 "
-  DISABLED=`echo "$DISABLED" | sed "s/ $1 / /g"`
+  PLUMED_MODULE_ENABLED=`echo "$PLUMED_MODULE_ENABLED" | sed "s/ $1 / /g"`
+  PLUMED_MODULE_ENABLED="$PLUMED_MODULE_ENABLED$1 "
+  PLUMED_MODULE_DISABLED=`echo "$PLUMED_MODULE_DISABLED" | sed "s/ $1 / /g"`
 }
 plumed_module_disable() {
-  DISABLED=`echo "$DISABLED" | sed "s/ $1 / /g"`
-  DISABLED="$DISABLED$1 "
-  ENABLED=`echo "$ENABLED" | sed "s/ $1 / /g"`
+  PLUMED_MODULE_DISABLED=`echo "$PLUMED_MODULE_DISABLED" | sed "s/ $1 / /g"`
+  PLUMED_MODULE_DISABLED="$PLUMED_MODULE_DISABLED$1 "
+  PLUMED_MODULE_ENABLED=`echo "$PLUMED_MODULE_ENABLED" | sed "s/ $1 / /g"`
 }
 
 # Check whether --enable-modules was given.
@@ -2483,8 +2483,8 @@ if test "${enable_modules+set}" = set; then :
      case "$modules_mod" in
      (none|all|reset)
        modules_excluded=" "
-       ENABLED=" "
-       DISABLED=" "
+       PLUMED_MODULE_ENABLED=" "
+       PLUMED_MODULE_DISABLED=" "
        { $as_echo "$as_me:${as_lineno-$LINENO}: Setting modules to ${modules_mod}" >&5
 $as_echo "$as_me: Setting modules to ${modules_mod}" >&6;}
        for modules_file in src/*/module.yml; do
@@ -2539,7 +2539,7 @@ fi
 # Evaluate dependencies only after the complete ordered selection expression.
 # The resolver checks conflicts before printing any automatic additions.
 plumed_resolve_modules() {
-modules_added=$(src/maketools/resolve-modules src "$ENABLED" "$DISABLED" "$modules_excluded") ||
+modules_added=$(src/maketools/resolve-modules src "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED" "$modules_excluded") ||
   as_fn_error $? "cannot satisfy module dependencies" "$LINENO" 5
 if test -n "$modules_added"; then
   while read -r modules_mod modules_reason; do
@@ -2560,8 +2560,8 @@ if test "$enable_kenref" = yes; then
   plumed_module_enable kenref
 fi
 plumed_resolve_modules
-{ $as_echo "$as_me:${as_lineno-$LINENO}: Module overrides: ENABLED=$ENABLED DISABLED=$DISABLED" >&5
-$as_echo "$as_me: Module overrides: ENABLED=$ENABLED DISABLED=$DISABLED" >&6;}
+{ $as_echo "$as_me:${as_lineno-$LINENO}: Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED" >&5
+$as_echo "$as_me: Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED" >&6;}
 
 
 
@@ -9063,7 +9063,7 @@ KENREF_PLUMED_INCLUDE=""
 
 
 kenref_module_on=no
-kenref_modules=$(src/maketools/module-selection src --overrides "$ENABLED" "$DISABLED") ||
+kenref_modules=$(src/maketools/module-selection src --overrides "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED") ||
   as_fn_error $? "invalid module selection" "$LINENO" 5
 case " $(echo "$kenref_modules" | tr '\n' ' ') " in
   (*" kenref "*) kenref_module_on=yes ;;
@@ -11184,17 +11184,17 @@ build_dir=`pwd`
 
 
 # Library probes can remove modules; never silently re-enable unavailable ones.
-src/maketools/resolve-modules src "$ENABLED" "$DISABLED" "$modules_excluded" check ||
+src/maketools/resolve-modules src "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED" "$modules_excluded" check ||
   as_fn_error $? "module dependencies are not satisfied after feature checks" "$LINENO" 5
-modules_final=$(src/maketools/module-selection src --overrides "$ENABLED" "$DISABLED") ||
+modules_final=$(src/maketools/module-selection src --overrides "$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED") ||
   as_fn_error $? "cannot report enabled modules" "$LINENO" 5
 modules_final=$(echo "$modules_final" | tr '\n' ' ')
 { $as_echo "$as_me:${as_lineno-$LINENO}: Enabled modules: $modules_final" >&5
 $as_echo "$as_me: Enabled modules: $modules_final" >&6;}
 
 # Normalize the two persistent override lists; no module state files are written.
-ENABLED=$(echo "$ENABLED" | xargs)
-DISABLED=$(echo "$DISABLED" | xargs)
+PLUMED_MODULE_ENABLED=$(echo "$PLUMED_MODULE_ENABLED" | xargs)
+PLUMED_MODULE_DISABLED=$(echo "$PLUMED_MODULE_DISABLED" | xargs)
 
 
 
