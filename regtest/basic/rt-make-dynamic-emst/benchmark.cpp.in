@@ -1,0 +1,148 @@
+#include "plumed/tools/DynamicTree.h"
+#include "plumed/tools/Pbc.h"
+#include "BaselineDynamicTree.h"
+#include <algorithm>
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <random>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+using namespace PLMD;
+using Links=std::vector<std::pair<unsigned,unsigned>>;
+struct Frame {
+  std::vector<Vector> x;
+  Tensor box;
+};
+template<class Tree> Links links(const Tree& tree) {
+  Links result;
+  for(unsigned j=0; j<tree.getParents().size(); ++j) {
+    const unsigned a=tree.getParents()[j],b=tree.getChildren()[j];
+    result.emplace_back(std::min(a,b),std::max(a,b));
+  }
+  std::sort(result.begin(),result.end());
+  return result;
+}
+std::vector<std::string> split(const std::string& text) {
+  std::stringstream stream(text);
+  std::vector<std::string> result;
+  std::string part;
+  while(std::getline(stream,part,',')) {
+    result.push_back(part);
+  }
+  return result;
+}
+std::vector<Frame> frames(unsigned n,const std::string& profile,unsigned count,double motion) {
+  std::mt19937 rng(1191+n);
+  std::uniform_real_distribution<double> uniform(-0.5,0.5);
+  const double side=std::cbrt(n/100.0);
+  Frame first;
+  first.box=Tensor(side,0,0,0,side,0,0,0,side);
+  if(profile=="triclinic" || profile=="deforming") {
+    first.box=Tensor(side,0,0,0.3*side,side,0,-0.2*side,0.1*side,side);
+  }
+  first.x.resize(n);
+  for(auto& v:first.x) {
+    v=Vector(side*uniform(rng),side*uniform(rng),side*uniform(rng));
+    if(profile=="elongated") {
+      v[0]*=8;
+    }
+  }
+  if(profile=="compact") {
+    first.box*=3;
+  }
+  if(profile=="elongated") {
+    first.box(0,0)*=10;
+  }
+  if(profile=="clusters") {
+    first.box*=4;
+    for(unsigned i=0; i<n; ++i) {
+      first.x[i][0]+=(i%2 ? 1 : -1)*side;
+    }
+  }
+  std::vector<Frame> result(1,first);
+  const Tensor deformation(1.0001,0.00003,0,0,0.99995,0.00002,0,0,1.00002);
+  for(unsigned frame=0; frame<count; ++frame) {
+    Frame next=result.back();
+    if(profile=="deforming") {
+      next.box=matmul(next.box,deformation);
+      for(auto& v:next.x) {
+        v=matmul(v,deformation);
+      }
+    }
+    for(unsigned i=0; i<n; ++i) {
+      next.x[i][0]+=motion*(static_cast<int>(i%3)-1);
+    }
+    result.push_back(std::move(next));
+  }
+  return result;
+}
+template<class Tree>
+void run(unsigned n,const std::string& profile,double buffer,const std::string& mode,
+         const std::vector<Frame>& trajectory,unsigned trials,std::vector<Links>& expected,bool baseline) {
+  std::vector<double> timings;
+  std::size_t candidates=0,builds=0;
+  bool dense=false;
+  for(unsigned trial=0; trial<trials; ++trial) {
+    auto tree=std::make_unique<Tree>();
+    Pbc pbc;
+    pbc.setBox(trajectory[0].box);
+    tree->update(trajectory[0].x,pbc,buffer);
+    double elapsed=0;
+    std::size_t previous=tree->getRebuildCount();
+    builds=0;
+    for(unsigned j=1; j<trajectory.size(); ++j) {
+      pbc.setBox(trajectory[j].box);
+      const auto start=std::chrono::steady_clock::now();
+      if(mode=="rebuild") {
+        tree=std::make_unique<Tree>();
+        previous=0;
+      }
+      tree->update(trajectory[j].x,pbc,buffer);
+      elapsed+=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+      builds+=tree->getRebuildCount()-previous;
+      previous=tree->getRebuildCount();
+      const auto selected=links(*tree);
+      if(baseline && trial==0) {
+        expected.push_back(selected);
+      } else if(selected!=expected[j-1]) {
+        throw std::runtime_error("baseline/optimized MST edge mismatch");
+      }
+    }
+    timings.push_back(elapsed/(trajectory.size()-1));
+    candidates=tree->getCandidateCount();
+    dense=tree->usesDenseTree();
+  }
+  std::sort(timings.begin(),timings.end());
+  std::cout<<n<<","<<profile<<","<<buffer<<","<<mode<<","<<(baseline?"baseline":"optimized")
+           <<","<<std::setprecision(9)<<timings[timings.size()/2]<<","<<candidates<<","<<builds<<","<<dense<<std::endl;
+}
+int main(int argc,char** argv) {
+  if(argc!=7) {
+    return 2;
+  }
+  const unsigned count=std::stoul(argv[4]),trials=std::stoul(argv[5]);
+  const double motion=std::stod(argv[6]);
+  if(!count || !trials) {
+    return 2;
+  }
+  std::cout<<"atoms,profile,buffer,mode,implementation,ms_per_update,candidates,rebuilds_in_batch,dense\n";
+  for(const auto& size:split(argv[1]))
+    for(const auto& profile:split(argv[2])) {
+      const unsigned n=std::stoul(size);
+      const auto trajectory=frames(n,profile,count,motion);
+      for(const auto& skin:split(argv[3]))
+        for(const std::string mode: {
+              "reuse","rebuild"
+            }) {
+          const double buffer=std::stod(skin);
+          std::vector<Links> expected;
+          run<BaselineDynamicTree>(n,profile,buffer,mode,trajectory,trials,expected,true);
+          run<DynamicTree>(n,profile,buffer,mode,trajectory,trials,expected,false);
+        }
+    }
+}

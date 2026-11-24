@@ -27,7 +27,7 @@ class Pbc;
 
 /// Exact periodic MST of current coordinates, with a buffered candidate graph.
 /// The graph is reused only while omitted edges are provably longer than the
-/// current tree's longest edge. Box changes always invalidate the graph.
+/// current tree's longest edge. Small cell deformations can also be certified.
 /// Edges are ordered parent-before-child, anchored at local atom zero.
 class DynamicTree {
   struct Edge {
@@ -44,10 +44,14 @@ class DynamicTree {
   Tensor box;
   double radius=0;
   bool initialized=false,complete=false,dense=false;
+  bool edgesSorted=false;
   std::size_t rebuilds=0;
   std::vector<unsigned> parents,children;
+  std::vector<unsigned> componentParent,componentSize,parentOf;
+  std::vector<Edge> selectedEdges;
   double denseTree(const std::vector<Vector>& positions,const Pbc& pbc);
-  bool sparseTree(const std::vector<Vector>& positions,const Pbc& pbc,double& longest);
+  void sortEdges();
+  bool sparseTree(const std::vector<Vector>& positions,const Pbc& pbc,double& longest,bool refresh=true);
   void orient(unsigned n,const std::vector<Edge>& selected);
   void rebuild(const std::vector<Vector>& positions,const Pbc& pbc,double buffer);
   unsigned buildNodes(unsigned begin,unsigned end,std::vector<unsigned>& order,
@@ -55,7 +59,9 @@ class DynamicTree {
                       const Pbc& pbc,std::vector<Node>& nodes);
   bool findEdges(unsigned node,unsigned atom,const std::vector<unsigned>& order,
                  const std::vector<Node>& nodes,const std::vector<Vector>& positions,
-                 const Pbc& pbc,double padding,std::size_t limit);
+                 const Pbc& pbc,double padding,std::size_t limit,double previousSquared);
+  bool findCellEdges(const std::vector<Vector>& positions,const Pbc& pbc,
+                     double padding,std::size_t limit,double previousSquared);
 public:
   /// Update the tree using current periodic distances. buffer is a positive
   /// length, not a displacement trigger or an approximation tolerance.

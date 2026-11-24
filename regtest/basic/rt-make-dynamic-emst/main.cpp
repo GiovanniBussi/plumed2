@@ -154,7 +154,7 @@ int main() {
     require(tree.getRebuildCount()>built,"large displacement must invalidate certificate");
     const auto moved=tree.getRebuildCount();
     Tensor changed=box;
-    changed(0,0)+=0.1;
+    changed(0,0)+=3.0;
     pbc.setBox(changed);
     check(tree,x,pbc);
     require(tree.getRebuildCount()==moved+1,"cell change must rebuild");
@@ -163,6 +163,44 @@ int main() {
     require(tree.getRebuildCount()==moved+2,"selection size change must rebuild");
   }
   out<<"sparse exact MST, displacement reuse, wrapping, rebuild and cell changes PASS\n";
+
+  // Affine cell deformation and common translation do not require geometric
+  // rebuilding while the conservative omitted-edge certificate remains valid.
+  pbc.setBox(skew);
+  std::vector<Vector> deforming(400);
+  for(auto& v:deforming) {
+    v=pbc.scaledToReal(Vector(uniform(rng),uniform(rng),uniform(rng)));
+  }
+  DynamicTree deformingTree;
+  check(deformingTree,deforming,pbc);
+  const auto deformationBuilds=deformingTree.getRebuildCount();
+  const Tensor deformation(1.0001,0.00005,0,0,0.99995,0.00003,0,0,1.00002);
+  for(unsigned frame=0; frame<8; ++frame) {
+    pbc.setBox(matmul(pbc.getBox(),deformation));
+    for(auto& v:deforming) {
+      v=matmul(v,deformation)+Vector(0.1,-0.15,0.05);
+      v[0]+=0.0001*(uniform(rng)-0.5);
+    }
+    check(deformingTree,deforming,pbc);
+    require(deformingTree.getRebuildCount()==deformationBuilds,"small affine cell changes should reuse graph");
+  }
+  // Force large changes of edge order as well as graph validity; bounded sorting
+  // must still return exactly the complete-graph result.
+  std::shuffle(deforming.begin(),deforming.end(),rng);
+  check(deformingTree,deforming,pbc);
+  require(deformingTree.getRebuildCount()>deformationBuilds,"nonaffine motion must rebuild");
+  for(double length: {
+        0.1,1.0,10.0
+      }) {
+    pbc.setBox(Tensor(length,0,0,0,length,0,0,0,length));
+    std::vector<Vector> wrapped(40);
+    for(auto& v:wrapped) {
+      v=Vector(length*(5*uniform(rng)-2),length*(5*uniform(rng)-2),length*(5*uniform(rng)-2));
+    }
+    DynamicTree cells;
+    check(cells,wrapped,pbc,0.2);
+  }
+  out<<"cell-list degeneracies, affine deformation and translation reuse PASS\n";
 
   pbc.setBox(rect);
   std::vector<Vector> tied{{0,0,0},{1,0,0},{0,1,0},{1,1,0},{0,0,0}};
@@ -181,8 +219,19 @@ int main() {
   require(tree.usesDenseTree(),"memory cap must select dense fallback");
   coincident[1]=Vector(0.1,0,0);
   check(tree,coincident,pbc);
+  for(unsigned i=0; i<coincident.size(); ++i) {
+    coincident[i]=Vector(i%10,(i/10)%10,i/100);
+  }
+  check(tree,coincident,pbc);
+  require(!tree.usesDenseTree(),"sparse geometry should recover after dense fallback");
   Pbc nonperiodic;
   check(tree,tied,nonperiodic);
+  std::vector<Vector> lineCloud(600);
+  for(unsigned i=0; i<lineCloud.size(); ++i) {
+    lineCloud[i]=Vector(i,0,0);
+  }
+  check(tree,lineCloud,nonperiodic);
+  require(!tree.usesDenseTree(),"oversized initial radius should retry at actual bottleneck");
   bool rejected=false;
   try {
     tree.update(tied,pbc,0);

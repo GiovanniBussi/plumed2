@@ -52,13 +52,26 @@ MST is found. If its longest edge is `L` and the largest periodic displacement
 since rebuilding is `d`, reuse is certified only when
 `L + 2*d < radius`, with an additional floating point safety margin. Omitted
 edges cannot be shorter than any tree edge under this condition. A complete
-candidate graph needs no displacement certificate. Changing the cell or atom
-selection invalidates the graph.
+candidate graph needs no displacement certificate. Changing the atom selection
+invalidates the graph; cell changes use the additional bound below.
 
-The spatial search uses periodic metric bounds, including for triclinic cells.
+Orthorhombic cells use periodic cell lists, with each neighboring cell visited
+once even for very small grids. Triclinic cells use periodic metric tree bounds.
+Radius growth retains already discovered pairs. Edge sorting exploits the
+previous ordering when motion is small, with a bounded amount of repair work
+before falling back to a full sort. These changes preserve the exact edge and
+tie comparisons.
+
+Small cell changes can also reuse the graph. If the reference cell deforms by
+`F`, a conservative lower bound on its length contraction is
+`c = 1 - ||F-I||_F`. Measure `d` after subtracting that affine deformation,
+optionally also removing a common translation. Reuse requires
+`L + 2*d < c*radius`, with numerical margins. Large or uncertifiable cell changes
+rebuild the graph. A complete candidate graph is valid for any cell.
+
 If too many candidate edges would be stored, construction falls back to dense
 Prim with linear auxiliary memory and quadratic distance work. That fallback
-continues until the cell or selection changes. Large gaps between clusters and
+is retried after sufficient motion, or a cell or selection change. Large gaps between clusters and
 coincident coordinates can make the graph dense. Performance depends on geometry
 and the buffer; graph reuse does not guarantee linear running time.
 

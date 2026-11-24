@@ -1,3 +1,4 @@
 sparse exact MST, displacement reuse, wrapping, rebuild and cell changes PASS
+cell-list degeneracies, affine deformation and translation reuse PASS
 ties, duplicates, topology changes, dense fallback and invalid inputs PASS
 local/global actions, dump stride, numerical forces and virial PASS
