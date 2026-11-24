@@ -1,0 +1,34 @@
+#!/bin/sh
+# Resolve native USE dependencies without Python. Print additions only on success.
+# check is a final guard after library probes; it never re-enables a module.
+set -e
+if test "$#" -lt 2 || test "$#" -gt 3; then
+  echo "usage: resolve-modules src excluded-modules [resolve|check]" >&2
+  exit 1
+fi
+src=$1
+excluded=$2
+mode=${3:-resolve}
+case "$mode" in
+  resolve|check) ;;
+  *) echo "unknown module resolution mode: $mode" >&2; exit 1 ;;
+esac
+reader=$(dirname "$0")/module-header
+trap 'rm -f conftest.modules' 0
+(
+  for declaration in "$src"/*/module.yml; do
+    name=${declaration%/module.yml}
+    name=${name##*/}
+    kind=$("$reader" type "$declaration")
+    use=$("$reader" use "$declaration")
+    enabled=0
+    case "$kind" in
+      always) enabled=1 ;;
+      default-on) test -f "$src/$name.off" || enabled=1 ;;
+      default-off) if test -f "$src/$name.on"; then enabled=1; fi ;;
+    esac
+    printf '%s %s %s\n' "$name" "$enabled" "$use"
+  done
+) > conftest.modules
+# Do not pipe into awk: a metadata-reader failure must propagate as well.
+awk -v excluded="$excluded" -v mode="$mode" -f "$(dirname "$0")/resolve-modules.awk" conftest.modules

@@ -270,9 +270,10 @@ done
 
 AC_MSG_NOTICE([Optional modules are disabled by default])
 rm -f src/*.on src/*.off
+modules_excluded=" "
 
 AC_ARG_ENABLE([modules],
-  AS_HELP_STRING([--enable-modules], [all/none/reset or : separated list such as +crystallization:-bias default: reset]),
+  AS_HELP_STRING([--enable-modules], [all/none/reset or : separated list such as +crystallization:-ves default: reset; missing dependencies are enabled with warnings, explicit exclusions are errors]),
   [
    rm -f src/*.on src/*.off
    if test "${enableval}" = yes ; then
@@ -298,6 +299,7 @@ AC_ARG_ENABLE([modules],
    do
      case "$modules_mod" in
      (none)
+       modules_excluded=" "
        AC_MSG_NOTICE([Disabling all optional modules])
        rm -f src/*.off src/*.on
        for modules_file in src/*/module.yml; do
@@ -306,14 +308,16 @@ AC_ARG_ENABLE([modules],
          fi
        done ;;
      (all)
+       modules_excluded=" "
        AC_MSG_NOTICE([Enabling all optional modules])
-       rm -f src/*.off src/*.off
+       rm -f src/*.off src/*.on
        for modules_file in src/*/module.yml; do
          if test "$(src/maketools/module-header type "$modules_file")" = default-off; then
            touch "${modules_file%/module.yml}.on"
          fi
        done ;;
      (reset)
+        modules_excluded=" "
         AC_MSG_NOTICE([Resetting modules to default])
         rm -f src/*.on src/*.off ;;
      (-*)
@@ -324,6 +328,10 @@ AC_ARG_ENABLE([modules],
        if test "$(src/maketools/module-header type "src/$modules_mod/module.yml")" = always ; then
          AC_MSG_ERROR([trying to remove module $modules_mod which is always enabled])
        fi
+       case "$modules_excluded" in
+         (*" $modules_mod "*) ;;
+         (*) modules_excluded="$modules_excluded$modules_mod " ;;
+       esac
        AC_MSG_NOTICE([Disabling module ${modules_mod}])
        rm -f src/$modules_mod.on
        touch src/$modules_mod.off ;;
@@ -332,6 +340,7 @@ AC_ARG_ENABLE([modules],
        if test ! -f src/$modules_mod/module.yml ; then
          AC_MSG_ERROR([trying to add module $modules_mod which does not exist])
        fi
+       modules_excluded=`echo "$modules_excluded" | sed "s/ $modules_mod / /g"`
        AC_MSG_NOTICE([Enabling module ${modules_mod}])
        rm -f src/$modules_mod.off
        touch src/$modules_mod.on ;;
@@ -339,6 +348,7 @@ AC_ARG_ENABLE([modules],
        if test ! -f src/$modules_mod/module.yml ; then
          AC_MSG_ERROR([trying to add module $modules_mod which does not exist])
        fi
+       modules_excluded=`echo "$modules_excluded" | sed "s/ $modules_mod / /g"`
        AC_MSG_NOTICE([Enabling module ${modules_mod}])
        rm -f src/$modules_mod.off
        touch src/$modules_mod.on ;;
@@ -348,6 +358,34 @@ AC_ARG_ENABLE([modules],
   ,
   []
 )
+
+
+# Evaluate dependencies only after the complete ordered selection expression.
+# The resolver checks conflicts before printing any automatic additions.
+plumed_resolve_modules() {
+modules_added=$(src/maketools/resolve-modules src "$modules_excluded") ||
+  AC_MSG_ERROR([cannot satisfy module dependencies])
+if test -n "$modules_added"; then
+  while read -r modules_mod modules_reason; do
+    AC_MSG_WARN([enabling module $modules_mod required by $modules_reason])
+    rm -f "src/$modules_mod.off"
+    touch "src/$modules_mod.on"
+  done <<_PLUMED_MODULES
+$modules_added
+_PLUMED_MODULES
+fi
+}
+# Autoconf has already parsed enable_kenref; include this alternate module
+# entry point before compiler/library probes, too.
+if test "$enable_kenref" = yes; then
+  case "$modules_excluded" in
+    (*" kenref "*) AC_MSG_ERROR([kenref is explicitly disabled but --enable-kenref was given]) ;;
+  esac
+  rm -f src/kenref.off
+  touch src/kenref.on
+fi
+plumed_resolve_modules
+
 
 
 # set enable flags for ./configure
@@ -1986,6 +2024,14 @@ AC_SUBST(build_dir)
 build_dir=`pwd`
 
 
+
+# Library probes can remove modules; never silently re-enable unavailable ones.
+src/maketools/resolve-modules src "$modules_excluded" check ||
+  AC_MSG_ERROR([module dependencies are not satisfied after feature checks])
+modules_final=$(cd src/lib && ../maketools/find_modules.sh) ||
+  AC_MSG_ERROR([cannot report enabled modules])
+modules_final=$(echo "$modules_final" | tr '\n' ' ')
+AC_MSG_NOTICE([Enabled modules: $modules_final])
 
 # This is to replace tags in Makefile.conf.in
 # saving the result to Makefile.conf
