@@ -11,8 +11,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -63,12 +63,13 @@ class ModuleOptions(unittest.TestCase):
         for name in (
             "module-build-info",
             "find_modules.sh",
+            "module-selection",
             "module-header",
             "module-header.awk",
         ):
             shutil.copy2(source / "src/maketools" / name, tools / name)
         (tree / "VERSION.txt").write_text("2.11\n")
-        (tree / "Makefile.conf").write_text("CXX=c++\n")
+        (tree / "Makefile.conf").write_text("CXX=c++\nENABLED=\nDISABLED=\n")
         for module, kind in (("core", "always"), ("alpha", "default-off")):
             directory = tree / "src" / module
             directory.mkdir()
@@ -82,10 +83,11 @@ class ModuleOptions(unittest.TestCase):
             return (config / "module-build-id").read_text()
 
         baseline = identity()
-        marker = tree / "src/alpha.on"
-        marker.touch()
+        configuration = tree / "Makefile.conf"
+        original_config = configuration.read_text()
+        configuration.write_text(original_config.replace("ENABLED=", "ENABLED=alpha"))
         self.assertNotEqual(identity(), baseline)
-        marker.unlink()
+        configuration.write_text(original_config)
         self.assertEqual(identity(), baseline)
         declaration = tree / "src/core/module.yml"
         original = declaration.read_text()

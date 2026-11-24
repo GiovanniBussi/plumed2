@@ -33,10 +33,12 @@ def default_selection(headers):
         selected |= required
 
 
-def selected_from_markers(root, name, headers):
-    kind = headers[name]["type"]
-    if kind == "always":
+def selected_from_config(root, name, headers):
+    settings = dict(
+        line.split("=", 1) for line in (root / "Makefile.conf").read_text().splitlines()
+    )
+    if headers[name]["type"] == "always":
         return True
-    if kind == "default-on":
-        return not (root / "src" / (name + ".off")).exists()
-    return (root / "src" / (name + ".on")).exists()
+    if name in settings["DISABLED"].split():
+        return False
+    return name in settings["ENABLED"].split() or headers[name]["type"] == "default-on"

@@ -429,11 +429,11 @@ be used in place of the previous one:
 
 If you repeat the `--enable-modules` keyword only the last instance will be used. Thus `./configure --enable-modules=adjmat --enable-modules=-ves` will _not_ do what you expect!
 
-!!! note "old implementation"
-
-    Until PLUMED 2.2, it was also possible to switch on or off modules by adding files
-    in the plumed2/src directory. Since PLUMED 2.3 this is discouraged, since any choice made
-    in this manner will be overwritten next time `./configure` is used.
+Module overrides are stored in the `ENABLED` and `DISABLED` variables in the
+generated `Makefile.conf`. Modules in neither list follow their current
+`module.yml` default. Newly added modules therefore follow their defaults without
+running configure again. Legacy `.on` and `.off` files are ignored. Reconfigure
+if a source update adds dependencies that are not satisfied by the saved settings.
 
 There are also some shortcuts available:
 

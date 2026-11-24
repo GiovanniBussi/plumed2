@@ -183,6 +183,29 @@ try:
                 else b"\n"
             )
             assert decode("completion-scripts.h") == expected
+        generated = Path(directory) / "generated"
+        subprocess.run(
+            [
+                os.environ.get("CMAKE", "cmake"),
+                "-DSRC=" + str(source),
+                "-DOUT=" + str(generated),
+                "-DMODULES=" + ";".join(sorted(default_modules)),
+                "-P",
+                str(source / "cmake-msvc/generate.cmake"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        settings = dict(
+            line.split("=", 1)
+            for line in (generated / "Makefile.conf").read_text().splitlines()
+            if line.startswith(("ENABLED=", "DISABLED="))
+        )
+        assert set(settings["ENABLED"].split()) == default_modules
+        assert set(settings["DISABLED"].split()) == set(headers) - default_modules
+
         catalogue = Path(directory) / "ModuleMap.inc"
         script = Path(directory) / "catalogue.cmake"
         script.write_text(

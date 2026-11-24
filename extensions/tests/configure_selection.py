@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check real configure selection for hyphenated names and legacy expressions."""
 
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,7 +10,7 @@ from pathlib import Path
 from module_selection_utils import (
     default_selection,
     module_headers,
-    selected_from_markers,
+    selected_from_config,
 )
 
 source = Path(__file__).resolve().parents[2]
@@ -25,6 +26,8 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         "module-header.awk",
         "resolve-modules",
         "resolve-modules.awk",
+        "module-selection",
+        "find_modules.sh",
     ):
         shutil.copy2(source / "src/maketools" / name, root / "src/maketools" / name)
     for declaration in (source / "src").glob("*/module.yml"):
@@ -51,15 +54,17 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
             result.stderr
         )
         for name in enabled:
-            assert (root / "src" / (name + ".on")).exists(), (expression, name)
-            assert not (root / "src" / (name + ".off")).exists(), (expression, name)
+            assert f"Enabling module {name}" in result.stdout, (expression, name)
         for name in disabled:
-            assert not selected_from_markers(root, name, headers), (expression, name)
+            assert f"Disabling module {name}" in result.stdout or expression.startswith(
+                "none:"
+            ), (expression, name)
 
     # Stop at the compiler probe after real selection/resolution. This exercises
     # configure without requiring libraries, a build, or a full source copy.
     def resolve(expression, *options):
-        return subprocess.run(
+        (root / "Makefile.conf").unlink(missing_ok=True)
+        result = subprocess.run(
             [
                 "bash",
                 "configure",
@@ -74,6 +79,17 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
             timeout=30,
             check=False,
         )
+
+        # Record the real configure override state immediately before compiler
+        # probes. The full native build checks the final AC_SUBST output too.
+        snapshot = re.search(
+            r"Module overrides: ENABLED=(.*?) DISABLED=(.*)", result.stdout
+        )
+        if snapshot:
+            (root / "Makefile.conf").write_text(
+                f"ENABLED={snapshot[1].strip()}\nDISABLED={snapshot[2].strip()}\n"
+            )
+        return result
 
     for expression, additions in (
         ("none:ves", {"bias", "cltools"}),
@@ -102,8 +118,7 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         assert actual == additions, (expression, result.stderr)
         assert len(warnings) == len(additions), (expression, warnings)
         for name in additions:
-            assert (root / "src" / (name + ".on")).exists()
-            assert not (root / "src" / (name + ".off")).exists()
+            assert selected_from_config(root, name, headers)
 
     for expression, chain in (
         ("none:ves:-bias", "ves -> bias"),
@@ -117,11 +132,12 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         )
         assert "WARNING: enabling module" not in result.stderr, result.stderr
         # No partial automatic additions on a conflict.
-        assert not (root / "src/cltools.on").exists()
+        assert not (root / "Makefile.conf").exists()
 
     result = resolve("none", "--enable-kenref")
     assert "compiler cannot create executables" in result.stderr, result.stderr
-    assert (root / "src/kenref.on").exists() and (root / "src/bias.on").exists()
+    assert selected_from_config(root, "kenref", headers)
+    assert selected_from_config(root, "bias", headers)
     assert "enabling module bias required by kenref -> bias" in result.stderr
     result = resolve("none:-bias", "--enable-kenref")
     assert "kenref -> bias" in result.stderr and "explicitly disabled" in result.stderr
@@ -141,10 +157,25 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     # A feature probe dropping a dependency must fail the final guard, rather
     # than re-enabling an unavailable module. The reduced fixture needs no build.
     resolve("none:ves")
-    (root / "src/bias.on").unlink()
-    (root / "src/bias.off").touch()
+    settings = dict(
+        line.split("=", 1) for line in (root / "Makefile.conf").read_text().splitlines()
+    )
+    settings["ENABLED"] = " ".join(
+        name for name in settings["ENABLED"].split() if name != "bias"
+    )
+    settings["DISABLED"] += " bias"
+    (root / "Makefile.conf").write_text(
+        "\n".join(f"{key}={value}" for key, value in settings.items()) + "\n"
+    )
     result = subprocess.run(
-        ["src/maketools/resolve-modules", "src", "", "check"],
+        [
+            "src/maketools/resolve-modules",
+            "src",
+            settings["ENABLED"],
+            settings["DISABLED"],
+            "",
+            "check",
+        ],
         cwd=root,
         text=True,
         capture_output=True,
@@ -156,7 +187,7 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         "ves -> bias" in result.stderr
         and "unavailable after feature checks" in result.stderr
     )
-    assert not (root / "src/bias.on").exists()
+    assert not selected_from_config(root, "bias", headers)
 
     # The Make links guard must propagate a dependency-check failure.
     (root / "src/maketools/make.module").write_text(
@@ -177,6 +208,70 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     assert result.returncode != 0, result.stdout + result.stderr
     assert "depends on bias" in result.stdout
     assert not (root / "src/ves/bias").exists()
+
+    # Simulate pulling new modules and changed defaults, without reconfiguring.
+    resolve("none:colvar")
+    configuration = root / "Makefile.conf"
+    saved = configuration.read_bytes()
+    for name, kind in (("later_on", "default-on"), ("later_off", "default-off")):
+        declaration = root / "src" / name / "module.yml"
+        declaration.parent.mkdir()
+        declaration.write_text(f"type: {kind}\nuse: [core, tools]\n")
+    # The old handwritten marker mechanism must have no effect.
+    (root / "src/later_on.off").touch()
+    (root / "src/later_off.on").touch()
+
+    def selected():
+        return set(
+            subprocess.check_output(
+                ["src/maketools/find_modules.sh"], cwd=root, text=True
+            ).split()
+        )
+
+    assert "later_on" in selected() and "later_off" not in selected()
+    declaration = root / "src/later_off/module.yml"
+    declaration.write_text("type: default-on\nuse: [core, tools]\n")
+    assert "later_off" in selected()
+    assert configuration.read_bytes() == saved
+
+    # Exercise the actual kernel Makefile's discovery using the unchanged config.
+    (root / "src/lib").mkdir()
+    shutil.copy2(source / "src/lib/Makefile", root / "src/lib/Makefile")
+    (root / "src/lib/selection.mk").write_text(
+        "print-selection:\n\t@echo $(KERNEL_MODULES)\n"
+    )
+    result = subprocess.run(
+        ["make", "-s", "-f", "Makefile", "-f", "selection.mk", "print-selection"],
+        cwd=root / "src/lib",
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (
+        "../later_on" in result.stdout.split()
+        and "../later_off" in result.stdout.split()
+    )
+
+    for text in (
+        "ENABLED=\n",
+        "ENABLED=\nENABLED=alpha\nDISABLED=\n",
+        "ENABLED=alpha\nDISABLED=alpha\n",
+        "ENABLED=$(touch sentinel)\nDISABLED=\n",
+    ):
+        configuration.write_text(text)
+        result = subprocess.run(
+            ["src/maketools/find_modules.sh"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+        assert result.returncode != 0, text
+        assert not (root / "sentinel").exists()
+    configuration.write_bytes(saved)
 
     obsolete = root / "src/legacy-module/module.type"
     obsolete.parent.mkdir()
