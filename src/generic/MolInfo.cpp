@@ -149,7 +149,8 @@ minimum-image links to the current coordinates; a whole reference by itself
 does not guarantee correct direct links within an extended residue.
 
 ```plumed
-MOLINFO STRUCTURE=reference.pdb WHOLE SMALL_RESIDUES
+#SETTINGS MOLFILE=regtest/basic/rt32/helix.pdb
+MOLINFO STRUCTURE=regtest/basic/rt32/helix.pdb WHOLE SMALL_RESIDUES
 g: GYRATION ATOMS=1-100
 PRINT ARG=g FILE=COLVAR
 ```

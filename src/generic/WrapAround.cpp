@@ -173,9 +173,10 @@ The reference center is used only to select the anchor, not as an imaging target
 All ATOMS entries must exist in the reference; AROUND may contain virtual atoms.
 
 ```plumed
-MOLINFO STRUCTURE=reference.pdb WHOLE SMALL_RESIDUES
-solute: GROUP ATOMS=1-100
-solvent: GROUP ATOMS=101-410
+#SETTINGS MOLFILE=regtest/basic/rt-wraparound-residues/reference.pdb
+MOLINFO STRUCTURE=regtest/basic/rt-wraparound-residues/reference.pdb WHOLE SMALL_RESIDUES
+solute: GROUP ATOMS=1-3
+solvent: GROUP ATOMS=4-14
 WHOLEMOLECULES ENTITY0=solute
 WRAPAROUND ATOMS=solvent AROUND=solute GROUP_BY_RESIDUE
 DUMPATOMS ATOMS=solute,solvent FILE=wrapped.xyz
