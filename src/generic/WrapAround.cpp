@@ -300,13 +300,13 @@ WrapAround::WrapAround(const ActionOptions&ao):
     }
     // Remove duplicates stably before identifying consecutive residue runs.
     std::set<AtomNumber> seen;
-    std::vector<AtomNumber> unique;
+    std::vector<AtomNumber> distinctAtoms;
     for(const auto atom:atoms) {
       if(seen.insert(atom).second) {
-        unique.push_back(atom);
+        distinctAtoms.push_back(atom);
       }
     }
-    atoms.swap(unique);
+    atoms.swap(distinctAtoms);
     for(const auto atom:atoms) {
       if(!info->checkForAtom(atom)) {
         error("GROUP_BY_RESIDUE: atom "+std::to_string(atom.serial())+" is missing from the MOLINFO reference");

@@ -229,11 +229,11 @@ WholeMolecules::WholeMolecules(const ActionOptions&ao):
     }
     // cycle on groups and reorder atoms
     for(unsigned i=0; i<groups.size(); ++i) {
-      auto tree=infomoldat->getReconstructionTree(groups[i]);
-      groups[i] = tree->getTree();
+      auto reconstructionTree=infomoldat->getReconstructionTree(groups[i]);
+      groups[i] = reconstructionTree->getTree();
       // store root atoms
-      roots.push_back(tree->getRoot());
-      reconstructionTrees.push_back(std::move(tree));
+      roots.push_back(reconstructionTree->getRoot());
+      reconstructionTrees.push_back(std::move(reconstructionTree));
     }
   } else {
     // fill root vector with previous atom in groups
