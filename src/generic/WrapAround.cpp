@@ -34,6 +34,8 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <set>
+#include <limits>
 
 namespace PLMD {
 namespace generic {
@@ -50,7 +52,7 @@ in the ATOMS list the following procedure is performed:
 
 This action works similarly to [WHOLEMOLECULES](WHOLEMOLECULES.md) in that it replaces atoms coordinate. Notice that only
 atoms specified with ATOMS are replaced, and that, at variance with [WHOLEMOLECULES](WHOLEMOLECULES.md),
-the order in which atoms are specified is irrelevant.
+the order in which atoms are specified is irrelevant when grouping and PAIR are not used.
 
 This is often convenient at a post processing stage (using the driver), but sometime
 it is required during the simulation if collective variables need atoms to be in a specific periodic image.
@@ -148,6 +150,51 @@ WRAPAROUND ATOMS=water AROUND=com GROUPBY=3
 DUMPATOMS FILE=dump.xyz ATOMS=solute,water
 ```
 
+
+## Grouping by residue
+
+`GROUP_BY_RESIDUE` handles mixed residue sizes, such as three- and four-site
+waters together with single-atom ions. It requires a preceding
+`MOLINFO STRUCTURE=reference.pdb WHOLE SMALL_RESIDUES`. This declares that the
+reference coordinates are whole and each residue stays compact enough for
+minimum-image reconstruction by direct links to an anchor atom.
+
+After removing duplicate ATOMS entries while preserving their first occurrence,
+each consecutive run of atoms belonging to the same residue forms a group.
+Residue identity includes chain, residue number, insertion code and
+TER-delimited reference block. If a residue appears in separate runs, each run
+is wrapped independently. Only selected atoms are moved.
+
+The anchor is the selected atom in that run closest to the center of geometry
+of the full reference residue, with ties resolved by atom number. Its identity
+is chosen once from MOLINFO coordinates. At each frame its current position is
+wrapped near AROUND, and the other group members are reconstructed near it.
+The reference center is used only to select the anchor, not as an imaging target.
+All ATOMS entries must exist in the reference; AROUND may contain virtual atoms.
+
+```plumed
+MOLINFO STRUCTURE=reference.pdb WHOLE SMALL_RESIDUES
+solute: GROUP ATOMS=1-100
+solvent: GROUP ATOMS=101-410
+WHOLEMOLECULES ENTITY0=solute
+WRAPAROUND ATOMS=solvent AROUND=solute GROUP_BY_RESIDUE
+DUMPATOMS ATOMS=solute,solvent FILE=wrapped.xyz
+```
+
+`GROUP_BY_RESIDUE` accepts the default `GROUPBY=1` (also when explicitly written)
+and rejects any other GROUPBY value. Ordinary GROUPBY retains its existing
+first-atom anchor and fixed-size grouping.
+
+With `PAIR`, provide exactly one AROUND entry per group, in ATOMS group order;
+a count mismatch is an error. Repeated AROUND entries are retained with PAIR.
+This applies to both fixed-size GROUPBY groups and consecutive residue groups.
+
+Residues are wrapped independently. This does not make a multi-residue solute
+whole: wrapping an extended solute around its COM can separate its residues
+across images. COM's internal reconstruction changes only its private copies
+of coordinates. To preserve such a solute, reconstruct it with WHOLEMOLECULES
+and wrap the solvent around the solute atoms, as above.
+
 */
 //+ENDPLUMEDOC
 
@@ -162,6 +209,8 @@ class WrapAround:
   std::vector<std::pair<std::size_t,std::size_t> > p_atoms;
   std::vector<std::pair<std::size_t,std::size_t> > p_reference;
   unsigned groupby;
+  // Each interval starts with its anchor; the sentinel is p_atoms.size().
+  std::vector<unsigned> groupstart;
   bool pair_;
   // cells of the reference atoms (orthorhombic boxes): the reference atoms of cell c are
   // cellatoms[cellstart[c]] ... cellatoms[cellstart[c+1]-1], in increasing order
@@ -196,7 +245,8 @@ void WrapAround::registerKeywords( Keywords& keys ) {
   keys.add("atoms","AROUND","the reference atoms: the atoms in ATOMS are moved to the periodic image that is closest to one of these atoms");
   keys.add("atoms","ATOMS","the atoms that should be wrapped");
   keys.add("compulsory","GROUPBY","1","group atoms so as not to break molecules");
-  keys.addFlag("PAIR", false, "Pair atoms in AROUND and ATOMS groups");
+  keys.addFlag("GROUP_BY_RESIDUE", false, "Group consecutive selected atoms of the same residue; requires MOLINFO STRUCTURE with WHOLE SMALL_RESIDUES. Choose a fixed selected anchor closest to the reference residue center");
+  keys.addFlag("PAIR", false, "Pair each ATOMS group with one AROUND entry, in group order");
 }
 
 WrapAround::WrapAround(const ActionOptions&ao):
@@ -217,6 +267,11 @@ WrapAround::WrapAround(const ActionOptions&ao):
     error("GROUPBY should be at least 1");
   }
   parseFlag("PAIR", pair_);
+  bool byResidue=false;
+  parseFlag("GROUP_BY_RESIDUE",byResidue);
+  if(byResidue && groupby!=1) {
+    error("GROUP_BY_RESIDUE cannot be combined with GROUPBY other than 1");
+  }
 
   log.printf("  atoms in reference :");
   for(unsigned j=0; j<reference.size(); ++j) {
@@ -235,21 +290,67 @@ WrapAround::WrapAround(const ActionOptions&ao):
     log.printf("  pairing atoms and references\n");
   }
 
-  if(atoms.size()%groupby!=0) {
-    error("number of atoms should be a multiple of groupby option");
-  }
-  // additional checks with PAIR
-  if(pair_ && atoms.size()!=reference.size()*groupby) {
-    error("with PAIR you must have: #ATOMS = #AROUND * #GROUPBY");
-  }
-
   checkRead();
 
-  // do not remove duplicates with pair
-  if(!pair_) {
-    if(groupby<=1) {
+  if(byResidue) {
+    auto* info=plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
+    if(!info || !info->isWhole() || !info->hasSmallResidues()) {
+      error("GROUP_BY_RESIDUE requires a preceding MOLINFO STRUCTURE with WHOLE SMALL_RESIDUES");
+    }
+    // Remove duplicates stably before identifying consecutive residue runs.
+    std::set<AtomNumber> seen;
+    std::vector<AtomNumber> unique;
+    for(const auto atom:atoms) {
+      if(seen.insert(atom).second) {
+        unique.push_back(atom);
+      }
+    }
+    atoms.swap(unique);
+    for(const auto atom:atoms) {
+      if(!info->checkForAtom(atom)) {
+        error("GROUP_BY_RESIDUE: atom "+std::to_string(atom.serial())+" is missing from the MOLINFO reference");
+      }
+    }
+    unsigned begin=0;
+    while(begin<atoms.size()) {
+      const unsigned residue=info->getReconstructionResidue(atoms[begin]);
+      unsigned end=begin+1;
+      while(end<atoms.size() && info->getReconstructionResidue(atoms[end])==residue) {
+        ++end;
+      }
+      const Vector& center=info->getReconstructionCenter(residue);
+      unsigned anchor=begin;
+      double best=modulo2(info->getPosition(atoms[anchor])-center);
+      for(unsigned j=begin+1; j<end; ++j) {
+        const double d=modulo2(info->getPosition(atoms[j])-center);
+        if(d<best || (d==best && atoms[j]<atoms[anchor])) {
+          best=d;
+          anchor=j;
+        }
+      }
+      groupstart.push_back(begin);
+      // Only the private mapping changes: PAIR order and global atom IDs do not.
+      std::swap(atoms[begin],atoms[anchor]);
+      begin=end;
+    }
+    log<<"  grouping consecutive atoms by residue, with fixed reference-selected anchors\n";
+  } else {
+    if(atoms.size()%groupby!=0) {
+      error("number of atoms should be a multiple of groupby option");
+    }
+    if(!pair_ && groupby==1) {
       Tools::removeDuplicates(atoms);
     }
+    for(unsigned i=0; i<atoms.size(); i+=groupby) {
+      groupstart.push_back(i);
+    }
+  }
+  if(pair_ && groupstart.size()!=reference.size()) {
+    error(byResidue ? "with PAIR and GROUP_BY_RESIDUE you must have one AROUND entry per consecutive residue group" :
+          "with PAIR you must have: #ATOMS = #AROUND * #GROUPBY");
+  }
+  groupstart.push_back(atoms.size());
+  if(!pair_) {
     Tools::removeDuplicates(reference);
   }
 
@@ -422,11 +523,12 @@ void WrapAround::calculate() {
   const Vector invdiag(pbc.getInvBox()(0,0),pbc.getInvBox()(1,1),pbc.getInvBox()(2,2));
   // with few reference atoms the loop over all of them is faster than the cells
   const unsigned cellsMinReference=128;
-  for(unsigned i=0; i<p_atoms.size(); i+=groupby) {
+  for(unsigned group=0; group+1<groupstart.size(); ++group) {
+    const unsigned i=groupstart[group];
     Vector second, first=getGlobalPosition(p_atoms[i]);
     int closest=-1;
     if(pair_) {
-      closest = i/groupby;
+      closest = group;
     } else {
       double mindist2=std::numeric_limits<double>::max();
       if(pbc.isSet() && nref>=cellsMinReference) {
@@ -469,9 +571,9 @@ void WrapAround::calculate() {
     first=second+pbcDistance(second,first);
     setGlobalPosition(p_atoms[i],first);
 // then place other atoms close to the first of the group
-    for(unsigned j=1; j<groupby; j++) {
-      second=getGlobalPosition(p_atoms[i+j]);
-      setGlobalPosition( p_atoms[i+j], first+pbcDistance(first,second) );
+    for(unsigned j=i+1; j<groupstart[group+1]; ++j) {
+      second=getGlobalPosition(p_atoms[j]);
+      setGlobalPosition( p_atoms[j], first+pbcDistance(first,second) );
     }
   }
 }

@@ -1,0 +1,4 @@
+mixed residues, central static anchors, partial selections and identities PASS
+rectangular/skew cells, arbitrary images, duplicates and contiguous runs PASS
+PAIR, virtual COM, overlap, unselected atoms, STRIDE and DUMPATOMS PASS
+missing declarations/metadata, conflicting GROUPBY and PAIR counts PASS
