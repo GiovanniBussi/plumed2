@@ -36,7 +36,7 @@ class DynamicTree {
     bool operator<(const Edge& other) const;
   };
   struct Node {
-    unsigned begin,end,center,left=0,right=0;
+    unsigned begin=0,end=0,center=0,left=0,right=0;
     double radius=0;
   };
   std::vector<Edge> edges;

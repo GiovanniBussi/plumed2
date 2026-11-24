@@ -87,7 +87,7 @@ void ActionAtomistic::getAtomValuesFromPlumedObject( const PlumedMain& plumed, s
 void ActionAtomistic::registerKeywords( Keywords& keys ) {
   keys.addFlag("DYNAMIC_EMST",false,"reconstruct this action's atoms using the exact minimum spanning tree of current periodic distances, without a reference structure; see DYNAMIC_EMST in the manual");
   keys.addLinkInDocForFlag("DYNAMIC_EMST","dynamic-emst.md");
-  keys.add("compulsory","EMST_BUFFER","0.2","length buffer for reusing the DYNAMIC_EMST candidate graph, in the length units selected by UNITS; the MST is updated at every evaluation");
+  keys.add("optional","EMST_BUFFER","length buffer for reusing the DYNAMIC_EMST candidate graph (default 0.2), in the length units selected by UNITS; the MST is updated at every evaluation");
 }
 
 

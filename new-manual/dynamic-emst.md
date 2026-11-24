@@ -21,9 +21,12 @@ For other atomistic actions the reconstruction changes only that action's local
 copy of the coordinates. For example:
 
 ```plumed
-g: GYRATION ATOMS=1-100 DYNAMIC_EMST
+g: GYRATION_SCALAR ATOMS=1-100 DYNAMIC_EMST
 PRINT ARG=g FILE=COLVAR
 ```
+
+Use the concrete atomistic action (such as `GYRATION_SCALAR`) when a shortcut's
+syntax does not expose these keywords.
 
 Reconstruction is performed when the action retrieves its coordinates, even if
 it would not normally call `makeWhole()`. `NOPBC`, where available, controls the
