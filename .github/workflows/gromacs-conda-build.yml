@@ -48,7 +48,7 @@ jobs:
         run: |
           source activate "$RUNNER_TEMP/gromacs-tools"
           unset CC CXX
-          conda build --override-channels -c conda-forge --no-anaconda-upload conda/gromacs/minimal \
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" build --override-channels -c conda-forge --no-anaconda-upload conda/gromacs/minimal \
             -m conda/gromacs/variants.yaml
       - uses: actions/upload-artifact@v6
         with:
@@ -95,7 +95,7 @@ jobs:
           source activate "$RUNNER_TEMP/gromacs-tools"
           patchers=("$CONDA_BLD_PATH/${{ inputs.platform }}"/plumed-*.conda)
           test "${#patchers[@]}" -eq 1
-          conda index "$CONDA_BLD_PATH"
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" index "$CONDA_BLD_PATH"
           spec=$(python conda/gromacs/package.py spec --archive "${patchers[0]}")
           conda create -y -p "$RUNNER_TEMP/patcher" --override-channels \
             -c "file://$CONDA_BLD_PATH" -c conda-forge "$spec" python=3.12
@@ -105,13 +105,13 @@ jobs:
         run: |
           source activate "$RUNNER_TEMP/gromacs-tools"
           unset CC CXX
-          conda index "$CONDA_BLD_PATH"
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" index "$CONDA_BLD_PATH"
           variants=(-m conda/gromacs/variants.yaml)
           if [[ $GROMACS_GPU != cpu ]]; then
             python -c 'import json,os; json.dump({"cuda_compiler": ["cuda-nvcc"], "cuda_compiler_version": [os.environ["GROMACS_CUDA_VERSION"]], "cxx_compiler_version": ["14"]}, open(os.environ["RUNNER_TEMP"]+"/cuda-variant.yaml", "w"))'
             variants+=(-m "$RUNNER_TEMP/cuda-variant.yaml")
           fi
-          conda build --override-channels -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" build --override-channels -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
             "${variants[@]}"
       - name: Validate installed package with the matching temporary kernel
         run: |
@@ -121,7 +121,7 @@ jobs:
           test "${#packages[@]}" -eq 1
           spec=$(python conda/gromacs/package.py spec --archive "${packages[0]}")
           patcher_spec=$(python conda/gromacs/package.py spec --archive "${patchers[0]}")
-          conda index "$CONDA_BLD_PATH"
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" index "$CONDA_BLD_PATH"
           conda create -y -p "$RUNNER_TEMP/installed" --override-channels \
             -c "file://$CONDA_BLD_PATH" -c conda-forge "$spec" "$patcher_spec" python=3.12 numpy
           conda activate "$RUNNER_TEMP/installed"
@@ -135,7 +135,7 @@ jobs:
           # This channel must exclude the temporary minimal PLUMED package.
           mkdir -p "$RUNNER_TEMP/gromacs-channel/${{ inputs.platform }}"
           cp "${packages[0]}" "$RUNNER_TEMP/gromacs-channel/${{ inputs.platform }}/"
-          conda index "$RUNNER_TEMP/gromacs-channel"
+          "$RUNNER_TEMP/gromacs-tools/bin/conda" index "$RUNNER_TEMP/gromacs-channel"
           conda create -y -p "$RUNNER_TEMP/channel-runtime" --override-channels \
             -c "file://$RUNNER_TEMP/gromacs-channel" -c plumed/label/test -c conda-forge \
             "$spec" python=3.12 numpy
