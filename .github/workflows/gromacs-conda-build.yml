@@ -39,12 +39,16 @@ jobs:
         run: |
           curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
           source ./conda-ci install
-          source ./conda-ci install-conda-build
+          conda create -y -p "$RUNNER_TEMP/gromacs-tools" --override-channels \
+            -c conda-forge python=3.12 conda-build conda-index
+          if [[ $(uname) == Darwin ]]; then
+            echo "CONDA_BUILD_SYSROOT=$(/usr/bin/xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+          fi
       - name: Build minimal serial PLUMED from this commit
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           unset CC CXX
-          conda build -c conda-forge --no-anaconda-upload conda/gromacs/minimal \
+          conda build --override-channels -c conda-forge --no-anaconda-upload conda/gromacs/minimal \
             -m conda/gromacs/variants.yaml
       - uses: actions/upload-artifact@v6
         with:
@@ -77,14 +81,18 @@ jobs:
         run: |
           curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
           source ./conda-ci install
-          source ./conda-ci install-conda-build
+          conda create -y -p "$RUNNER_TEMP/gromacs-tools" --override-channels \
+            -c conda-forge python=3.12 conda-build conda-index
+          if [[ $(uname) == Darwin ]]; then
+            echo "CONDA_BUILD_SYSROOT=$(/usr/bin/xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+          fi
       - uses: actions/download-artifact@v7
         with:
           name: gromacs-patcher-${{ inputs.platform }}
           path: ${{ runner.temp }}/gromacs-conda-bld/${{ inputs.platform }}
       - name: Install temporary patcher and apply runtime patch
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           patchers=("$CONDA_BLD_PATH/${{ inputs.platform }}"/plumed-*.conda)
           test "${#patchers[@]}" -eq 1
           conda index "$CONDA_BLD_PATH"
@@ -95,7 +103,7 @@ jobs:
           python conda/gromacs/stage.py
       - name: Build GROMACS Conda archive
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           unset CC CXX
           conda index "$CONDA_BLD_PATH"
           variants=(-m conda/gromacs/variants.yaml)
@@ -103,11 +111,11 @@ jobs:
             python -c 'import json,os; json.dump({"cuda_compiler": ["cuda-nvcc"], "cuda_compiler_version": [os.environ["GROMACS_CUDA_VERSION"]], "cxx_compiler_version": ["14"]}, open(os.environ["RUNNER_TEMP"]+"/cuda-variant.yaml", "w"))'
             variants+=(-m "$RUNNER_TEMP/cuda-variant.yaml")
           fi
-          conda build -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
+          conda build --override-channels -c local -c conda-forge --no-anaconda-upload conda/gromacs/recipe \
             "${variants[@]}"
       - name: Validate installed package with the matching temporary kernel
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           packages=("$CONDA_BLD_PATH/${{ inputs.platform }}"/gromacs-plumed-*.conda)
           patchers=("$CONDA_BLD_PATH/${{ inputs.platform }}"/plumed-*.conda)
           test "${#packages[@]}" -eq 1
@@ -121,7 +129,7 @@ jobs:
       - name: Validate against the published full PLUMED runtime before upload
         if: inputs.channel_runtime_check
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           packages=("$CONDA_BLD_PATH/${{ inputs.platform }}"/gromacs-plumed-*.conda)
           spec=$(python conda/gromacs/package.py spec --archive "${packages[0]}")
           # This channel must exclude the temporary minimal PLUMED package.
@@ -137,7 +145,7 @@ jobs:
           bash conda/gromacs/test-installed.sh
       - name: Collect validated package and digest manifest
         run: |
-          source activate base
+          source activate "$RUNNER_TEMP/gromacs-tools"
           python conda/gromacs/package.py record --platform '${{ inputs.platform }}' \
             --mpi '${{ matrix.mpi }}' --gpu '${{ matrix.gpu }}'
       - uses: actions/upload-artifact@v6
