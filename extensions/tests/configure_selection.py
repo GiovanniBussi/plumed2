@@ -6,7 +6,16 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from module_selection_utils import (
+    default_selection,
+    module_headers,
+    selected_from_markers,
+)
+
 source = Path(__file__).resolve().parents[2]
+headers = module_headers(source)
+default_seeds, default_modules = default_selection(headers)
+default_additions = default_modules - default_seeds
 with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     root = Path(scratch)
     shutil.copy2(source / "configure", root / "configure")
@@ -25,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     for expression, enabled, disabled in (
         ("reset:+isdb-pytorch", {"isdb-pytorch"}, set()),
         ("all:-isdb-pytorch", set(), {"isdb-pytorch"}),
-        ("reset+ves-isdb", {"ves"}, {"isdb"}),
+        ("none+ves-isdb", {"ves"}, {"isdb"}),
         ("none:isdb-pytorch:+pytorch", {"isdb-pytorch", "pytorch"}, {"isdb"}),
     ):
         # Fail deliberately after selection, before any compiler/dependency probes.
@@ -45,8 +54,7 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
             assert (root / "src" / (name + ".on")).exists(), (expression, name)
             assert not (root / "src" / (name + ".off")).exists(), (expression, name)
         for name in disabled:
-            assert (root / "src" / (name + ".off")).exists(), (expression, name)
-            assert not (root / "src" / (name + ".on")).exists(), (expression, name)
+            assert not selected_from_markers(root, name, headers), (expression, name)
 
     # Stop at the compiler probe after real selection/resolution. This exercises
     # configure without requiring libraries, a build, or a full source copy.
@@ -75,10 +83,10 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
         ("none:-bias:ves:+bias", {"cltools"}),
         ("none:-bias:-bias:ves:+bias", {"cltools"}),
         ("none:-bias:ves:bias", {"cltools"}),
-        ("none:-bias:reset", set()),
+        ("none:-bias:reset", default_additions),
         ("-bias:none:ves", {"bias", "cltools"}),
         ("none:ves:-ves:-bias", set()),
-        ("none:ves:reset", set()),
+        ("none:ves:reset", default_additions),
         ("none:ves:none", set()),
         ("none:ves:all", set()),
     ):
@@ -183,4 +191,4 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     )
     assert result.returncode != 0
     assert "module.type is obsolete, use module.yml" in result.stderr, result.stderr
-print("Hyphenated/legacy selection and obsolete-declaration diagnostics passed")
+print("Policy-aware configure selection, dependencies and diagnostics passed")

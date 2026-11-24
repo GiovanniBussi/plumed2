@@ -8,7 +8,14 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from module_selection_utils import default_selection, module_headers
+
 source = Path(__file__).resolve().parents[2]
+headers = module_headers(source)
+_, default_modules = default_selection(headers)
+# This backend deliberately omits KEnRef when its external library is unsupported.
+default_modules -= {"kenref"}
+nondefault_modules = set(headers) - default_modules
 # CMake configures the runtime config.txt in the source tree. Preserve an
 # existing Autotools snapshot when testing module selection in a shared checkout.
 config_snapshot = source / "src/config/config.txt"
@@ -16,9 +23,13 @@ original_config = config_snapshot.read_bytes() if config_snapshot.exists() else 
 try:
     with tempfile.TemporaryDirectory(prefix="plumed-cmake-modules-") as directory:
         for expression, present, absent in (
-            ("reset:+isdb-pytorch", {"isdb", "isdb-pytorch"}, set()),
+            (
+                "reset:+isdb-pytorch",
+                default_modules | {"isdb-pytorch", "colvar"},
+                set(),
+            ),
             ("all:-isdb-pytorch", {"isdb", "ves"}, {"isdb-pytorch"}),
-            ("reset+ves-isdb", {"ves"}, {"isdb", "isdb-pytorch"}),
+            ("none+ves-isdb", {"ves"}, {"isdb", "isdb-pytorch"}),
             ("none:ves", {"ves", "bias", "cltools"}, {"colvar"}),
             (
                 "none:dimred",
@@ -28,7 +39,7 @@ try:
             ("none:colvar", {"colvar"}, {"bias"}),
             ("none:isdb-pytorch", {"isdb-pytorch", "colvar"}, {"isdb"}),
             ("none:-bias:ves:+bias", {"ves", "bias", "cltools"}, set()),
-            ("none:-bias:reset", {"bias"}, {"ves"}),
+            ("none:-bias:reset", default_modules, nondefault_modules),
             ("-bias:none:ves", {"ves", "bias", "cltools"}, set()),
             ("none:ves:-ves:-bias", set(), {"ves", "bias", "cltools"}),
             ("none:ves:none", set(), {"ves", "bias", "cltools"}),
