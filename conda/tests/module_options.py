@@ -3,6 +3,7 @@
 
 import argparse
 import copy
+import hashlib
 import importlib
 import json
 import os
@@ -11,8 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -63,12 +64,15 @@ class ModuleOptions(unittest.TestCase):
         for name in (
             "module-build-info",
             "find_modules.sh",
+            "module-selection",
             "module-header",
             "module-header.awk",
         ):
             shutil.copy2(source / "src/maketools" / name, tools / name)
         (tree / "VERSION.txt").write_text("2.11\n")
-        (tree / "Makefile.conf").write_text("CXX=c++\n")
+        (tree / "Makefile.conf").write_text(
+            "CXX=c++\nPLUMED_MODULE_ENABLED=\nPLUMED_MODULE_DISABLED=\n"
+        )
         for module, kind in (("core", "always"), ("alpha", "default-off")):
             directory = tree / "src" / module
             directory.mkdir()
@@ -82,10 +86,15 @@ class ModuleOptions(unittest.TestCase):
             return (config / "module-build-id").read_text()
 
         baseline = identity()
-        marker = tree / "src/alpha.on"
-        marker.touch()
+        configuration = tree / "Makefile.conf"
+        original_config = configuration.read_text()
+        configuration.write_text(
+            original_config.replace(
+                "PLUMED_MODULE_ENABLED=", "PLUMED_MODULE_ENABLED=alpha"
+            )
+        )
         self.assertNotEqual(identity(), baseline)
-        marker.unlink()
+        configuration.write_text(original_config)
         self.assertEqual(identity(), baseline)
         declaration = tree / "src/core/module.yml"
         original = declaration.read_text()
@@ -434,10 +443,58 @@ class ModuleOptions(unittest.TestCase):
         identity = subprocess.check_output(
             [str(program), "--module-build-id"], env=env, text=True
         ).strip()
-        (tree / "Makefile.conf").write_text(
-            configuration
-            + f"\nEXTENSION_BASE={base}\nEXTENSION_PREFIX={prefix}\nEXTENSION_MODULES=policy-fixture\nEXTENSION_BUILD_ID={identity}\n"
+        soext = next(
+            line.split("=", 1)[1]
+            for line in configuration.splitlines()
+            if line.startswith("SOEXT=")
         )
+        kernel = base / "lib" / ("libplumedKernel." + soext)
+        kernel_digest = hashlib.sha256(kernel.read_bytes()).digest()
+        shutil.copy2(source / "configure", tree / "configure")
+        shutil.copy2(source / "Makefile", tree / "Makefile")
+        shutil.copy2(source / "extensions/Makefile", tree / "extensions/Makefile")
+        env["PATH"] = os.pathsep.join((str(Path(sys.executable).parent), env["PATH"]))
+        configure = [
+            "bash",
+            "configure",
+            f"--with-extension-base={base}",
+            "--enable-extension-modules=policy-fixture",
+            f"--prefix={prefix}",
+        ]
+        configured = subprocess.run(
+            configure,
+            cwd=tree,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=60,
+        )
+        self.assertEqual(
+            configured.returncode, 0, configured.stdout + configured.stderr
+        )
+        persisted = (tree / "Makefile.conf").read_bytes()
+        self.assertTrue(persisted.startswith(configuration.encode()))
+        self.assertIn(b"EXTENSION_MODULES=policy-fixture\n", persisted)
+        self.assertIn(f"EXTENSION_BUILD_ID={identity}".encode(), persisted)
+        for name in ("nonexistent-test-module", "tools"):
+            invalid = subprocess.run(
+                [
+                    "bash",
+                    "configure",
+                    f"--with-extension-base={base}",
+                    f"--enable-extension-modules={name}",
+                    f"--prefix={prefix}",
+                ],
+                cwd=tree,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=60,
+            )
+            self.assertNotEqual(invalid.returncode, 0, invalid.stdout + invalid.stderr)
+            self.assertEqual((tree / "Makefile.conf").read_bytes(), persisted)
         command = [sys.executable, "extensions/build.py", "install"]
         negative = subprocess.run(
             command,
@@ -450,7 +507,7 @@ class ModuleOptions(unittest.TestCase):
         )
         self.assertNotEqual(negative.returncode, 0)
         positive = subprocess.run(
-            command,
+            ["make", "install"],
             check=False,
             cwd=tree,
             env=dict(env, PLUMED_CONDA_BUILD="1"),
@@ -459,6 +516,12 @@ class ModuleOptions(unittest.TestCase):
             timeout=120,
         )
         self.assertEqual(positive.returncode, 0, positive.stdout + positive.stderr)
+        self.assertEqual(
+            json.loads((tree / "_extensions/modules.json").read_text()),
+            ["policy-dependency", "policy-fixture"],
+        )
+        self.assertEqual(hashlib.sha256(kernel.read_bytes()).digest(), kernel_digest)
+        self.assertFalse((prefix / "lib" / kernel.name).exists())
         report = json.loads(
             (prefix / "lib/plumed/plugins/policy-fixture.json").read_text()
         )
