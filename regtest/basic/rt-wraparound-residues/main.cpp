@@ -112,6 +112,26 @@ void rejects(const std::string& flags,const std::string& input,const std::string
 int main() {
   std::ofstream out("output");
   reference();
+  // Simulate PDB number reuse without a separating TER: atoms 11-13 now have
+  // the same full identifier as atoms 1-3, but occur in another reference run.
+  {
+    std::ifstream source("reference.pdb");
+    std::ofstream collision("collision.pdb");
+    std::string row;
+    unsigned atom=0;
+    while(std::getline(source,row)) {
+      if(row=="TER") {
+        continue;
+      }
+      if(row.substr(0,4)=="ATOM") {
+        ++atom;
+        if(atom>=11 && atom<=13) {
+          row[21]='A';
+        }
+      }
+      collision<<row<<"\n";
+    }
+  }
   for(bool skew: {
         false,true
       }) {
@@ -133,6 +153,11 @@ int main() {
                                 "WRAPAROUND ATOMS=9,8,10,12,11,13 AROUND=17,18 GROUPBY=3\n"
                                 "WRAPAROUND ATOMS=14 AROUND=17,18",start,box);
     same(result,explicitGroups,"mixed groups and full residue identities");
+    same(calculate("WRAPAROUND ATOMS=1,2 AROUND=17 GROUP_BY_RESIDUE",start,box),
+         calculate("WRAPAROUND ATOMS=1,2 AROUND=17 GROUPBY=2",start,box),
+         "partial batch center differs from full reference residue center");
+    same(calculate("MOLINFO STRUCTURE=collision.pdb PYTHON_BIN=no WHOLE SMALL_RESIDUES\n"+grouped,start,box),
+         result,"nonconsecutive repeated reference identifiers do not mix batch centers");
     const auto firstAnchors=calculate("WRAPAROUND ATOMS=1-3 AROUND=17,18 GROUPBY=3",start,box);
     require((result[1]-firstAnchors[1]).modulo()>1,"central anchor differs observably from legacy first anchor");
     for(unsigned i=14; i<18; ++i) {
@@ -140,7 +165,7 @@ int main() {
     }
     same(calculate("WRAPAROUND ATOMS=1,3,1,4,7 AROUND=17 GROUP_BY_RESIDUE GROUPBY=1",start,box),
          calculate("WRAPAROUND ATOMS=1,3,4,7 AROUND=17 GROUPBY=2",start,box),
-         "partial selections choose closest selected atom, stable duplicate removal");
+         "partial batch centers and stable duplicate removal");
     same(calculate("WRAPAROUND ATOMS=1,4,2,5,3,7 AROUND=17,18 GROUP_BY_RESIDUE",start,box),
          calculate("WRAPAROUND ATOMS=1,4,2,5,3,7 AROUND=17,18",start,box),
          "noncontiguous residue runs stay separate");

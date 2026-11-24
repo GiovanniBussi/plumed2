@@ -166,7 +166,7 @@ TER-delimited reference block. If a residue appears in separate runs, each run
 is wrapped independently. Only selected atoms are moved.
 
 The anchor is the selected atom in that run closest to the center of geometry
-of the full reference residue, with ties resolved by atom number. Its identity
+of that batch in the reference, with ties resolved by atom number. Its identity
 is chosen once from MOLINFO coordinates. At each frame its current position is
 wrapped near AROUND, and the other group members are reconstructed near it.
 The reference center is used only to select the anchor, not as an imaging target.
@@ -246,7 +246,7 @@ void WrapAround::registerKeywords( Keywords& keys ) {
   keys.add("atoms","AROUND","the reference atoms: the atoms in ATOMS are moved to the periodic image that is closest to one of these atoms");
   keys.add("atoms","ATOMS","the atoms that should be wrapped");
   keys.add("compulsory","GROUPBY","1","group atoms so as not to break molecules");
-  keys.addFlag("GROUP_BY_RESIDUE", false, "Group consecutive selected atoms of the same residue; requires MOLINFO STRUCTURE with WHOLE SMALL_RESIDUES. Choose a fixed selected anchor closest to the reference residue center");
+  keys.addFlag("GROUP_BY_RESIDUE", false, "Group consecutive selected atoms of the same residue; requires MOLINFO STRUCTURE with WHOLE SMALL_RESIDUES. Choose a fixed selected anchor closest to the reference batch center");
   keys.addFlag("PAIR", false, "Pair each ATOMS group with one AROUND entry, in group order");
 }
 
@@ -319,11 +319,17 @@ WrapAround::WrapAround(const ActionOptions&ao):
       while(end<atoms.size() && info->getReconstructionResidue(atoms[end])==residue) {
         ++end;
       }
-      const Vector& center=info->getReconstructionCenter(residue);
-      unsigned anchor=begin;
-      double best=modulo2(info->getPosition(atoms[anchor])-center);
+      // Use this selected run only. Working relative to its first atom reduces
+      // cancellation from absolute reference-coordinate offsets.
+      const Vector origin=info->getPosition(atoms[begin]);
+      Vector center;
       for(unsigned j=begin+1; j<end; ++j) {
-        const double d=modulo2(info->getPosition(atoms[j])-center);
+        center+=(info->getPosition(atoms[j])-origin-center)/(j-begin+1);
+      }
+      unsigned anchor=begin;
+      double best=modulo2(center);
+      for(unsigned j=begin+1; j<end; ++j) {
+        const double d=modulo2(info->getPosition(atoms[j])-origin-center);
         if(d<best || (d==best && atoms[j]<atoms[anchor])) {
           best=d;
           anchor=j;
@@ -355,8 +361,9 @@ WrapAround::WrapAround(const ActionOptions&ao):
     Tools::removeDuplicates(reference);
   }
 
-  std::vector<AtomNumber> merged(atoms.size()+reference.size());
-  merge(atoms.begin(),atoms.end(),reference.begin(),reference.end(),merged.begin());
+  // ATOMS may be deliberately reordered by grouping; neither list must be sorted.
+  std::vector<AtomNumber> merged(atoms);
+  merged.insert(merged.end(),reference.begin(),reference.end());
   p_atoms.resize( atoms.size() );
   for(unsigned i=0; i<atoms.size(); ++i) {
     p_atoms[i] = getValueIndices( atoms[i] );

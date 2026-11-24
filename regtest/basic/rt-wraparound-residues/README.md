@@ -8,7 +8,7 @@ existing GROUPBY commands with those anchors placed first. Current coordinates
 are changed independently of reference geometry, with arbitrary per-atom image
 shifts, in both rectangular and skew cells.
 
-Checks cover partial selections using full-residue centers, stable duplicate
+Checks cover partial selections using batch-only centers, nonconsecutive repeated reference identifiers, stable duplicate
 removal, separate contiguous runs, PAIR order and repeated references, virtual
 COM references, overlapping ATOMS/AROUND, unchanged unselected atoms, STRIDE,
 empty selections and downstream DUMPATOMS. Invalid declaration, missing atomic
