@@ -128,6 +128,8 @@ class WholeMolecules:
   std::vector<Vector> refs= {};
   bool doemst=false;
   bool addref=false;
+  // Keep the shared topologies alive after copying the traversal into groups.
+  std::vector<std::shared_ptr<const Tree>> reconstructionTrees;
 public:
   explicit WholeMolecules(const ActionOptions&ao);
   static void registerKeywords( Keywords& keys );
@@ -225,13 +227,13 @@ WholeMolecules::WholeMolecules(const ActionOptions&ao):
     if( !infomoldat ) {
       error("MOLINFO is required to use EMST");
     }
-    // initialize tree
-    Tree myTree = Tree(infomoldat);
     // cycle on groups and reorder atoms
     for(unsigned i=0; i<groups.size(); ++i) {
-      groups[i] = myTree.getTree(groups[i]);
+      auto tree=infomoldat->getReconstructionTree(groups[i]);
+      groups[i] = tree->getTree();
       // store root atoms
-      roots.push_back(myTree.getRoot());
+      roots.push_back(tree->getRoot());
+      reconstructionTrees.push_back(std::move(tree));
     }
   } else {
     // fill root vector with previous atom in groups

@@ -123,6 +123,44 @@ If you want a variable to ignore this, you can just repeate the MOLINFO action w
 the `WHOLE` flag: all the following actions will use the traditional reconstruction algorithm,
 based on the order in which atoms are listed.
 
+With `WHOLE SMALL_RESIDUES`, tree construction can be accelerated when residues
+are small. This is an explicit assertion that every residue stays compact enough
+for minimum-image reconstruction by direct links to one atom of that residue.
+Do not use this option for an extended molecule, or for a material whose entire
+system is encoded as a single residue. It is disabled by default, including when
+`WHOLE` is present, and requires a `STRUCTURE` file rather than `CHAIN`.
+
+For each residue represented in an action's atom selection, the selected atom
+closest to the residue's center of geometry in the reference is chosen. Centers
+use all atoms of the residue in the reference, not only the selected atoms.
+Equal distances are resolved by atom number.
+A minimum spanning tree is built between these representative atoms, and all
+other selected atoms of a residue are linked directly to its representative.
+No unselected simulation atoms are requested. Residues are distinguished by
+chain, residue number, insertion code and TER-delimited reference block.
+The first requested atom remains the reconstruction anchor.
+
+This residue-based tree is generally different from the full selected-atom EMST.
+For $N$ selected reference atoms in $R$ residues, the quadratic tree work is
+reduced from $O(N^2)$ to $O(R^2)$, in addition to grouping and linear link storage.
+There is no reduction when only one atom per residue is selected. The reference
+centers are prepared once when reading MOLINFO. Reconstruction still applies
+minimum-image links to the current coordinates; a whole reference by itself
+does not guarantee correct direct links within an extended residue.
+
+```plumed
+MOLINFO STRUCTURE=reference.pdb WHOLE SMALL_RESIDUES
+g: GYRATION ATOMS=1-100
+PRINT ARG=g FILE=COLVAR
+```
+
+With either tree policy, actions using the same MOLINFO reference and the same
+ordered atom selection share an immutable reconstruction tree. This also applies
+to identical `WHOLEMOLECULES` entities. Different atom orders are separate requests;
+each action retains its own coordinates. Trees are released when no action uses
+them. Atoms absent from the reference retain the usual previous-atom links, and
+the first atom in a request must be present in the reference.
+
 Providing `MOLTYPE=protein`, `MOLTYPE=rna`, or `MOLTYPE=dna` will instruct plumed to look
 for known residues from these three types of molecule. In other words, this keyword is available for
 historical reasons and to allow future extensions where alternative lists will be provided.

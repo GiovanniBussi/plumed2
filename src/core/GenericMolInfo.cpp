@@ -33,6 +33,8 @@
 #include <algorithm>
 #include <map>
 #include <limits>
+#include <tuple>
+#include "tools/Tree.h"
 
 namespace PLMD {
 
@@ -55,6 +57,7 @@ void GenericMolInfo::registerKeywords( Keywords& keys ) {
   keys.add("hidden","STRIDE","frequency for resetting the python interpreter. Should be 1.");
   keys.add("compulsory","ATOM_ID","serial","how the atoms of the STRUCTURE file are numbered: serial (the serial number of the PDB file, the _atom_site.id column of the mmCIF file) or order (1,2,3... in the order of the file)");
   keys.addFlag("WHOLE", false, "The reference structure is whole, i.e. not broken by PBC. If the pdb file has a CRYST1 record with space group P 1, this is checked along each chain, and a warning is written to the log if consecutive atoms of a residue, or of two consecutive protein or nucleic-acid residues, are on opposite sides of the periodic boundary");
+  keys.addFlag("SMALL_RESIDUES", false, "Assume every residue is compact enough for direct minimum-image links to one selected atom. Requires WHOLE. Build the reference spanning tree on one selected representative per residue and link other selected atoms to it. Do not enable for extended residues, for example a material encoded as one residue");
 }
 
 GenericMolInfo::~GenericMolInfo() {
@@ -132,6 +135,10 @@ GenericMolInfo::GenericMolInfo( const ActionOptions&ao ):
 
   // check if whole
   parseFlag("WHOLE", iswhole_);
+  parseFlag("SMALL_RESIDUES", smallResidues);
+  if(smallResidues && !iswhole_) {
+    error("SMALL_RESIDUES requires WHOLE");
+  }
 
   auto* latestmoldat=plumed.getActionSet().selectLatest<GenericMolInfo*>(this);
   if( latestmoldat ) {
@@ -151,6 +158,9 @@ GenericMolInfo::GenericMolInfo( const ActionOptions&ao ):
     }
   } else {
     read_backbone.push_back(backbone);
+  }
+  if(smallResidues && !read_backbone.empty()) {
+    error("SMALL_RESIDUES requires a STRUCTURE file, not CHAIN");
   }
   if( read_backbone.size()==0 ) {
     parse("STRUCTURE",reference);
@@ -177,6 +187,10 @@ GenericMolInfo::GenericMolInfo( const ActionOptions&ao ):
       if( msg.length()>0 ) {
         warning(msg);
       }
+    }
+    if(smallResidues) {
+      setupReconstructionResidues();
+      log<<"  SMALL_RESIDUES: using selected residue representatives and direct intra-residue links\n";
     }
 
     // the chains, block by block: a chain can appear in more than one block of the file
@@ -574,6 +588,77 @@ Vector GenericMolInfo::getPosition(AtomNumber a)const {
 
 bool GenericMolInfo::isWhole() const {
   return iswhole_;
+}
+
+bool GenericMolInfo::hasSmallResidues() const {
+  return smallResidues;
+}
+
+void GenericMolInfo::setupReconstructionResidues() {
+  // TER-delimited blocks distinguish repeated identifiers in separate molecules.
+  using Key=std::tuple<unsigned,std::string,int,std::string>;
+  std::map<Key,unsigned> residues;
+  std::vector<unsigned> counts;
+  const auto& atoms=pdb.getAtomNumbers();
+  const auto& ends=pdb.getAtomBlockEnds();
+  unsigned block=0;
+  reconstructionResidues.reserve(atoms.size());
+  for(std::size_t i=0; i<atoms.size(); ++i) {
+    while(block<ends.size() && i>=ends[block]) {
+      ++block;
+    }
+    const auto atom=atoms[i];
+    const Key key(block,pdb.getChainID(atom),pdb.getResidueNumber(atom),pdb.getInsertionCode(atom));
+    const auto entry=residues.emplace(key,reconstructionCenters.size());
+    if(entry.second) {
+      reconstructionCenters.emplace_back();
+      counts.push_back(0);
+    }
+    const unsigned residue=entry.first->second;
+    reconstructionResidues.emplace(atom.index(),residue);
+    const Vector position=pdb.getPosition(atom);
+    for(unsigned k=0; k<3; ++k) {
+      if(!std::isfinite(position[k])) {
+        error("SMALL_RESIDUES requires finite reference coordinates");
+      }
+    }
+    // Incremental mean avoids summing large absolute coordinate offsets.
+    reconstructionCenters[residue]+=(position-reconstructionCenters[residue])/++counts[residue];
+  }
+}
+
+unsigned GenericMolInfo::getReconstructionResidue(AtomNumber atom) const {
+  return reconstructionResidues.at(atom.index());
+}
+
+const Vector& GenericMolInfo::getReconstructionCenter(unsigned residue) const {
+  return reconstructionCenters.at(residue);
+}
+
+std::shared_ptr<const Tree> GenericMolInfo::getReconstructionTree(const std::vector<AtomNumber>& atoms) {
+  const auto found=reconstructionTrees.find(atoms);
+  if(found!=reconstructionTrees.end()) {
+    if(auto cached=found->second.lock()) {
+      return cached;
+    }
+    reconstructionTrees.erase(found);
+  }
+  // Request lists can change in prepare(). Periodic pruning bounds expired
+  // keys too, without scanning all live selections on every cache insertion.
+  if(reconstructionTrees.size()>=pruneTreesAt) {
+    for(auto it=reconstructionTrees.begin(); it!=reconstructionTrees.end();) {
+      if(it->second.expired()) {
+        it=reconstructionTrees.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    pruneTreesAt=std::max<std::size_t>(16,2*reconstructionTrees.size());
+  }
+  auto built=std::make_shared<Tree>(this);
+  built->buildTree(atoms);
+  reconstructionTrees.emplace(atoms,built);
+  return built;
 }
 
 void GenericMolInfo::prepare() {

@@ -1,0 +1,5 @@
+residue identity, selected representatives, anchor and traversal PASS
+shared immutable trees, request/reference isolation and expiry PASS
+default single-residue material and missing-reference links PASS
+periodic reconstruction, local/global actions, forces and virial PASS
+invalid SMALL_RESIDUES input PASS

@@ -85,7 +85,7 @@ class ActionAtomistic :
 
   // EMST
   GenericMolInfo* actionMoldat{nullptr};
-  std::unique_ptr<Tree> tree;
+  std::shared_ptr<const Tree> tree;
 
 /// Values that hold information about atom positions and charges
   std::vector<Value*>   xpos, ypos, zpos, masv, chargev;

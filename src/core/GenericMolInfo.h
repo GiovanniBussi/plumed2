@@ -31,10 +31,12 @@
 #include "tools/Subprocess.h"
 #include <memory>
 #include <map>
+#include <unordered_map>
 
 namespace PLMD {
 
 class PDB;
+class Tree;
 
 class GenericMolInfo :
   public ActionAnyorder,
@@ -61,6 +63,15 @@ private:
   bool selector_running=false;
 /// Structure in pdb file is whole
   bool iswhole_;
+/// Explicit promise that residues are compact enough for direct minimum-image links.
+  bool smallResidues=false;
+/// Reference-only residue data; atom numbers need not be consecutive.
+  std::unordered_map<unsigned,unsigned> reconstructionResidues;
+  std::vector<Vector> reconstructionCenters;
+  void setupReconstructionResidues();
+/// Share immutable topologies without keeping unused trees alive.
+  std::map<std::vector<AtomNumber>,std::weak_ptr<const Tree>> reconstructionTrees;
+  std::size_t pruneTreesAt=16;
 public:
   ~GenericMolInfo();
   void calculate() override {}
@@ -75,6 +86,11 @@ public:
   std::string getChainID(AtomNumber a)const;
   Vector getPosition(AtomNumber a)const;
   bool isWhole() const;
+  bool hasSmallResidues() const;
+  unsigned getReconstructionResidue(AtomNumber atom) const;
+  const Vector& getReconstructionCenter(unsigned residue) const;
+/// The ordered request and this MOLINFO's reference/policy identify a topology.
+  std::shared_ptr<const Tree> getReconstructionTree(const std::vector<AtomNumber>& atoms);
   unsigned getPDBsize()const ;
   std::string getResidueName(AtomNumber a)const;
   void interpretSymbol( const std::string& symbol, std::vector<AtomNumber>& atoms );

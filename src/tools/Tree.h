@@ -40,6 +40,8 @@ private:
 
   std::vector<unsigned> root_indexes_;
   std::vector<unsigned> tree_indexes_;
+  void buildAtomTree(const std::vector<AtomNumber>& atoms);
+  void buildResidueTree(const std::vector<AtomNumber>& atoms);
 
 public:
 /// constructor

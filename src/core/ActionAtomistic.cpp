@@ -672,8 +672,7 @@ void ActionAtomistic::makeWhole() {
   if(actionMoldat && actionMoldat->isWhole()) {
     // make sure the tree has been constructed
     if(!tree) {
-      tree=std::make_unique<Tree>(actionMoldat);
-      tree->buildTree(getAbsoluteIndexes());
+      tree=actionMoldat->getReconstructionTree(getAbsoluteIndexes());
     }
     // link j: from atom root_indexes[j] to atom tree_indexes[j+1]
     const auto & tree_indexes=tree->getTreeIndexes();
