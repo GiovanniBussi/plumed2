@@ -22,13 +22,13 @@ struct MPI_Op;
 // Logical kind/size stay kernel-side, outside the frozen provider ABI.
 template<class T> bool fallback_integer_type(const char *, T *) { return false; }
 bool fallback_integer_type(const char *, MPI_Datatype *);
-plumed_mpi_handle_storage datatype_storage(MPI_Datatype);
+plumed_mpi_handle_storage datatype_storage(const MPI_Datatype &);
 void begin_fallback_datatype_epoch();
-std::size_t fallback_contiguous_size(int, MPI_Datatype);
-std::size_t fallback_indexed_size(int, const int *, MPI_Datatype);
+std::size_t fallback_contiguous_size(int, const MPI_Datatype &);
+std::size_t fallback_indexed_size(int, const int *, const MPI_Datatype &);
 int fallback_integer_reduce(const char *, const void *, void *, int,
-                            MPI_Datatype, MPI_Op, int, const int *, MPI_Comm);
-int fallback_integer_count(const MPI_Status *, MPI_Datatype, int *, bool);
+                            const MPI_Datatype &, MPI_Op, int, const int *, MPI_Comm);
+int fallback_integer_count(const MPI_Status *, const MPI_Datatype &, int *, bool);
 
 bool can_fallback_Wait();
 bool can_fallback_Waitsome();
@@ -38,15 +38,15 @@ bool can_fallback_Allgatherv();
 int fallback_Wait(MPI_Request *, MPI_Status *);
 int fallback_Waitsome(int, MPI_Request [], int *, int [], MPI_Status []);
 int fallback_Testsome(int, MPI_Request [], int *, int [], MPI_Status []);
-int fallback_Allgather(const void *, int, MPI_Datatype,
-                       void *, int, MPI_Datatype, MPI_Comm);
-int fallback_Allgatherv(const void *, int, MPI_Datatype,
+int fallback_Allgather(const void *, int, const MPI_Datatype &,
+                       void *, int, const MPI_Datatype &, MPI_Comm);
+int fallback_Allgatherv(const void *, int, const MPI_Datatype &,
                         void *, const int [], const int [],
-                        MPI_Datatype, MPI_Comm);
+                        const MPI_Datatype &, MPI_Comm);
 bool is_empty_status(const MPI_Status *);
 void set_empty_status(MPI_Status *);
 bool requests_all_null(int, const MPI_Request []);
-bool try_singleton_reduce(const void *, void *, int, MPI_Datatype,
+bool try_singleton_reduce(const void *, void *, int, const MPI_Datatype &,
                           int, MPI_Comm, int *);
 } // namespace mpiwrap
 }

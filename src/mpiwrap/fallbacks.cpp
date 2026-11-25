@@ -22,7 +22,7 @@ void begin_fallback_datatype_epoch() {
   datatype_epoch.fetch_add(1, std::memory_order_relaxed);
 }
 
-std::size_t fallback_contiguous_size(int count, MPI_Datatype oldtype) {
+std::size_t fallback_contiguous_size(int count, const MPI_Datatype &oldtype) {
   if(count<0 || (oldtype.fallback_size &&
                  static_cast<std::size_t>(count)>std::numeric_limits<std::size_t>::max()/oldtype.fallback_size)) {
     throw std::overflow_error("MPI fallback contiguous datatype size overflows size_t");
@@ -30,7 +30,7 @@ std::size_t fallback_contiguous_size(int count, MPI_Datatype oldtype) {
   return static_cast<std::size_t>(count)*oldtype.fallback_size;
 }
 
-std::size_t fallback_indexed_size(int count,const int *blocks,MPI_Datatype oldtype) {
+std::size_t fallback_indexed_size(int count,const int *blocks,const MPI_Datatype &oldtype) {
   if(count<0 || (count && !blocks)) {
     throw std::invalid_argument("MPI indexed datatype requires block lengths");
   }
@@ -70,7 +70,7 @@ bool fallback_integer_type(const char *name, MPI_Datatype *value) {
   return true;
 }
 
-plumed_mpi_handle_storage datatype_storage(MPI_Datatype value) {
+plumed_mpi_handle_storage datatype_storage(const MPI_Datatype &value) {
   if(value.fallback_kind!=1 && value.fallback_kind!=2) {
     return value.storage;
   }
@@ -99,7 +99,7 @@ plumed_mpi_handle_storage datatype_storage(MPI_Datatype value) {
   return cache.carrier.storage;
 }
 
-int fallback_integer_count(const MPI_Status *status,MPI_Datatype datatype,int *count,bool elements) {
+int fallback_integer_count(const MPI_Status *status,const MPI_Datatype &datatype,int *count,bool elements) {
   if(!status || !count) {
     throw std::invalid_argument("MPI status query requires status and count");
   }
@@ -164,7 +164,7 @@ bool collective_primitives() {
 // Basic C datatype extents are fixed by the MPI language binding. Compare the
 // provider's handles; their numeric values and representations are immaterial.
 // Compound pair types and custom typemaps are deliberately not approximated.
-std::size_t basic_extent(MPI_Datatype datatype) {
+std::size_t basic_extent(const MPI_Datatype &datatype) {
   if(datatype.fallback_kind && datatype.fallback_kind!=4) {
     return datatype.fallback_size;
   }
@@ -224,7 +224,7 @@ void rank_size(MPI_Comm comm,int &rank,int &size) {
   }
 }
 
-std::size_t collective_extent(MPI_Datatype type,const char *operation) {
+std::size_t collective_extent(const MPI_Datatype &type,const char *operation) {
   const std::size_t extent=basic_extent(type);
   if(!extent) {
     throw std::runtime_error(std::string(operation)+" fallback requires a supported basic C datatype (custom/compound types are unsupported)");
@@ -362,8 +362,8 @@ int fallback_Testsome(int count,MPI_Request requests[],int *outcount,
   return mpiwrap_fallback_detail::some(false,count,requests,outcount,indices,statuses);
 }
 
-int fallback_Allgather(const void *send,int sendcount,MPI_Datatype sendtype,
-                       void *recv,int recvcount,MPI_Datatype recvtype,MPI_Comm comm) {
+int fallback_Allgather(const void *send,int sendcount,const MPI_Datatype &sendtype,
+                       void *recv,int recvcount,const MPI_Datatype &recvtype,MPI_Comm comm) {
   int rank=0,size=0;
   mpiwrap_fallback_detail::rank_size(comm,rank,size);
   const std::size_t extent=mpiwrap_fallback_detail::collective_extent(recvtype,"MPI_Allgather");
@@ -396,9 +396,9 @@ int fallback_Allgather(const void *send,int sendcount,MPI_Datatype sendtype,
   return SUCCESS();
 }
 
-int fallback_Allgatherv(const void *send,int sendcount,MPI_Datatype sendtype,
+int fallback_Allgatherv(const void *send,int sendcount,const MPI_Datatype &sendtype,
                         void *recv,const int counts[],const int displs[],
-                        MPI_Datatype recvtype,MPI_Comm comm) {
+                        const MPI_Datatype &recvtype,MPI_Comm comm) {
   int rank=0,size=0;
   mpiwrap_fallback_detail::rank_size(comm,rank,size);
   const std::size_t extent=mpiwrap_fallback_detail::collective_extent(recvtype,"MPI_Allgatherv");
@@ -484,7 +484,7 @@ template<class T> T combine(T a,T b,IntegerOp op) {
 
 template<class T>
 int integer_reduce(const char *operation,const void *send,void *recv,int count,
-                   MPI_Datatype datatype,IntegerOp op,int root,const int *counts,MPI_Comm comm) {
+                   const MPI_Datatype &datatype,IntegerOp op,int root,const int *counts,MPI_Comm comm) {
   int rank=0,size=0;
   rank_size(comm,rank,size);
   const bool reduce=std::strcmp(operation,"Reduce")==0;
@@ -567,7 +567,7 @@ int integer_reduce(const char *operation,const void *send,void *recv,int count,
 }
 
 int fallback_integer_reduce(const char *operation,const void *send,void *recv,int count,
-                            MPI_Datatype datatype,MPI_Op op,int root,const int *counts,MPI_Comm comm) {
+                            const MPI_Datatype &datatype,MPI_Op op,int root,const int *counts,MPI_Comm comm) {
   const auto integer_op=mpiwrap_fallback_detail::integer_op(op);
   if(datatype.fallback_kind==1) {
     return mpiwrap_fallback_detail::integer_reduce<long long>(operation,send,recv,count,datatype,integer_op,root,counts,comm);
@@ -579,7 +579,7 @@ int fallback_integer_reduce(const char *operation,const void *send,void *recv,in
 }
 
 bool try_singleton_reduce(const void *send,void *recv,int count,
-                          MPI_Datatype type,int root,MPI_Comm comm,int *result) {
+                          const MPI_Datatype &type,int root,MPI_Comm comm,int *result) {
   if(!pointers::Comm_size || root>0 || root< -1 || count<0) {
     return false;
   }

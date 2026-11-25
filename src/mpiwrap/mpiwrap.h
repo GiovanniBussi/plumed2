@@ -357,13 +357,13 @@ template<class T> bool fallback_integer_type(const char *, T *) {
 return false;
 }
 bool fallback_integer_type(const char *, MPI_Datatype *);
-plumed_mpi_handle_storage datatype_storage(MPI_Datatype);
+plumed_mpi_handle_storage datatype_storage(const MPI_Datatype &);
 void begin_fallback_datatype_epoch();
-std::size_t fallback_contiguous_size(int, MPI_Datatype);
-std::size_t fallback_indexed_size(int, const int *, MPI_Datatype);
+std::size_t fallback_contiguous_size(int, const MPI_Datatype &);
+std::size_t fallback_indexed_size(int, const int *, const MPI_Datatype &);
 int fallback_integer_reduce(const char *, const void *, void *, int,
-                            MPI_Datatype, MPI_Op, int, const int *, MPI_Comm);
-int fallback_integer_count(const MPI_Status *, MPI_Datatype, int *, bool);
+                            const MPI_Datatype &, MPI_Op, int, const int *, MPI_Comm);
+int fallback_integer_count(const MPI_Status *, const MPI_Datatype &, int *, bool);
 
 bool can_fallback_Wait();
 bool can_fallback_Waitsome();
@@ -373,15 +373,15 @@ bool can_fallback_Allgatherv();
 int fallback_Wait(MPI_Request *, MPI_Status *);
 int fallback_Waitsome(int, MPI_Request [], int *, int [], MPI_Status []);
 int fallback_Testsome(int, MPI_Request [], int *, int [], MPI_Status []);
-int fallback_Allgather(const void *, int, MPI_Datatype,
-                       void *, int, MPI_Datatype, MPI_Comm);
-int fallback_Allgatherv(const void *, int, MPI_Datatype,
+int fallback_Allgather(const void *, int, const MPI_Datatype &,
+                       void *, int, const MPI_Datatype &, MPI_Comm);
+int fallback_Allgatherv(const void *, int, const MPI_Datatype &,
                         void *, const int [], const int [],
-                        MPI_Datatype, MPI_Comm);
+                        const MPI_Datatype &, MPI_Comm);
 bool is_empty_status(const MPI_Status *);
 void set_empty_status(MPI_Status *);
 bool requests_all_null(int, const MPI_Request []);
-bool try_singleton_reduce(const void *, void *, int, MPI_Datatype,
+bool try_singleton_reduce(const void *, void *, int, const MPI_Datatype &,
                           int, MPI_Comm, int *);
 } // namespace mpiwrap
 }
@@ -1411,6 +1411,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Abort() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Abort != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Bcast) {
@@ -1422,6 +1424,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Bcast() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Bcast != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Scatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Scatter) {
@@ -1433,6 +1437,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Scatter() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Scatter != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Gather) {
@@ -1444,6 +1450,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Gather() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Gather != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
 if (datatype.fallback_kind) {
@@ -1464,6 +1472,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Allreduce() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Allreduce != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -1508,6 +1518,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Wait() {
 return pointers::ready.load(std::memory_order_acquire) && (pointers::Wait != nullptr || can_fallback_Wait());
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Allgather) {
@@ -1522,6 +1534,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Allgather() {
 return pointers::ready.load(std::memory_order_acquire) && (pointers::Allgather != nullptr || can_fallback_Allgather());
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Allgatherv) {
@@ -1536,6 +1550,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Allgatherv() {
 return pointers::ready.load(std::memory_order_acquire) && (pointers::Allgatherv != nullptr || can_fallback_Allgatherv());
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status) {
 ensure_provider_selected();
 plumed_mpi_status native_status{};
@@ -1562,6 +1578,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Barrier() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Barrier != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) {
 ensure_provider_selected();
 if (datatype.fallback_kind && pointers::Get_count) {
@@ -1595,6 +1613,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Get_count() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Get_count != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, void *recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status *status) {
 ensure_provider_selected();
 plumed_mpi_status native_status{};
@@ -1650,6 +1670,8 @@ return value;
 inline bool has_Comm_f2c() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Comm_f2c != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Send) {
@@ -1661,6 +1683,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Send() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Send != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Bsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Bsend) {
@@ -1672,6 +1696,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Bsend() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Bsend != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Ssend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Ssend) {
@@ -1683,6 +1709,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Ssend() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Ssend != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Rsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Rsend) {
@@ -1723,6 +1751,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Buffer_detach() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Buffer_detach != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -1741,6 +1771,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Ibsend() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Ibsend != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -1759,6 +1791,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Issend() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Issend != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -1777,6 +1811,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Irsend() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Irsend != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2221,6 +2257,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Test_cancelled() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Test_cancelled != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Send_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2239,6 +2277,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Send_init() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Send_init != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Bsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2257,6 +2297,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Bsend_init() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Bsend_init != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Ssend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2275,6 +2317,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Ssend_init() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Ssend_init != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Rsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2293,6 +2337,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Rsend_init() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Rsend_init != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Recv_init(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request) {
 ensure_provider_selected();
 if (!request) {
@@ -2355,6 +2401,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Startall() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Startall != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, int sendtag, int source, int recvtag, MPI_Comm comm, MPI_Status *status) {
 ensure_provider_selected();
 plumed_mpi_status native_status{};
@@ -2370,6 +2418,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Sendrecv_replace() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Sendrecv_replace != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
 if (oldtype.fallback_kind) {
@@ -2399,6 +2449,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Type_contiguous() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Type_contiguous != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
 if (oldtype.fallback_kind) {
@@ -2432,6 +2484,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Type_vector() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Type_vector != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Type_indexed(int count, const int array_of_blocklengths[], const int array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
 if (oldtype.fallback_kind) {
@@ -2509,6 +2563,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Type_free() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Type_free != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Type_size(MPI_Datatype datatype, int *size) {
 ensure_provider_selected();
 if (datatype.fallback_kind) {
@@ -2534,6 +2590,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Type_size() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Type_size != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Get_elements(const MPI_Status *status, MPI_Datatype datatype, int *count) {
 ensure_provider_selected();
 if (datatype.fallback_kind && pointers::Get_elements) {
@@ -2567,6 +2625,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Get_elements() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Get_elements != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Pack(const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf, int outsize, int *position, MPI_Comm comm) {
 ensure_provider_selected();
 if (!position) {
@@ -2586,6 +2646,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Pack() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Pack != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm) {
 ensure_provider_selected();
 if (!position) {
@@ -2605,6 +2667,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Unpack() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Unpack != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size) {
 ensure_provider_selected();
 if (!size) {
@@ -2623,6 +2687,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Pack_size() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Pack_size != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Gatherv) {
@@ -2634,6 +2700,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Gatherv() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Gatherv != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Scatterv(const void *sendbuf, const int sendcounts[], const int displs[], MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Scatterv) {
@@ -2645,6 +2713,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Scatterv() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Scatterv != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Alltoall) {
@@ -2656,6 +2726,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Alltoall() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Alltoall != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[], MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
 ensure_provider_selected();
 if (!pointers::Alltoallv) {
@@ -2667,6 +2739,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Alltoallv() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Alltoallv != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
 ensure_provider_selected();
 if (datatype.fallback_kind) {
@@ -2716,6 +2790,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Op_free() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Op_free != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
 if (datatype.fallback_kind) {
@@ -2730,6 +2806,8 @@ return static_cast<int>(native_return_value);
 inline bool has_Reduce_scatter() {
 return pointers::ready.load(std::memory_order_acquire) && pointers::Reduce_scatter != nullptr;
 }
+// MPI datatype handles are value parameters in the MPI binding.
+// cppcheck-suppress passedByValue
 inline int Scan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
 if (datatype.fallback_kind) {

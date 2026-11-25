@@ -582,6 +582,13 @@ def render_provider_inline_functions(functions):
                 supported = False
         signature = f"inline {wrapper_type(result)} {suffix}({', '.join(arguments)}) {{"
         has_signature = f"inline bool has_{suffix}() {{"
+        # Keep the MPI binding's value-parameter signature even when the C++
+        # frontend adds metadata to its otherwise opaque datatype handle.
+        if any(re.fullmatch(r"MPI_Datatype\s+\w+", raw) for raw in raw_args):
+            lines += [
+                "// MPI datatype handles are value parameters in the MPI binding.",
+                "// cppcheck-suppress passedByValue",
+            ]
         if not supported:
             unused_arguments = [
                 f"  (void){name_argument(raw)};" for raw in raw_args if raw != "..."
