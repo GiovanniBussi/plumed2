@@ -77,7 +77,7 @@ InPlaneDistances::InPlaneDistances(const ActionOptions&ao):
         std::string str_n;
         Tools::convert( n, str_n );
         n++;
-        dinput += " ATOMS" + str_n + "=" + str_atomsA[j] + "," + str_atomsC[k];
+        dinput += " ATOMS" + str_n + "=" + str_atomsA[i] + "," + str_atomsC[k];
         ainput += " ATOMS" + str_n + "=" + str_atomsB[j] + "," + str_atomsA[i] + "," + str_atomsC[k];
       }
     }
