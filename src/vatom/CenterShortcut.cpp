@@ -34,6 +34,7 @@ PLUMED_REGISTER_ACTION(CenterShortcut,"CENTER")
 
 void CenterShortcut::registerKeywords( Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","ATOMS","the group of atoms that appear in the definition of this center");
   keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions when calculating distances");
   keys.add("optional","WEIGHTS","what weights should be used when calculating the center.  If this keyword is not present the geometric center is computed. "
@@ -88,7 +89,14 @@ CenterShortcut::CenterShortcut(const ActionOptions& ao):
   }
   // Read in the atoms
   std::string atlist;
-  parse("ATOMS",atlist);
+  std::vector<std::string> atoms;
+  parseAtomList("ATOMS",atoms);
+  for(const auto& atom : atoms) {
+    if(!atlist.empty()) {
+      atlist += ",";
+    }
+    atlist += atom;
+  }
   // Calculate the mass of the vatom
   readInputLine( getShortcutLabel() + "_m: MASS ATOMS=" + atlist );
   readInputLine( getShortcutLabel() + "_mass: SUM PERIODIC=NO ARG=" + getShortcutLabel() + "_m" );

@@ -24,6 +24,7 @@
 #include "ActionWithValue.h"
 #include "ActionRegister.h"
 #include "ActionSet.h"
+#include "Group.h"
 #include <cctype>
 #include <unordered_map>
 
@@ -33,6 +34,37 @@ void ActionShortcut::registerKeywords( Keywords& keys ) {
   Action::registerKeywords( keys );
   keys.add("hidden","IS_SHORTCUT","hidden keyword to tell if actions are shortcuts so that example generator can provide expansions of shortcuts");
   keys.add("hidden","HAS_VALUES","this is used in json output to determine those actions that have values");
+}
+
+void ActionShortcut::parseAtomList(const std::string& key, std::vector<std::string>& atoms) {
+  std::vector<std::string> input;
+  parseVector(key,input);
+  expandAtomList(key,input,atoms);
+}
+
+void ActionShortcut::expandAtomList(const std::string& key, const std::vector<std::string>& input,
+                                    std::vector<std::string>& atoms) {
+  if(input.empty()) {
+    return;
+  }
+  std::string list;
+  for(const auto& item : input) {
+    if(!list.empty()) {
+      list += ",";
+    }
+    // A symbolic selection can contain spaces. Keep it as a single atom-list item
+    // until GROUP resolves it, rather than copying it into individual atom pairs.
+    list += "{" + item + "}";
+  }
+  const std::string label = getShortcutLabel() + "_" + key + "_atoms";
+  readInputLine(label + ": GROUP ATOMS={" + list + "}");
+  Group* group = plumed.getActionSet().selectWithLabel<Group*>(label);
+  plumed_assert(group);
+  const auto expanded = group->getGroupAtoms();
+  if(expanded.empty()) {
+    error("the selection in " + key + " contains no atoms");
+  }
+  atoms.insert(atoms.end(),expanded.begin(),expanded.end());
 }
 
 void ActionShortcut::readShortcutKeywords( const Keywords& keys, std::map<std::string,std::string>& keymap ) {
