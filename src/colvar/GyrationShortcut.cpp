@@ -55,6 +55,7 @@ PLUMED_REGISTER_ACTION(GyrationShortcut,"GYRATION_TENSOR")
 
 void GyrationShortcut::registerKeywords( Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","ATOMS","the group of atoms that you are calculating the Gyration Tensor for");
   keys.add("compulsory","TYPE","RADIUS","The type of calculation relative to the Gyration Tensor you want to perform");
   keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions when calculating distances");
@@ -112,8 +113,8 @@ GyrationShortcut::GyrationShortcut(const ActionOptions& ao):
   log<<"  Bibliography "<<plumed.cite("Jirí Vymetal and Jirí Vondrasek, J. Phys. Chem. A 115, 11455 (2011)")<<"\n";
   // Read in the atoms involved
   std::vector<std::string> atoms;
-  parseVector("ATOMS",atoms);
-  Tools::interpretRanges(atoms);
+  parseAtomList("ATOMS",atoms);
+
   std::string gtype, atlist=atoms[0];
   for(unsigned i=1; i<atoms.size(); ++i) {
     atlist += "," + atoms[i];

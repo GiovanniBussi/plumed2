@@ -34,6 +34,7 @@ PLUMED_REGISTER_ACTION(CenterShortcut,"CENTER")
 
 void CenterShortcut::registerKeywords( Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","ATOMS","the group of atoms that you are calculating the Gyration Tensor for");
   keys.add("compulsory","TYPE","RADIUS","The type of calculation relative to the Gyration Tensor you want to perform");
   keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions when calculating distances");
@@ -83,7 +84,14 @@ CenterShortcut::CenterShortcut(const ActionOptions& ao):
   }
   // Read in the atoms
   std::string atlist;
-  parse("ATOMS",atlist);
+  std::vector<std::string> atoms;
+  parseAtomList("ATOMS",atoms);
+  for(const auto& atom : atoms) {
+    if(!atlist.empty()) {
+      atlist += ",";
+    }
+    atlist += atom;
+  }
   // Calculate the mass of the vatom
   readInputLine( getShortcutLabel() + "_m: MASS ATOMS=" + atlist );
   readInputLine( getShortcutLabel() + "_mass: SUM PERIODIC=NO ARG=" + getShortcutLabel() + "_m" );
