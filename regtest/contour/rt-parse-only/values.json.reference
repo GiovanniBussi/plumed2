@@ -70,6 +70,10 @@
 "action" : "FCCUBIC", 
 "fcc" : { "type": "vector", "desciption": "" }
 }, 
+"dens_dist_ATOMS_atoms" : { 
+"action" : "GROUP", 
+"dens_dist_ATOMS_atoms" : { "type": "atoms", "desciption": "" }
+}, 
 "dens_dist" : { 
 "action" : "DISTANCE", 
 "dens_dist.x" : { "type": "vector", "desciption": "" }
