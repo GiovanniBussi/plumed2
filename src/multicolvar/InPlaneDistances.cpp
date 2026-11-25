@@ -71,6 +71,7 @@ PLUMED_REGISTER_ACTION(InPlaneDistances,"INPLANEDISTANCES")
 
 void InPlaneDistances::registerKeywords( Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","GROUP","calculate distance for each distinct set of three atoms in the group");
   keys.add("atoms","VECTORSTART","The first atom position that is used to define the normal to the plane of interest");
   keys.add("atoms","VECTOREND","The second atom position that is used to defin the normal to the plane of interest");
@@ -85,14 +86,14 @@ InPlaneDistances::InPlaneDistances(const ActionOptions&ao):
   Action(ao),
   ActionShortcut(ao) {
   std::vector<std::string> str_atomsA;
-  parseVector("VECTORSTART",str_atomsA);
-  Tools::interpretRanges( str_atomsA );
+  parseAtomList("VECTORSTART",str_atomsA);
+
   std::vector<std::string> str_atomsB;
-  parseVector("VECTOREND",str_atomsB);
-  Tools::interpretRanges( str_atomsB );
+  parseAtomList("VECTOREND",str_atomsB);
+
   std::vector<std::string> str_atomsC;
-  parseVector("GROUP",str_atomsC);
-  Tools::interpretRanges( str_atomsC );
+  parseAtomList("GROUP",str_atomsC);
+
   if( str_atomsA.size()==0 ) {
     error("no atoms found in VECTORSTART");
   }

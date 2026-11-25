@@ -70,6 +70,7 @@ PLUMED_REGISTER_ACTION(CoordAngles,"COORD_ANGLES")
 
 void CoordAngles::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","CATOMS","all the angles between the bonds that radiate out from these central atom are computed");
   keys.add("atoms","GROUP","a list of angls between pairs of bonds connecting one of the atoms specified using the CATOM command and two of the atoms specified here are computed");
   keys.add("compulsory","SWITCH","the switching function specifies that only those bonds that have a length that is less than a certain threshold are considered");
@@ -137,15 +138,15 @@ CoordAngles::CoordAngles(const ActionOptions& ao):
   ActionShortcut(ao) {
   // Parse the central atoms
   std::vector<std::string> catoms;
-  parseVector("CATOMS",catoms);
-  Tools::interpretRanges(catoms);
+  parseAtomList("CATOMS",catoms);
+
   if( catoms.size()==0 ) {
     error("no central atoms were found in CATOMS");
   }
   // Parse the coordination sphere
   std::vector<std::string> group;
-  parseVector("GROUP",group);
-  Tools::interpretRanges(group);
+  parseAtomList("GROUP",group);
+
   if( group.size()==0 ) {
     error("no atoms were found in GROUP");
   }

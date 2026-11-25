@@ -77,6 +77,7 @@ PLUMED_REGISTER_ACTION(Angles,"ANGLES")
 
 void Angles::registerKeywords( Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms-1","GROUP","Calculate angles for each distinct set of three atoms in the group");
   keys.add("atoms-2","GROUPA","A group of central atoms about which angles should be calculated");
   keys.add("atoms-2","GROUPB","When used in conjunction with GROUPA this keyword instructs plumed "
@@ -102,8 +103,21 @@ Angles::Angles(const ActionOptions&ao):
   parse("SWITCH",swit);
   if( swit.length()>0 ) {
     std::string cat, grp;
-    parse("GROUPA",cat);
-    parse("GROUPB",grp);
+    std::vector<std::string> ca, neighbors;
+    parseAtomList("GROUPA",ca);
+    parseAtomList("GROUPB",neighbors);
+    for(const auto& atom : ca) {
+      if(!cat.empty()) {
+        cat += ",";
+      }
+      cat += atom;
+    }
+    for(const auto& atom : neighbors) {
+      if(!grp.empty()) {
+        grp += ",";
+      }
+      grp += atom;
+    }
     if( cat.length()==0 || grp.length()==0 ) {
       error("must use GROUPA/GROUPB when using SWITCH");
     }
@@ -111,18 +125,18 @@ Angles::Angles(const ActionOptions&ao):
     return;
   }
   std::vector<std::string> group;
-  parseVector("GROUP",group);
+  parseAtomList("GROUP",group);
   std::vector<std::string> groupa;
-  parseVector("GROUPA",groupa);
+  parseAtomList("GROUPA",groupa);
   std::vector<std::string> groupb;
-  parseVector("GROUPB",groupb);
+  parseAtomList("GROUPB",groupb);
   std::vector<std::string> groupc;
-  parseVector("GROUPC",groupc);
+  parseAtomList("GROUPC",groupc);
   if( group.size()>0 ) {
     if( groupa.size()>0 || groupb.size()>0 || groupc.size()>0 ) {
       error("should only be GROUP keyword in input not GROUPA/GROUPB/GROUPC");
     }
-    Tools::interpretRanges( group );
+
     if( group.size()<3 ) {
       error("GROUP must contain at least three atoms");
     }
@@ -144,9 +158,7 @@ Angles::Angles(const ActionOptions&ao):
     if( groupa.size()==0 || groupb.size()==0 ) {
       error("GROUPC must be used together with GROUPA and GROUPB");
     }
-    Tools::interpretRanges( groupa );
-    Tools::interpretRanges( groupb );
-    Tools::interpretRanges( groupc );
+
     unsigned n=1;
     std::string ainput = getShortcutLabel() + ": ANGLE";
     for(unsigned i=0; i<groupa.size(); ++i ) {
@@ -164,8 +176,7 @@ Angles::Angles(const ActionOptions&ao):
     if( groupb.size()==0 ) {
       error("GROUPA must be used together with GROUPB");
     }
-    Tools::interpretRanges( groupa );
-    Tools::interpretRanges( groupb );
+
     if( groupb.size()<2 ) {
       error("GROUPB must contain at least two atoms");
     }
@@ -191,6 +202,4 @@ Angles::Angles(const ActionOptions&ao):
 
 }
 }
-
-
 

@@ -76,6 +76,7 @@ PLUMED_REGISTER_ACTION(FerroNematicOrder,"FERRONEMATIC_ORDER")
 
 void FerroNematicOrder::registerKeywords(Keywords& keys) {
   ActionShortcut::registerKeywords( keys );
+  keys.needsAction("GROUP");
   keys.add("atoms","MOLECULE_STARTS","The atoms where the molecular axis starts.");
   keys.add("atoms","MOLECULE_ENDS","The atoms where the molecular axis ends.");
   keys.setValueDescription("scalar","the modulus of the average vector");
