@@ -55,8 +55,11 @@ static_assert(offsetof(MPI_Comm, storage) == 0, "native handle bytes begin at of
 static_assert(sizeof(MPI_Comm) == sizeof(plumed_mpi_handle_storage), "handle storage");
 struct MPI_Datatype {
   plumed_mpi_handle_storage storage;
+  // Logical type: 0 native, 1 signed, 2 unsigned, 3 contiguous, 4 noncontiguous.
+  unsigned fallback_kind;
+  std::size_t fallback_size;
   friend bool operator==(const MPI_Datatype &a, const MPI_Datatype &b) {
-    return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
+    return a.fallback_kind == b.fallback_kind && std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0;
   }
   friend bool operator!=(const MPI_Datatype &a, const MPI_Datatype &b) {
     return !(a == b);
@@ -66,7 +69,6 @@ static_assert(std::is_trivial<MPI_Datatype>::value, "handle must be POD");
 static_assert(std::is_standard_layout<MPI_Datatype>::value, "handle layout");
 // Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.
 static_assert(offsetof(MPI_Datatype, storage) == 0, "native handle bytes begin at offset zero");
-static_assert(sizeof(MPI_Datatype) == sizeof(plumed_mpi_handle_storage), "handle storage");
 struct MPI_Errhandler {
   plumed_mpi_handle_storage storage;
   friend bool operator==(const MPI_Errhandler &a, const MPI_Errhandler &b) {

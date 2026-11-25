@@ -163,14 +163,18 @@ def render_types_header():
         lines += [
             f"struct {native} {{",
             "  plumed_mpi_handle_storage storage;",
-            f"  friend bool operator==(const {native} &a, const {native} &b) {{ return std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0; }}",
+            *(["  // Logical type: 0 native, 1 signed, 2 unsigned, 3 contiguous, 4 noncontiguous.",
+               "  unsigned fallback_kind;", "  std::size_t fallback_size;"] if native == "MPI_Datatype" else []),
+            f"  friend bool operator==(const {native} &a, const {native} &b) {{ return "
+            + ("a.fallback_kind == b.fallback_kind && " if native == "MPI_Datatype" else "")
+            + "std::memcmp(&a.storage, &b.storage, sizeof(a.storage)) == 0; }",
             f"  friend bool operator!=(const {native} &a, const {native} &b) {{ return !(a == b); }}",
             "};",
             f'static_assert(std::is_trivial<{native}>::value, "handle must be POD");',
             f'static_assert(std::is_standard_layout<{native}>::value, "handle layout");',
             "// Keep native handle bytes at offset zero for unchanged callers passing &Get_comm(); receivers copy the provider-sized prefix.",
             f'static_assert(offsetof({native}, storage) == 0, "native handle bytes begin at offset zero");',
-            f'static_assert(sizeof({native}) == sizeof(plumed_mpi_handle_storage), "handle storage");',
+            *([] if native == "MPI_Datatype" else [f'static_assert(sizeof({native}) == sizeof(plumed_mpi_handle_storage), "handle storage");']),
         ]
     lines += [
         "struct MPI_Status {",
@@ -445,7 +449,7 @@ def render_provider_inline_functions(functions):
             if conversion == "scalar_value":
                 call_args.append(argname)
             elif conversion == "opaque_handle_value":
-                call_args.append(f"{argname}.storage")
+                call_args.append(f"datatype_storage({argname})" if "MPI_Datatype" in raw else f"{argname}.storage")
             elif conversion in {"buffer", "char_buffer", "pointer_storage"}:
                 call_args.append(argname)
             elif conversion in {"array", "integer_array"}:
@@ -459,8 +463,9 @@ def render_provider_inline_functions(functions):
                     f"  std::vector<plumed_mpi_handle_storage> {native}(static_cast<std::size_t>({extent}));",
                 ]
                 if argument["direction"] in {"in", "inout"}:
+                    storage = f"datatype_storage({argname}[i])" if "MPI_Datatype" in raw else f"{argname}[i].storage"
                     before.append(
-                        f"  for (int i = 0; i < {extent}; ++i) {native}[static_cast<std::size_t>(i)] = {argname}[i].storage;"
+                        f"  for (int i = 0; i < {extent}; ++i) {native}[static_cast<std::size_t>(i)] = {storage};"
                     )
                 call_args.append(f"({extent} > 0 ? {native}.data() : nullptr)")
                 if argument["direction"] in {"out", "inout"}:
@@ -515,6 +520,8 @@ def render_provider_inline_functions(functions):
                     else _frontend_status_guard(function, argument, argument)
                 )
                 after.append(f"  if ({guard}) {argname}->storage = {native};")
+                if "MPI_Datatype" in raw and argument["direction"] == "out":
+                    after.append(f"  if ({guard}) {{ {argname}->fallback_kind = 0; {argname}->fallback_size = 0; }}")
                 null_constant = {
                     "MPI_Group_free": "GROUP_NULL",
                     "MPI_Comm_free": "COMM_NULL",
@@ -574,6 +581,41 @@ def render_provider_inline_functions(functions):
             ]
         else:
             lines.append("  ensure_provider_selected();")
+        if name in {"MPI_Reduce", "MPI_Allreduce", "MPI_Scan", "MPI_Reduce_scatter"}:
+            root = "root" if name == "MPI_Reduce" else "-1"
+            counts = "recvcounts" if name == "MPI_Reduce_scatter" else "nullptr"
+            count = "0" if name == "MPI_Reduce_scatter" else "count"
+            lines += [
+                "  if (datatype.fallback_kind) {",
+                f'    return fallback_integer_reduce("{suffix}", sendbuf, recvbuf, {count}, datatype, op, {root}, {counts}, comm);',
+                "  }",
+            ]
+        if name == "MPI_Type_size":
+            lines += [
+                "  if (datatype.fallback_kind) {",
+                '    if (!size) throw std::invalid_argument("MPI_Type_size requires size");',
+                "    *size = datatype.fallback_size > 2147483647U ? UNDEFINED() : static_cast<int>(datatype.fallback_size); return SUCCESS();",
+                "  }",
+            ]
+        if name == "MPI_Type_contiguous":
+            lines.append("  if (oldtype.fallback_kind) (void)fallback_contiguous_size(count, oldtype);")
+        if name == "MPI_Type_vector":
+            lines += ["  if (oldtype.fallback_kind) {",
+                      "    MPI_Datatype block = oldtype; block.fallback_size = fallback_contiguous_size(blocklength, oldtype);",
+                      "    (void)fallback_contiguous_size(count, block);", "  }"]
+        if name == "MPI_Type_indexed":
+            lines.append("  if (oldtype.fallback_kind) (void)fallback_indexed_size(count, array_of_blocklengths, oldtype);")
+        if name == "MPI_Type_free":
+            lines += [
+                '  if (datatype && (datatype->fallback_kind == 1 || datatype->fallback_kind == 2)) throw std::invalid_argument("Cannot free a predefined MPI datatype");',
+            ]
+        if name == "MPI_Type_commit":
+            lines.append("  if (datatype && (datatype->fallback_kind == 1 || datatype->fallback_kind == 2)) { (void)datatype_storage(*datatype); return SUCCESS(); }")
+        if name in {"MPI_Get_count", "MPI_Get_elements"}:
+            elements = "true" if name == "MPI_Get_elements" else "false"
+            lines += [
+                f"  if (datatype.fallback_kind && pointers::{suffix}) return fallback_integer_count(status, datatype, count, {elements});",
+            ]
         lines += before
         if name == "MPI_Test":
             lines += [
@@ -666,6 +708,22 @@ def render_provider_inline_functions(functions):
                 "}",
             ]
         else:
+            if name == "MPI_Type_contiguous":
+                after += [
+                    "  if (native_return_value == 0 && oldtype.fallback_kind) {",
+                    "    newtype->fallback_kind = oldtype.fallback_kind == 4 ? 4 : 3;",
+                    "    newtype->fallback_size = fallback_contiguous_size(count, oldtype);",
+                    "  }",
+                ]
+            if name == "MPI_Type_vector":
+                after += ["  if (native_return_value == 0 && oldtype.fallback_kind) {",
+                          "    MPI_Datatype block = oldtype; block.fallback_size = fallback_contiguous_size(blocklength, oldtype);",
+                          "    newtype->fallback_kind = 4;",
+                          "    newtype->fallback_size = fallback_contiguous_size(count, block);", "  }"]
+            if name == "MPI_Type_indexed":
+                after += ["  if (native_return_value == 0 && oldtype.fallback_kind) {",
+                          "    newtype->fallback_kind = 4;",
+                          "    newtype->fallback_size = fallback_indexed_size(count, array_of_blocklengths, oldtype);", "  }"]
             lines += [
                 f"  {provider_result(result)} native_return_value = {call};",
                 *after,
@@ -969,9 +1027,10 @@ def render_provider_constant_bridges(constants):
         name = item["standard_api_name"]
         category = item["class"]
         result_type = constant_return_type(name, category)
+        output_type = "plumed_mpi_handle_storage" if category == "provider_handle" else result_type
         lines += [
             f"static int32_t plumed_mpiw_bridge_constant_{name}(void *output, uint32_t capacity) {{",
-            f"  if (!output || capacity < sizeof({result_type})) return -1;",
+            f"  if (!output || capacity < sizeof({output_type})) return -1;",
         ]
         if category in {"status_sentinel", "status_array_sentinel"}:
             lines += [
@@ -991,7 +1050,7 @@ def render_provider_constant_bridges(constants):
                 f"  {result_type} value{{}};",
                 "  if (native_value.size() > sizeof(value.storage.bytes)) return -1;",
                 "  std::memcpy(value.storage.bytes, native_value.data(), native_value.size());",
-                "  std::memcpy(output, &value, sizeof(value));",
+                "  std::memcpy(output, &value.storage, sizeof(value.storage));",
             ]
         elif category in {"provider_integer", "compile_time_integer"}:
             lines += [

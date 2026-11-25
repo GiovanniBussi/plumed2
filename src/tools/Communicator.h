@@ -64,9 +64,8 @@ class Communicator {
 /// Function returning the MPI type.
 /// You can use it to access to the MPI type of a C++ type, e.g.
 /// `MPI_Datatype type=getMPIType<double>();`
-/// Unsupported types have no specialization and fail at link time. In particular,
-/// use unsigned long buffers rather than unsigned long long: the latter datatype
-/// is optional in host thread-MPI implementations.
+/// Unsupported types have no specialization and fail at link time. Long-long
+/// types are supported even when the host thread-MPI omits their datatypes.
   template <class T>
   static MPI_Datatype getMPIType();
 /// Structure defining a buffer for MPI.

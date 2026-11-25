@@ -826,6 +826,39 @@ compile-time guard to those three constants, so a normal build without
 long-long tMPI support remains valid. `check-native-adapter.sh` compiles the
 host header in C99 and C++98 modes with this macro both present and absent.
 
+When these values are absent, mpiwrap supplies logical `MPI_LONG_LONG_INT`
+(`MPI_LONG_LONG` is its synonym) and `MPI_UNSIGNED_LONG_LONG` types for threaded
+providers. It creates a committed contiguous-byte transport type lazily after
+initialization. The original buffers, element counts and displacements pass
+through the provider's supported transfer functions, including nonblocking and
+persistent requests. No conversion buffer needs to survive a request. The
+transport remains alive until tMPI finalization; each embedded launch invalidates
+the rank-local cache before starting a fresh runtime.
+
+Provider-mode `MPI_Datatype` retains its native byte prefix and adds logical kind
+and size fields in the C++ frontend. These fields never cross the frozen C
+provider ABI, and ordinary/native MPI handles keep their existing dispatch.
+Rebuild C++ clients using the internal datatype interface with the kernel.
+Datatype constructors retain the logical element information, so size and
+status/count inquiries describe long-long values rather than transport bytes.
+Contiguous emulated types are also accepted by the shared Allgather fallbacks;
+noncontiguous types still require provider-native collective support.
+
+Byte transport cannot implement integer arithmetic. For emulated basic types,
+Reduce, Allreduce, Scan and Reduce_scatter use bounded chunks and provider Bcast
+calls, then combine actual signed or unsigned long-long values in mpiwrap.
+All ten valid predefined integer operations are handled, with unsigned modular
+arithmetic and the usual requirement that signed arithmetic not overflow.
+Only functions already supplied by the provider or an existing mpiwrap fallback
+are enabled: this does not add unrelated tMPI functions or user operations.
+The emulation requires an intracommunicator for reductions and a homogeneous
+threaded address space; it is not used for ordinary real-MPI providers.
+
+`regtest/basic/rt-mpiwrap-long-long` forces missing long-long accessors in the
+embedded runtime and verifies repeated launches and Communicator calls.
+Its standalone `check-provider.sh` tests native and forced-missing provider
+dispatch across Open MPI's larger function surface.
+
 ### GROMACS 2026 runtime injection
 
 The `gromacs-2026.4` patch uses the usual top-level `Plumed.h` link (or forwarding

@@ -678,6 +678,7 @@ bool Registry::beginInternalLaunch(
   }
   internal_launch_started_ = true;
   internal_launch_active_ = true;
+  begin_fallback_datatype_epoch();
   error.clear();
   return true;
 }
@@ -973,6 +974,7 @@ void ensure_provider_for_communicator() {
     } \
     if (!pointers::constant_##suffix || \
         pointers::constant_##suffix(&value.storage, sizeof(value.storage)) != 0) { \
+      if (fallback_integer_type(#name, &value)) return value; \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \
     return value; \

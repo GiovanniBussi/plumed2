@@ -2772,7 +2772,7 @@ static int32_t plumed_mpiw_bridge_MPI_Comm_set_errhandler(plumed_mpi_handle_stor
 }
 // Generated kernel-side conversion of native provider constants.
 static int32_t plumed_mpiw_bridge_constant_MPI_FLOAT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2785,11 +2785,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_FLOAT(void *output, uint32_t capa
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_DOUBLE(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2802,11 +2802,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_DOUBLE(void *output, uint32_t cap
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2819,11 +2819,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_INT(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_CHAR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2836,11 +2836,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_CHAR(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2853,11 +2853,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED(void *output, uint32_t c
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_LONG(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2870,11 +2870,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_LONG(void *output, uint3
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_LONG_LONG(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2887,11 +2887,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_LONG_LONG(void *output, 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG_DOUBLE(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2904,11 +2904,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG_DOUBLE(void *output, uint32_
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_COMM_WORLD(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Comm)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2921,11 +2921,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_COMM_WORLD(void *output, uint32_t
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_COMM_SELF(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Comm)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2938,11 +2938,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_COMM_SELF(void *output, uint32_t 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_COMM_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Comm)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2955,7 +2955,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_COMM_NULL(void *output, uint32_t 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_IN_PLACE(void *output, uint32_t capacity) {
@@ -2976,7 +2976,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_IN_PLACE(void *output, uint32_t c
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_SUM(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -2989,11 +2989,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_SUM(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_PROD(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3006,11 +3006,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_PROD(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_MAX(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3023,11 +3023,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_MAX(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_MIN(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3040,7 +3040,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_MIN(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_STATUS_IGNORE(void *output, uint32_t capacity) {
@@ -3060,7 +3060,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_STATUSES_IGNORE(void *output, uin
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_GROUP_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Group)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3073,11 +3073,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_GROUP_NULL(void *output, uint32_t
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_GROUP_EMPTY(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Group)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3090,11 +3090,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_GROUP_EMPTY(void *output, uint32_
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_REQUEST_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Request)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3107,11 +3107,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_REQUEST_NULL(void *output, uint32
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_DATATYPE_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3124,11 +3124,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_DATATYPE_NULL(void *output, uint3
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_OP_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3141,11 +3141,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_OP_NULL(void *output, uint32_t ca
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_ERRHANDLER_NULL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Errhandler)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3158,11 +3158,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_ERRHANDLER_NULL(void *output, uin
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_ERRORS_ARE_FATAL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Errhandler)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3175,11 +3175,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_ERRORS_ARE_FATAL(void *output, ui
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_ERRORS_RETURN(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Errhandler)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3192,11 +3192,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_ERRORS_RETURN(void *output, uint3
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_BYTE(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3209,11 +3209,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_BYTE(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_PACKED(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3226,11 +3226,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_PACKED(void *output, uint32_t cap
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_SHORT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3243,11 +3243,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_SHORT(void *output, uint32_t capa
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3260,11 +3260,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_CHAR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3277,11 +3277,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_CHAR(void *output, uint3
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_SHORT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3294,11 +3294,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_UNSIGNED_SHORT(void *output, uint
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG_LONG_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3311,11 +3311,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG_LONG_INT(void *output, uint3
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG_LONG(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3328,11 +3328,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG_LONG(void *output, uint32_t 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_FLOAT_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3345,11 +3345,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_FLOAT_INT(void *output, uint32_t 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_DOUBLE_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3362,11 +3362,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_DOUBLE_INT(void *output, uint32_t
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3379,11 +3379,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG_INT(void *output, uint32_t c
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_2INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3396,11 +3396,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_2INT(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_SHORT_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3413,11 +3413,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_SHORT_INT(void *output, uint32_t 
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LONG_DOUBLE_INT(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3430,11 +3430,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LONG_DOUBLE_INT(void *output, uin
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_MAXLOC(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3447,11 +3447,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_MAXLOC(void *output, uint32_t cap
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_MINLOC(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3464,11 +3464,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_MINLOC(void *output, uint32_t cap
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LAND(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3481,11 +3481,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LAND(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_BAND(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3498,11 +3498,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_BAND(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LOR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3515,11 +3515,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LOR(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_BOR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3532,11 +3532,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_BOR(void *output, uint32_t capaci
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_LXOR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3549,11 +3549,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_LXOR(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_BXOR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Op)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -3566,7 +3566,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_BXOR(void *output, uint32_t capac
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_UNDEFINED(void *output, uint32_t capacity) {
@@ -4148,7 +4148,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_ERR_IN_STATUS(void *output, uint3
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_SIGNED_CHAR(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -4161,11 +4161,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_SIGNED_CHAR(void *output, uint32_
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_C_BOOL(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -4178,11 +4178,11 @@ static int32_t plumed_mpiw_bridge_constant_MPI_C_BOOL(void *output, uint32_t cap
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 static int32_t plumed_mpiw_bridge_constant_MPI_INT64_T(void *output, uint32_t capacity) {
-  if (!output || capacity < sizeof(MPI_Datatype)) {
+  if (!output || capacity < sizeof(plumed_mpi_handle_storage)) {
     return -1;
   }
   Registry &registry = currentRegistry();
@@ -4195,7 +4195,7 @@ static int32_t plumed_mpiw_bridge_constant_MPI_INT64_T(void *output, uint32_t ca
     return -1;
   }
   std::memcpy(value.storage.bytes, native_value.data(), native_value.size());
-  std::memcpy(output, &value, sizeof(value));
+  std::memcpy(output, &value.storage, sizeof(value.storage));
   return 0;
 }
 
@@ -5142,6 +5142,7 @@ bool Registry::beginInternalLaunch(
   }
   internal_launch_started_ = true;
   internal_launch_active_ = true;
+  begin_fallback_datatype_epoch();
   error.clear();
   return true;
 }
@@ -5437,6 +5438,7 @@ void ensure_provider_for_communicator() {
     } \
     if (!pointers::constant_##suffix || \
         pointers::constant_##suffix(&value.storage, sizeof(value.storage)) != 0) { \
+      if (fallback_integer_type(#name, &value)) return value; \
       PLUMED_MPIW_PROVIDER_CONSTANT_ERROR(name); \
     } \
     return value; \

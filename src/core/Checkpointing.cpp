@@ -538,19 +538,12 @@ void Checkpointing::restartFrom(const std::string& fileName) {
   }
   // all the replicas must restart from the same step
   if(plumed.getNumberOfReplicas()>1) {
-    // Two 32-bit words preserve the checkpoint step even on platforms where
-    // unsigned long is 32 bits, without requiring an MPI long-long datatype.
-    const auto step=static_cast<unsigned long long>(restartStep);
-    std::vector<unsigned long> stepWords= {static_cast<unsigned long>(step&0xffffffffULL),
-                                           static_cast<unsigned long>(step>>32)
-                                          };
+    long long step0=restartStep;
     if(comm.Get_rank()==0) {
-      plumed.multi_sim_comm.Bcast(stepWords,0);
+      plumed.multi_sim_comm.Bcast(step0,0);
     }
-    comm.Bcast(stepWords,0);
-    const auto step0=static_cast<unsigned long long>(stepWords[0])
-                     | (static_cast<unsigned long long>(stepWords[1])<<32);
-    if(static_cast<long long int>(step0)!=restartStep) {
+    comm.Bcast(step0,0);
+    if(step0!=restartStep) {
       plumed_merror("checkpoint "+fname+" was written at step "+std::to_string(restartStep)+" but the checkpoint of replica 0 at step "+std::to_string(step0)+": all the replicas must restart from the same step");
     }
   }

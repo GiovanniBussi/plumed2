@@ -417,6 +417,18 @@ template<> MPI_Datatype Communicator::getMPIType<long unsigned>()   {
     return MPI_Datatype {};
   return MPI_UNSIGNED_LONG;
 }
+template<> MPI_Datatype Communicator::getMPIType<long long>() {
+  resolveDatatypeProvider();
+  if(!mpiwrap::provider_installed())
+    return MPI_Datatype {};
+  return MPI_LONG_LONG_INT;
+}
+template<> MPI_Datatype Communicator::getMPIType<unsigned long long>() {
+  resolveDatatypeProvider();
+  if(!mpiwrap::provider_installed())
+    return MPI_Datatype {};
+  return MPI_UNSIGNED_LONG_LONG;
+}
 template<> MPI_Datatype Communicator::getMPIType<long double>()   {
   resolveDatatypeProvider();
   if(!mpiwrap::provider_installed())

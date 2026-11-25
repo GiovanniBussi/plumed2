@@ -349,6 +349,21 @@ struct MPI_Request;
 struct MPI_Status;
 struct MPI_Datatype;
 struct MPI_Comm;
+struct MPI_Op;
+
+// Dispatch materializes a genuine provider byte datatype for logical types.
+// Logical kind/size stay kernel-side, outside the frozen provider ABI.
+template<class T> bool fallback_integer_type(const char *, T *) {
+return false;
+}
+bool fallback_integer_type(const char *, MPI_Datatype *);
+plumed_mpi_handle_storage datatype_storage(MPI_Datatype);
+void begin_fallback_datatype_epoch();
+std::size_t fallback_contiguous_size(int, MPI_Datatype);
+std::size_t fallback_indexed_size(int, const int *, MPI_Datatype);
+int fallback_integer_reduce(const char *, const void *, void *, int,
+                            MPI_Datatype, MPI_Op, int, const int *, MPI_Comm);
+int fallback_integer_count(const MPI_Status *, MPI_Datatype, int *, bool);
 
 bool can_fallback_Wait();
 bool can_fallback_Waitsome();
@@ -1401,7 +1416,7 @@ ensure_provider_selected();
 if (!pointers::Bcast) {
   unavailable("MPI_Bcast");
 }
-int32_t native_return_value = pointers::Bcast(buffer, count, datatype.storage, root, comm.storage);
+int32_t native_return_value = pointers::Bcast(buffer, count, datatype_storage(datatype), root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Bcast() {
@@ -1412,7 +1427,7 @@ ensure_provider_selected();
 if (!pointers::Scatter) {
   unavailable("MPI_Scatter");
 }
-int32_t native_return_value = pointers::Scatter(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount, recvtype.storage, root, comm.storage);
+int32_t native_return_value = pointers::Scatter(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcount, datatype_storage(recvtype), root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Scatter() {
@@ -1423,7 +1438,7 @@ ensure_provider_selected();
 if (!pointers::Gather) {
   unavailable("MPI_Gather");
 }
-int32_t native_return_value = pointers::Gather(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount, recvtype.storage, root, comm.storage);
+int32_t native_return_value = pointers::Gather(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcount, datatype_storage(recvtype), root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Gather() {
@@ -1431,6 +1446,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Gather != nu
 }
 inline int Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
+if (datatype.fallback_kind) {
+  return fallback_integer_reduce("Allreduce", sendbuf, recvbuf, count, datatype, op, -1, nullptr, comm);
+}
 if (pointers::Allreduce) {
   int singleton_result = 0;
   if (try_singleton_reduce(sendbuf, recvbuf, count, datatype, -1, comm, &singleton_result)) {
@@ -1440,7 +1458,7 @@ if (pointers::Allreduce) {
 if (!pointers::Allreduce) {
   unavailable("MPI_Allreduce");
 }
-int32_t native_return_value = pointers::Allreduce(sendbuf, recvbuf, count, datatype.storage, op.storage, comm.storage);
+int32_t native_return_value = pointers::Allreduce(sendbuf, recvbuf, count, datatype_storage(datatype), op.storage, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Allreduce() {
@@ -1455,7 +1473,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Isend) {
   unavailable("MPI_Isend");
 }
-int32_t native_return_value = pointers::Isend(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Isend(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -1498,7 +1516,7 @@ if (!pointers::Allgather) {
   }
   return fallback_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 }
-int32_t native_return_value = pointers::Allgather(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount, recvtype.storage, comm.storage);
+int32_t native_return_value = pointers::Allgather(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcount, datatype_storage(recvtype), comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Allgather() {
@@ -1512,7 +1530,7 @@ if (!pointers::Allgatherv) {
   }
   return fallback_Allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm);
 }
-int32_t native_return_value = pointers::Allgatherv(sendbuf, sendcount, sendtype.storage, recvbuf, recvcounts, displs, recvtype.storage, comm.storage);
+int32_t native_return_value = pointers::Allgatherv(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcounts, displs, datatype_storage(recvtype), comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Allgatherv() {
@@ -1524,7 +1542,7 @@ plumed_mpi_status native_status{};
 if (!pointers::Recv) {
   unavailable("MPI_Recv");
 }
-int32_t native_return_value = pointers::Recv(buf, count, datatype.storage, source, tag, comm.storage, status ? &native_status : nullptr);
+int32_t native_return_value = pointers::Recv(buf, count, datatype_storage(datatype), source, tag, comm.storage, status ? &native_status : nullptr);
 if (native_return_value == 0 && status) {
   status_from_transport(native_status, status);
 }
@@ -1546,6 +1564,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Barrier != n
 }
 inline int Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) {
 ensure_provider_selected();
+if (datatype.fallback_kind && pointers::Get_count) {
+  return fallback_integer_count(status, datatype, count, false);
+}
 plumed_mpi_status native_status{};
 if (!status) {
   throw std::invalid_argument("MPI_Get_count requires status");
@@ -1565,7 +1586,7 @@ if (is_empty_status(status)) {
 if (!pointers::Get_count) {
   unavailable("MPI_Get_count");
 }
-int32_t native_return_value = pointers::Get_count(&native_status, datatype.storage, &native_count);
+int32_t native_return_value = pointers::Get_count(&native_status, datatype_storage(datatype), &native_count);
 if (native_return_value == 0) {
   *count = static_cast<int>(native_count);
 }
@@ -1580,7 +1601,7 @@ plumed_mpi_status native_status{};
 if (!pointers::Sendrecv) {
   unavailable("MPI_Sendrecv");
 }
-int32_t native_return_value = pointers::Sendrecv(sendbuf, sendcount, sendtype.storage, dest, sendtag, recvbuf, recvcount, recvtype.storage, source, recvtag, comm.storage, status ? &native_status : nullptr);
+int32_t native_return_value = pointers::Sendrecv(sendbuf, sendcount, datatype_storage(sendtype), dest, sendtag, recvbuf, recvcount, datatype_storage(recvtype), source, recvtag, comm.storage, status ? &native_status : nullptr);
 if (native_return_value == 0 && status) {
   status_from_transport(native_status, status);
 }
@@ -1634,7 +1655,7 @@ ensure_provider_selected();
 if (!pointers::Send) {
   unavailable("MPI_Send");
 }
-int32_t native_return_value = pointers::Send(buf, count, datatype.storage, dest, tag, comm.storage);
+int32_t native_return_value = pointers::Send(buf, count, datatype_storage(datatype), dest, tag, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Send() {
@@ -1645,7 +1666,7 @@ ensure_provider_selected();
 if (!pointers::Bsend) {
   unavailable("MPI_Bsend");
 }
-int32_t native_return_value = pointers::Bsend(buf, count, datatype.storage, dest, tag, comm.storage);
+int32_t native_return_value = pointers::Bsend(buf, count, datatype_storage(datatype), dest, tag, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Bsend() {
@@ -1656,7 +1677,7 @@ ensure_provider_selected();
 if (!pointers::Ssend) {
   unavailable("MPI_Ssend");
 }
-int32_t native_return_value = pointers::Ssend(buf, count, datatype.storage, dest, tag, comm.storage);
+int32_t native_return_value = pointers::Ssend(buf, count, datatype_storage(datatype), dest, tag, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Ssend() {
@@ -1667,7 +1688,7 @@ ensure_provider_selected();
 if (!pointers::Rsend) {
   unavailable("MPI_Rsend");
 }
-int32_t native_return_value = pointers::Rsend(buf, count, datatype.storage, dest, tag, comm.storage);
+int32_t native_return_value = pointers::Rsend(buf, count, datatype_storage(datatype), dest, tag, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Rsend() {
@@ -1711,7 +1732,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Ibsend) {
   unavailable("MPI_Ibsend");
 }
-int32_t native_return_value = pointers::Ibsend(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Ibsend(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -1729,7 +1750,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Issend) {
   unavailable("MPI_Issend");
 }
-int32_t native_return_value = pointers::Issend(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Issend(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -1747,7 +1768,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Irsend) {
   unavailable("MPI_Irsend");
 }
-int32_t native_return_value = pointers::Irsend(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Irsend(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -1765,7 +1786,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Irecv) {
   unavailable("MPI_Irecv");
 }
-int32_t native_return_value = pointers::Irecv(buf, count, datatype.storage, source, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Irecv(buf, count, datatype_storage(datatype), source, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2209,7 +2230,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Send_init) {
   unavailable("MPI_Send_init");
 }
-int32_t native_return_value = pointers::Send_init(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Send_init(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2227,7 +2248,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Bsend_init) {
   unavailable("MPI_Bsend_init");
 }
-int32_t native_return_value = pointers::Bsend_init(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Bsend_init(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2245,7 +2266,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Ssend_init) {
   unavailable("MPI_Ssend_init");
 }
-int32_t native_return_value = pointers::Ssend_init(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Ssend_init(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2263,7 +2284,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Rsend_init) {
   unavailable("MPI_Rsend_init");
 }
-int32_t native_return_value = pointers::Rsend_init(buf, count, datatype.storage, dest, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Rsend_init(buf, count, datatype_storage(datatype), dest, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2281,7 +2302,7 @@ plumed_mpi_handle_storage native_request{};
 if (!pointers::Recv_init) {
   unavailable("MPI_Recv_init");
 }
-int32_t native_return_value = pointers::Recv_init(buf, count, datatype.storage, source, tag, comm.storage, &native_request);
+int32_t native_return_value = pointers::Recv_init(buf, count, datatype_storage(datatype), source, tag, comm.storage, &native_request);
 if (native_return_value == 0) {
   request->storage = native_request;
 }
@@ -2340,7 +2361,7 @@ plumed_mpi_status native_status{};
 if (!pointers::Sendrecv_replace) {
   unavailable("MPI_Sendrecv_replace");
 }
-int32_t native_return_value = pointers::Sendrecv_replace(buf, count, datatype.storage, dest, sendtag, source, recvtag, comm.storage, status ? &native_status : nullptr);
+int32_t native_return_value = pointers::Sendrecv_replace(buf, count, datatype_storage(datatype), dest, sendtag, source, recvtag, comm.storage, status ? &native_status : nullptr);
 if (native_return_value == 0 && status) {
   status_from_transport(native_status, status);
 }
@@ -2351,6 +2372,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Sendrecv_rep
 }
 inline int Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
+if (oldtype.fallback_kind) {
+  (void)fallback_contiguous_size(count, oldtype);
+}
 if (!newtype) {
   throw std::invalid_argument("MPI_Type_contiguous requires newtype");
 }
@@ -2358,9 +2382,17 @@ plumed_mpi_handle_storage native_newtype{};
 if (!pointers::Type_contiguous) {
   unavailable("MPI_Type_contiguous");
 }
-int32_t native_return_value = pointers::Type_contiguous(count, oldtype.storage, &native_newtype);
+int32_t native_return_value = pointers::Type_contiguous(count, datatype_storage(oldtype), &native_newtype);
 if (native_return_value == 0) {
   newtype->storage = native_newtype;
+}
+if (native_return_value == 0) {
+  newtype->fallback_kind = 0;
+  newtype->fallback_size = 0;
+}
+if (native_return_value == 0 && oldtype.fallback_kind) {
+  newtype->fallback_kind = oldtype.fallback_kind == 4 ? 4 : 3;
+  newtype->fallback_size = fallback_contiguous_size(count, oldtype);
 }
 return static_cast<int>(native_return_value);
 }
@@ -2369,6 +2401,11 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_contigu
 }
 inline int Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
+if (oldtype.fallback_kind) {
+  MPI_Datatype block = oldtype;
+  block.fallback_size = fallback_contiguous_size(blocklength, oldtype);
+  (void)fallback_contiguous_size(count, block);
+}
 if (!newtype) {
   throw std::invalid_argument("MPI_Type_vector requires newtype");
 }
@@ -2376,9 +2413,19 @@ plumed_mpi_handle_storage native_newtype{};
 if (!pointers::Type_vector) {
   unavailable("MPI_Type_vector");
 }
-int32_t native_return_value = pointers::Type_vector(count, blocklength, stride, oldtype.storage, &native_newtype);
+int32_t native_return_value = pointers::Type_vector(count, blocklength, stride, datatype_storage(oldtype), &native_newtype);
 if (native_return_value == 0) {
   newtype->storage = native_newtype;
+}
+if (native_return_value == 0) {
+  newtype->fallback_kind = 0;
+  newtype->fallback_size = 0;
+}
+if (native_return_value == 0 && oldtype.fallback_kind) {
+  MPI_Datatype block = oldtype;
+  block.fallback_size = fallback_contiguous_size(blocklength, oldtype);
+  newtype->fallback_kind = 4;
+  newtype->fallback_size = fallback_contiguous_size(count, block);
 }
 return static_cast<int>(native_return_value);
 }
@@ -2387,6 +2434,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_vector 
 }
 inline int Type_indexed(int count, const int array_of_blocklengths[], const int array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype) {
 ensure_provider_selected();
+if (oldtype.fallback_kind) {
+  (void)fallback_indexed_size(count, array_of_blocklengths, oldtype);
+}
 if (!newtype) {
   throw std::invalid_argument("MPI_Type_indexed requires newtype");
 }
@@ -2394,9 +2444,17 @@ plumed_mpi_handle_storage native_newtype{};
 if (!pointers::Type_indexed) {
   unavailable("MPI_Type_indexed");
 }
-int32_t native_return_value = pointers::Type_indexed(count, array_of_blocklengths, array_of_displacements, oldtype.storage, &native_newtype);
+int32_t native_return_value = pointers::Type_indexed(count, array_of_blocklengths, array_of_displacements, datatype_storage(oldtype), &native_newtype);
 if (native_return_value == 0) {
   newtype->storage = native_newtype;
+}
+if (native_return_value == 0) {
+  newtype->fallback_kind = 0;
+  newtype->fallback_size = 0;
+}
+if (native_return_value == 0 && oldtype.fallback_kind) {
+  newtype->fallback_kind = 4;
+  newtype->fallback_size = fallback_indexed_size(count, array_of_blocklengths, oldtype);
 }
 return static_cast<int>(native_return_value);
 }
@@ -2405,6 +2463,10 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_indexed
 }
 inline int Type_commit(MPI_Datatype *datatype) {
 ensure_provider_selected();
+if (datatype && (datatype->fallback_kind == 1 || datatype->fallback_kind == 2)) {
+  (void)datatype_storage(*datatype);
+  return SUCCESS();
+}
 if (!datatype) {
   throw std::invalid_argument("MPI_Type_commit requires datatype");
 }
@@ -2424,6 +2486,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_commit 
 }
 inline int Type_free(MPI_Datatype *datatype) {
 ensure_provider_selected();
+if (datatype && (datatype->fallback_kind == 1 || datatype->fallback_kind == 2)) {
+  throw std::invalid_argument("Cannot free a predefined MPI datatype");
+}
 if (!datatype) {
   throw std::invalid_argument("MPI_Type_free requires datatype");
 }
@@ -2446,6 +2511,13 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_free !=
 }
 inline int Type_size(MPI_Datatype datatype, int *size) {
 ensure_provider_selected();
+if (datatype.fallback_kind) {
+  if (!size) {
+    throw std::invalid_argument("MPI_Type_size requires size");
+  }
+  *size = datatype.fallback_size > 2147483647U ? UNDEFINED() : static_cast<int>(datatype.fallback_size);
+  return SUCCESS();
+}
 if (!size) {
   throw std::invalid_argument("MPI_Type_size requires size");
 }
@@ -2453,7 +2525,7 @@ std::int32_t native_size = 0;
 if (!pointers::Type_size) {
   unavailable("MPI_Type_size");
 }
-int32_t native_return_value = pointers::Type_size(datatype.storage, &native_size);
+int32_t native_return_value = pointers::Type_size(datatype_storage(datatype), &native_size);
 if (native_return_value == 0) {
   *size = static_cast<int>(native_size);
 }
@@ -2464,6 +2536,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Type_size !=
 }
 inline int Get_elements(const MPI_Status *status, MPI_Datatype datatype, int *count) {
 ensure_provider_selected();
+if (datatype.fallback_kind && pointers::Get_elements) {
+  return fallback_integer_count(status, datatype, count, true);
+}
 plumed_mpi_status native_status{};
 if (!status) {
   throw std::invalid_argument("MPI_Get_elements requires status");
@@ -2483,7 +2558,7 @@ if (is_empty_status(status)) {
 if (!pointers::Get_elements) {
   unavailable("MPI_Get_elements");
 }
-int32_t native_return_value = pointers::Get_elements(&native_status, datatype.storage, &native_count);
+int32_t native_return_value = pointers::Get_elements(&native_status, datatype_storage(datatype), &native_count);
 if (native_return_value == 0) {
   *count = static_cast<int>(native_count);
 }
@@ -2502,7 +2577,7 @@ native_position = static_cast<std::int32_t>(*position);
 if (!pointers::Pack) {
   unavailable("MPI_Pack");
 }
-int32_t native_return_value = pointers::Pack(inbuf, incount, datatype.storage, outbuf, outsize, &native_position, comm.storage);
+int32_t native_return_value = pointers::Pack(inbuf, incount, datatype_storage(datatype), outbuf, outsize, &native_position, comm.storage);
 if (true) {
   *position = static_cast<int>(native_position);
 }
@@ -2521,7 +2596,7 @@ native_position = static_cast<std::int32_t>(*position);
 if (!pointers::Unpack) {
   unavailable("MPI_Unpack");
 }
-int32_t native_return_value = pointers::Unpack(inbuf, insize, &native_position, outbuf, outcount, datatype.storage, comm.storage);
+int32_t native_return_value = pointers::Unpack(inbuf, insize, &native_position, outbuf, outcount, datatype_storage(datatype), comm.storage);
 if (true) {
   *position = static_cast<int>(native_position);
 }
@@ -2539,7 +2614,7 @@ std::int32_t native_size = 0;
 if (!pointers::Pack_size) {
   unavailable("MPI_Pack_size");
 }
-int32_t native_return_value = pointers::Pack_size(incount, datatype.storage, comm.storage, &native_size);
+int32_t native_return_value = pointers::Pack_size(incount, datatype_storage(datatype), comm.storage, &native_size);
 if (native_return_value == 0) {
   *size = static_cast<int>(native_size);
 }
@@ -2553,7 +2628,7 @@ ensure_provider_selected();
 if (!pointers::Gatherv) {
   unavailable("MPI_Gatherv");
 }
-int32_t native_return_value = pointers::Gatherv(sendbuf, sendcount, sendtype.storage, recvbuf, recvcounts, displs, recvtype.storage, root, comm.storage);
+int32_t native_return_value = pointers::Gatherv(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcounts, displs, datatype_storage(recvtype), root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Gatherv() {
@@ -2564,7 +2639,7 @@ ensure_provider_selected();
 if (!pointers::Scatterv) {
   unavailable("MPI_Scatterv");
 }
-int32_t native_return_value = pointers::Scatterv(sendbuf, sendcounts, displs, sendtype.storage, recvbuf, recvcount, recvtype.storage, root, comm.storage);
+int32_t native_return_value = pointers::Scatterv(sendbuf, sendcounts, displs, datatype_storage(sendtype), recvbuf, recvcount, datatype_storage(recvtype), root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Scatterv() {
@@ -2575,7 +2650,7 @@ ensure_provider_selected();
 if (!pointers::Alltoall) {
   unavailable("MPI_Alltoall");
 }
-int32_t native_return_value = pointers::Alltoall(sendbuf, sendcount, sendtype.storage, recvbuf, recvcount, recvtype.storage, comm.storage);
+int32_t native_return_value = pointers::Alltoall(sendbuf, sendcount, datatype_storage(sendtype), recvbuf, recvcount, datatype_storage(recvtype), comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Alltoall() {
@@ -2586,7 +2661,7 @@ ensure_provider_selected();
 if (!pointers::Alltoallv) {
   unavailable("MPI_Alltoallv");
 }
-int32_t native_return_value = pointers::Alltoallv(sendbuf, sendcounts, sdispls, sendtype.storage, recvbuf, recvcounts, rdispls, recvtype.storage, comm.storage);
+int32_t native_return_value = pointers::Alltoallv(sendbuf, sendcounts, sdispls, datatype_storage(sendtype), recvbuf, recvcounts, rdispls, datatype_storage(recvtype), comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Alltoallv() {
@@ -2594,6 +2669,9 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Alltoallv !=
 }
 inline int Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
 ensure_provider_selected();
+if (datatype.fallback_kind) {
+  return fallback_integer_reduce("Reduce", sendbuf, recvbuf, count, datatype, op, root, nullptr, comm);
+}
 if (pointers::Reduce) {
   int singleton_result = 0;
   if (try_singleton_reduce(sendbuf, recvbuf, count, datatype, root, comm, &singleton_result)) {
@@ -2603,7 +2681,7 @@ if (pointers::Reduce) {
 if (!pointers::Reduce) {
   unavailable("MPI_Reduce");
 }
-int32_t native_return_value = pointers::Reduce(sendbuf, recvbuf, count, datatype.storage, op.storage, root, comm.storage);
+int32_t native_return_value = pointers::Reduce(sendbuf, recvbuf, count, datatype_storage(datatype), op.storage, root, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Reduce() {
@@ -2640,10 +2718,13 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Op_free != n
 }
 inline int Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
+if (datatype.fallback_kind) {
+  return fallback_integer_reduce("Reduce_scatter", sendbuf, recvbuf, 0, datatype, op, -1, recvcounts, comm);
+}
 if (!pointers::Reduce_scatter) {
   unavailable("MPI_Reduce_scatter");
 }
-int32_t native_return_value = pointers::Reduce_scatter(sendbuf, recvbuf, recvcounts, datatype.storage, op.storage, comm.storage);
+int32_t native_return_value = pointers::Reduce_scatter(sendbuf, recvbuf, recvcounts, datatype_storage(datatype), op.storage, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Reduce_scatter() {
@@ -2651,10 +2732,13 @@ return pointers::ready.load(std::memory_order_acquire) && pointers::Reduce_scatt
 }
 inline int Scan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
 ensure_provider_selected();
+if (datatype.fallback_kind) {
+  return fallback_integer_reduce("Scan", sendbuf, recvbuf, count, datatype, op, -1, nullptr, comm);
+}
 if (!pointers::Scan) {
   unavailable("MPI_Scan");
 }
-int32_t native_return_value = pointers::Scan(sendbuf, recvbuf, count, datatype.storage, op.storage, comm.storage);
+int32_t native_return_value = pointers::Scan(sendbuf, recvbuf, count, datatype_storage(datatype), op.storage, comm.storage);
 return static_cast<int>(native_return_value);
 }
 inline bool has_Scan() {
