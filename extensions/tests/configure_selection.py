@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Check real configure selection for hyphenated names and legacy expressions."""
 
-import re
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +19,20 @@ default_additions = default_modules - default_seeds
 with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
     root = Path(scratch)
     shutil.copy2(source / "configure", root / "configure")
+    # Capture selection state in the temporary fixture before compiler probes.
+    # Production configure need not print its internal override variables.
+    configure = root / "configure"
+    selection_hook = "\nplumed_resolve_modules\n"
+    configure_text = configure.read_text()
+    assert configure_text.count(selection_hook) == 1
+    configure.write_text(
+        configure_text.replace(
+            selection_hook,
+            selection_hook
+            + "printf 'PLUMED_MODULE_ENABLED=%s\\nPLUMED_MODULE_DISABLED=%s\\n' "
+            + '"$PLUMED_MODULE_ENABLED" "$PLUMED_MODULE_DISABLED" > Makefile.conf\n',
+        )
+    )
     (root / "src/maketools").mkdir(parents=True)
     for name in (
         "module-header",
@@ -80,16 +93,7 @@ with tempfile.TemporaryDirectory(prefix="plumed-configure-modules-") as scratch:
             check=False,
         )
 
-        # Record the real configure override state immediately before compiler
-        # probes. The full native build checks the final AC_SUBST output too.
-        snapshot = re.search(
-            r"Module overrides: PLUMED_MODULE_ENABLED=(.*?) PLUMED_MODULE_DISABLED=(.*)",
-            result.stdout,
-        )
-        if snapshot:
-            (root / "Makefile.conf").write_text(
-                f"PLUMED_MODULE_ENABLED={snapshot[1].strip()}\nPLUMED_MODULE_DISABLED={snapshot[2].strip()}\n"
-            )
+        assert "Module overrides:" not in result.stdout + result.stderr
         return result
 
     for expression, additions in (

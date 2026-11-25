@@ -382,7 +382,6 @@ if test "$enable_kenref" = yes; then
   plumed_module_enable kenref
 fi
 plumed_resolve_modules
-AC_MSG_NOTICE([Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED])
 
 
 

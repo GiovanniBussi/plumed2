@@ -2560,8 +2560,6 @@ if test "$enable_kenref" = yes; then
   plumed_module_enable kenref
 fi
 plumed_resolve_modules
-{ $as_echo "$as_me:${as_lineno-$LINENO}: Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED" >&5
-$as_echo "$as_me: Module overrides: PLUMED_MODULE_ENABLED=$PLUMED_MODULE_ENABLED PLUMED_MODULE_DISABLED=$PLUMED_MODULE_DISABLED" >&6;}
 
 
 
