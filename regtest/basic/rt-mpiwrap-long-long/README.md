@@ -7,6 +7,22 @@ rank barriers, forcing the fallback used by GROMACS builds without
 datatype cache lifetimes. It also exercises the Communicator specializations used
 by checkpoint and OPES code. Native MPI builds run the same checks directly.
 
+Each forced-missing run tests automatic path selection, then disables the long
+accessors to force the generic path even on LP64. A provider Allreduce counter
+asserts that native-long reductions are used only with matching ranges.
+
+The standalone harness also builds with MSVC:
+
+```sh
+cmake -S regtest/basic/rt-mpiwrap-long-long -B build/long-long-mpi
+cmake --build build/long-long-mpi --config Release
+ctest --test-dir build/long-long-mpi -C Release --verbose
+```
+
+The existing Windows thread-MPI CI step runs this harness at 1, 2 and 4 ranks.
+Its Windows build asserts `sizeof(long)==4` and `sizeof(long long)==8`, and the
+counter asserts the full-width path is used even with long accessors available.
+
 `checks.h` covers all currently supported datatype-taking function families:
 basic and vector collectives, every valid predefined integer reduction operator,
 chunked reductions, all supported point-to-point send modes, request completion

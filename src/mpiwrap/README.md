@@ -845,8 +845,13 @@ Contiguous emulated types are also accepted by the shared Allgather fallbacks;
 noncontiguous types still require provider-native collective support.
 
 Byte transport cannot implement integer arithmetic. For emulated basic types,
-Reduce, Allreduce, Scan and Reduce_scatter use bounded chunks and provider Bcast
-calls, then combine actual signed or unsigned long-long values in mpiwrap.
+Reduce, Allreduce, Scan and Reduce_scatter use bounded chunks. When `long` has
+the same size and value range as `long long` (LP64 Linux/macOS), mpiwrap converts
+into actual `long`/`unsigned long` buffers, calls the provider's native reduction,
+and converts the result back. It never aliases a long-long buffer as long.
+When the ranges differ (LLP64 Windows), or the provider lacks the matching long
+type/operation, Bcast transports the operands and mpiwrap combines full-width
+signed or unsigned long-long values locally.
 All ten valid predefined integer operations are handled, with unsigned modular
 arithmetic and the usual requirement that signed arithmetic not overflow.
 Only functions already supplied by the provider or an existing mpiwrap fallback
@@ -858,6 +863,10 @@ threaded address space; it is not used for ordinary real-MPI providers.
 embedded runtime and verifies repeated launches and Communicator calls.
 Its standalone `check-provider.sh` tests native and forced-missing provider
 dispatch across Open MPI's larger function surface.
+Tests count forwarded reductions to verify both the native-long fast path and
+a deliberately forced generic path. `.ci/windows-regtests mpi` also builds and
+runs the standalone CMake harness at 1, 2 and 4 ranks, with an LLP64 assertion;
+the generic path is tested on Windows rather than skipped with Unix make tests.
 
 ### GROMACS 2026 runtime injection
 

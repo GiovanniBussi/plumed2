@@ -5,6 +5,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <atomic>
 
 namespace PLMD {
 namespace long_long_regtest {
@@ -219,6 +220,9 @@ template<class T> void reductions(MPI_Comm comm,int rank,int size,MPI_Datatype t
     CHECK(result==-base-(size-1));
     CALL(Allreduce,&value,&result,1,type,MPI_SUM,comm);
     CHECK(result==-base*size-size*(size-1)/2);
+    value=std::numeric_limits<T>::lowest()+rank;
+    CALL(Allreduce,&value,&result,1,type,MPI_MIN,comm);
+    CHECK(result==std::numeric_limits<T>::lowest());
   } else {
     value=std::numeric_limits<T>::max()-rank;
     CALL(Allreduce,&value,&result,1,type,MPI_MAX,comm);
@@ -236,6 +240,16 @@ template<class T> void reductions(MPI_Comm comm,int rank,int size,MPI_Datatype t
   for(T x:summed) {
     CHECK(x==base*size+size*(size-1)/2);
   }
+  summed=many;
+  CALL(Scan,MPI_IN_PLACE,summed.data(),static_cast<int>(summed.size()),type,MPI_SUM,comm);
+  for(T x:summed) {
+    CHECK(x==base*(rank+1)+rank*(rank+1)/2);
+  }
+  CALL(Reduce,many.data(),summed.data(),static_cast<int>(many.size()),type,MPI_SUM,size-1,comm);
+  if(rank==size-1)
+    for(T x:summed) {
+      CHECK(x==base*size+size*(size-1)/2);
+    }
   CALL(Allreduce,nullptr,nullptr,0,type,MPI_SUM,comm);
   if(HAS(Reduce_scatter)) {
     std::vector<int> counts(size,2);
@@ -244,6 +258,27 @@ template<class T> void reductions(MPI_Comm comm,int rank,int size,MPI_Datatype t
     CHECK(output[0]==base*size+size*(size-1)/2 && output[1]==output[0]);
     CALL(Reduce_scatter,MPI_IN_PLACE,input.data(),counts.data(),type,MPI_SUM,comm);
     CHECK(input[0]==output[0] && input[1]==output[1]);
+    int total=0,first=0;
+    for(int r=0; r<size; ++r) {
+      counts[r]=(r==0 && size>1) ? 0 : 1025+7*r;
+      if(r<rank) {
+        first+=counts[r];
+      }
+      total+=counts[r];
+    }
+    input.resize(total);
+    output.resize(counts[rank]);
+    for(int i=0; i<total; ++i) {
+      input[i]=base+100*rank+i;
+    }
+    CALL(Reduce_scatter,input.data(),output.data(),counts.data(),type,MPI_SUM,comm);
+    for(int i=0; i<counts[rank]; ++i) {
+      CHECK(output[i]==base*size+100*size*(size-1)/2+(first+i)*size);
+    }
+    CALL(Reduce_scatter,MPI_IN_PLACE,input.data(),counts.data(),type,MPI_SUM,comm);
+    for(int i=0; i<counts[rank]; ++i) {
+      CHECK(input[i]==output[i]);
+    }
   }
 }
 
@@ -456,6 +491,82 @@ inline void checks(MPI_Comm comm,int rank,int size) {
   reductions<long long>(comm,rank,size,MPI_LONG_LONG_INT);
   requests<long long>(comm,rank,size,MPI_LONG_LONG_INT);
 }
+
+#if !defined(__PLUMED_HAS_MPI)
+inline mpiwrap::plumed_mpi_MPI_Allreduce_pointer &original_allreduce() {
+  static mpiwrap::plumed_mpi_MPI_Allreduce_pointer pointer=nullptr;
+  return pointer;
+}
+inline std::atomic<int> &forwarded_allreduces() {
+  static std::atomic<int> count{0};
+  return count;
+}
+inline std::int32_t counted_allreduce(const void *send,void *recv,std::int32_t count,
+                                      mpiwrap::plumed_mpi_handle_storage type,
+                                      mpiwrap::plumed_mpi_handle_storage op,
+                                      mpiwrap::plumed_mpi_handle_storage comm) {
+  forwarded_allreduces().fetch_add(1);
+  return original_allreduce()(send,recv,count,type,op,comm);
+}
+
+inline void fallback_checks(MPI_Comm comm,int rank,int size,bool shared_ranks,
+                            void (*extra)(MPI_Comm,int,int)=nullptr) {
+  // Only the private test process mutates the dispatch pointers. Barriers
+  // keep thread ranks away from every change and from saved-value writes.
+  static mpiwrap::plumed_mpi_provider_constant_pointer saved[5];
+  const bool owner=!shared_ranks || rank==0;
+  if(owner) {
+    saved[0]=mpiwrap::pointers::constant_LONG_LONG;
+    saved[1]=mpiwrap::pointers::constant_LONG_LONG_INT;
+    saved[2]=mpiwrap::pointers::constant_UNSIGNED_LONG_LONG;
+    saved[3]=mpiwrap::pointers::constant_LONG;
+    saved[4]=mpiwrap::pointers::constant_UNSIGNED_LONG;
+    mpiwrap::pointers::constant_LONG_LONG=nullptr;
+    mpiwrap::pointers::constant_LONG_LONG_INT=nullptr;
+    mpiwrap::pointers::constant_UNSIGNED_LONG_LONG=nullptr;
+  }
+  CALL(Barrier,comm);
+  CHECK(MPI_LONG_LONG_INT.fallback_kind==1 && MPI_UNSIGNED_LONG_LONG.fallback_kind==2);
+  for(bool force_generic: {
+        false,true
+      }) {
+    if(owner) {
+      mpiwrap::pointers::constant_LONG=force_generic ? nullptr : saved[3];
+      mpiwrap::pointers::constant_UNSIGNED_LONG=force_generic ? nullptr : saved[4];
+      original_allreduce()=mpiwrap::pointers::Allreduce;
+      forwarded_allreduces().store(0);
+      mpiwrap::pointers::Allreduce=&counted_allreduce;
+    }
+    CALL(Barrier,comm);
+    checks(comm,rank,size);
+    if(extra) {
+      extra(comm,rank,size);
+    }
+    CALL(Barrier,comm);
+    const bool fast=!force_generic && sizeof(long)==sizeof(long long) && saved[3] && saved[4];
+    if(size>1) {
+      CHECK((forwarded_allreduces().load()>0)==fast);
+    }
+    if(rank==0) {
+      std::printf("long=%u long long=%u: %s reduction path passed\n",
+                  static_cast<unsigned>(sizeof(long)),static_cast<unsigned>(sizeof(long long)),
+                  fast ? "native-long" : "full-width");
+    }
+    if(owner) {
+      mpiwrap::pointers::Allreduce=original_allreduce();
+    }
+    CALL(Barrier,comm);
+  }
+  if(owner) {
+    mpiwrap::pointers::constant_LONG_LONG=saved[0];
+    mpiwrap::pointers::constant_LONG_LONG_INT=saved[1];
+    mpiwrap::pointers::constant_UNSIGNED_LONG_LONG=saved[2];
+    mpiwrap::pointers::constant_LONG=saved[3];
+    mpiwrap::pointers::constant_UNSIGNED_LONG=saved[4];
+  }
+  CALL(Barrier,comm);
+}
+#endif
 
 #undef CHECK
 #undef CALL

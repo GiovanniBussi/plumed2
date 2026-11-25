@@ -31,7 +31,11 @@ int main() {
     int rank=0,size=0;
     Comm_rank(comm,&rank);
     Comm_size(comm,&size);
-    long_long_regtest::checks(comm,rank,size);
+    if(missing) {
+      long_long_regtest::fallback_checks(comm,rank,size,false);
+    } else {
+      long_long_regtest::checks(comm,rank,size);
+    }
     if(rank==0) {
       std::puts(missing ? "forced missing long-long provider passed" : "native long-long provider passed");
     }

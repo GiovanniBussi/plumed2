@@ -14,6 +14,7 @@
 #
 # Only tests that run the plumed executable (driver, plumed, sum_hills,
 # simplemd) are selected: "make" tests need Plumed.inc and a Unix toolchain.
+# The long-long MPI C++ harness is built separately with CMake in mpi mode.
 # Each test has a timeout (TEST_TIMEOUT, seconds); no test is started after
 # TIME_BUDGET seconds and the remaining ones are reported as NOT_RUN, so that
 # the script always ends with a summary.
@@ -45,6 +46,26 @@ out="$root/regtest-results/$mode"
 progress="$out/progress.txt"
 mkdir -p "$out"
 : > "$progress"
+
+# The long-long fallback needs a real LLP64 run. The ordinary C++ make tests
+# require a Unix toolchain, so build this small standalone MSVC harness instead.
+# It forces missing long-long values and asserts no native-long reductions are
+# used when sizeof(long)==4. Also run the deliberately forced generic path.
+if [[ $mode = mpi ]]; then
+  mpi_build="$root/build/long-long-mpi"
+  if ! cmake -S "$root/regtest/basic/rt-mpiwrap-long-long" -B "$mpi_build" \
+       -G Ninja -DCMAKE_BUILD_TYPE=Release > "$out/long-long-build.log" 2>&1 ||
+     ! cmake --build "$mpi_build" --parallel 2 >> "$out/long-long-build.log" 2>&1; then
+    cat "$out/long-long-build.log"
+    exit 1
+  fi
+  if ! ctest --test-dir "$mpi_build" -C Release --verbose \
+       > "$out/long-long-tests.log" 2>&1; then
+    cat "$out/long-long-tests.log"
+    exit 1
+  fi
+  cat "$out/long-long-tests.log"
+fi
 
 cd "$root/regtest"
 if [[ $mode = modules ]]; then

@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <atomic>
+#include <type_traits>
 
 namespace PLMD {
 namespace mpiwrap {
@@ -483,8 +484,36 @@ template<class T> T combine(T a,T b,IntegerOp op) {
 }
 
 template<class T>
+using NativeLong = typename std::conditional<std::is_signed<T>::value,long,unsigned long>::type;
+
+template<class T> bool native_long_reduction_available(const char *operation) {
+  using Native=NativeLong<T>;
+  // LP64 has equal ranges; LLP64 (Windows) does not. Check the value ranges
+  // too, rather than treating equal object sizes as interchangeable types.
+  if(sizeof(T)!=sizeof(Native) ||
+      std::numeric_limits<T>::digits!=std::numeric_limits<Native>::digits ||
+      std::numeric_limits<T>::lowest()!=static_cast<T>(std::numeric_limits<Native>::lowest()) ||
+      std::numeric_limits<T>::max()!=static_cast<T>(std::numeric_limits<Native>::max())) {
+    return false;
+  }
+  if(!(std::is_signed<T>::value ? pointers::constant_LONG : pointers::constant_UNSIGNED_LONG)) {
+    return false;
+  }
+  if(std::strcmp(operation,"Reduce")==0) {
+    return pointers::Reduce!=nullptr;
+  }
+  if(std::strcmp(operation,"Scan")==0) {
+    return pointers::Scan!=nullptr;
+  }
+  if(std::strcmp(operation,"Reduce_scatter")==0) {
+    return pointers::Reduce_scatter!=nullptr;
+  }
+  return pointers::Allreduce!=nullptr;
+}
+
+template<class T>
 int integer_reduce(const char *operation,const void *send,void *recv,int count,
-                   const MPI_Datatype &datatype,IntegerOp op,int root,const int *counts,MPI_Comm comm) {
+                   const MPI_Datatype &datatype,IntegerOp op,MPI_Op provider_op,int root,const int *counts,MPI_Comm comm) {
   int rank=0,size=0;
   rank_size(comm,rank,size);
   const bool reduce=std::strcmp(operation,"Reduce")==0;
@@ -525,13 +554,59 @@ int integer_reduce(const char *operation,const void *send,void *recv,int count,
   if((length && !input) || ((!reduce || rank==root) && last>first && !recv)) {
     throw std::invalid_argument("MPI integer reduction requires valid buffers");
   }
-  // Bounded scratch space; all ranks participate in the same broadcasts.
-  // There are no internal message tags that could collide with host traffic.
+  // Both paths use bounded scratch space. Actual Native objects are essential:
+  // aliasing the caller's long-long buffer as long would violate type access.
   constexpr std::size_t chunk=1024;
-  std::vector<T> incoming(std::min(total,chunk));
+  using Native=NativeLong<T>;
+  const bool native=native_long_reduction_available<T>(operation);
+  MPI_Datatype native_type{};
+  if(native) {
+    native_type=std::is_signed<T>::value ? LONG() : UNSIGNED_LONG();
+  }
+  std::vector<Native> converted(native ? std::min(total,chunk) : 0);
+  std::vector<Native> result(converted.size());
+  std::vector<int> chunk_counts(native && scatter ? size : 0);
+  std::vector<T> incoming(native ? 0 : std::min(total,chunk));
   std::vector<T> accumulated(incoming.size());
   for(std::size_t offset=0; offset<total;) {
     const int n=static_cast<int>(std::min(total-offset,chunk));
+    if(native) {
+      for(int i=0; i<n; ++i) {
+        T value;
+        std::memcpy(&value,static_cast<const unsigned char *>(input)+(offset+i)*sizeof(T),sizeof(T));
+        converted[i]=static_cast<Native>(value);
+      }
+      int rc=SUCCESS();
+      if(reduce) {
+        rc=Reduce(converted.data(),result.data(),n,native_type,provider_op,root,comm);
+      } else if(scan) {
+        rc=Scan(converted.data(),result.data(),n,native_type,provider_op,comm);
+      } else if(scatter) {
+        std::size_t segment=0;
+        for(int r=0; r<size; ++r) {
+          const auto begin=std::max(offset,segment),end=std::min(offset+n,segment+counts[r]);
+          chunk_counts[r]=end>begin ? static_cast<int>(end-begin) : 0;
+          segment+=counts[r];
+        }
+        rc=Reduce_scatter(converted.data(),result.data(),chunk_counts.data(),native_type,provider_op,comm);
+      } else {
+        rc=Allreduce(converted.data(),result.data(),n,native_type,provider_op,comm);
+      }
+      if(rc!=SUCCESS()) {
+        return rc;
+      }
+      if(!reduce || rank==root) {
+        const auto begin=std::max(offset,first),end=std::min(offset+n,last);
+        for(std::size_t i=0; i<(end>begin ? end-begin : 0); ++i) {
+          const T value=static_cast<T>(result[i]);
+          std::memcpy(static_cast<unsigned char *>(recv)+(begin-first+i)*sizeof(T),&value,sizeof(T));
+        }
+      }
+      offset+=n;
+      continue;
+    }
+    // With a narrower long, transport representations and combine full-width
+    // T values locally. No internal tags can collide with host MPI traffic.
     for(int source=0; source<size; ++source) {
       if(source==rank) {
         std::memcpy(incoming.data(),static_cast<const unsigned char *>(input)+
@@ -570,10 +645,10 @@ int fallback_integer_reduce(const char *operation,const void *send,void *recv,in
                             const MPI_Datatype &datatype,MPI_Op op,int root,const int *counts,MPI_Comm comm) {
   const auto integer_op=mpiwrap_fallback_detail::integer_op(op);
   if(datatype.fallback_kind==1) {
-    return mpiwrap_fallback_detail::integer_reduce<long long>(operation,send,recv,count,datatype,integer_op,root,counts,comm);
+    return mpiwrap_fallback_detail::integer_reduce<long long>(operation,send,recv,count,datatype,integer_op,op,root,counts,comm);
   }
   if(datatype.fallback_kind==2) {
-    return mpiwrap_fallback_detail::integer_reduce<unsigned long long>(operation,send,recv,count,datatype,integer_op,root,counts,comm);
+    return mpiwrap_fallback_detail::integer_reduce<unsigned long long>(operation,send,recv,count,datatype,integer_op,op,root,counts,comm);
   }
   throw std::invalid_argument("Predefined MPI integer reductions require a basic datatype");
 }
