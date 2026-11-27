@@ -19,7 +19,12 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "cudaHelpers.cuh"
-namespace CUDAHELPERS {
-// the helpers are header-only (templates and kernels): this translation unit
-// only keeps a place for non-template code
-} // namespace CUDAHELPERS
+#include "tools/DLLoader.h"
+
+namespace {
+// Pin the shared runtime on module load, including when no GPU action is used.
+// This has internal linkage: an inline-variable GNU-unique symbol would itself
+// prevent the extension from unloading. Static runtimes keep link-time NODELETE.
+const bool retainedRuntime=PLMD::DLLoader::retainExternalLibrary(
+                             reinterpret_cast<const void*>(&cudaGetDeviceCount),&retainedRuntime);
+}

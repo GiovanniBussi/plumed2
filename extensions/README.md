@@ -229,7 +229,13 @@ by nvcc (`NVCC`, or `CUDACXX`, default `nvcc`), or by hipcc with `--enable-hip`
 `src/maketools/cuda-flags`, the same script used by the native configure.
 `NVCCFLAGS` adds flags (e.g. `-gencode` options). The library is linked by the C++
 compiler with the shared CUDA runtime (`--with-cudart=static` for the static one)
-or the HIP runtime, and with `-z nodelete`. The registration declares the variant
+or the HIP runtime. On Linux the module retains that external runtime with
+`dlopen(RTLD_NODELETE)`, releasing its extra handle immediately. This keeps runtime
+code available to the host while allowing the module and PLUMED kernel to unload.
+A static CUDA runtime is embedded in the module and still requires whole-module
+`-z nodelete`; configure with a shared runtime to avoid this restriction.
+Linux builds without `dlopen`/`dladdr` also keep the containing library resident.
+The registration declares the variant
 `cuda<version of nvcc>` (or `rocm<version>`), and the library exports the feature
 `cuda` (or `hip`). Such modules are built only when named: `--enable-extension-modules=all`
 skips them.
@@ -371,3 +377,11 @@ static custom-class registry can outlive the last PLUMED object. Loading this
 extension, including by autoload, retains its native dependencies and the linked
 kernel until process exit. Owned handles are still closed normally. See the
 metatomic module documentation for this external registration-lifetime workaround.
+
+Shared CUDA/HIP runtimes are retained during module initialization, including
+when a module is autoloaded without creating a GPU action. Runtime retention does
+not make outstanding PLUMED objects safe after kernel unloading: destroy all
+objects and callbacks first. Static CUDA builds and the OpenACC plugin's embedded
+NVIDIA runtime still retain their containing library; they need a separate runtime
+DSO before this narrower policy can be applied. The metatomic exception above is
+independent of GPU-runtime retention.

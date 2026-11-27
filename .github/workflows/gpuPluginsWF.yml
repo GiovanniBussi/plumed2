@@ -23,6 +23,8 @@ env:
   PLUMED_STACK_TRACE: yes
   CC: gcc
   CXX: g++
+  # Require real dlclose in the shared-runtime tests, including C++ and nvcc host objects.
+  CXXFLAGS: -O2 -fno-gnu-unique
 
 jobs:
   gpu_cuda_hip:
@@ -112,7 +114,7 @@ jobs:
             library="$HOME/ext-$v/lib/libplumed-ext-$module.so"
             readelf -d "$library" | grep -E 'NEEDED|FLAGS'
             readelf -d "$library" | grep -q 'NEEDED.*libcudart\.so'
-            readelf -d "$library" | grep -q 'NODELETE'
+            if readelf -d "$library" | grep -q 'NODELETE' ; then exit 1 ; fi
             grep -qx "variant cuda$v" "$HOME/ext-$v/lib/plumed/plugins/$module.plumed"
           done
           # gpu_voronoi uses only the headers of gpu_cuda_hip: it neither links nor requires it
@@ -122,6 +124,13 @@ jobs:
           plumed modules -q --has gpu_cuda_hip gpu_voronoi
           plumed modules --module gpu_cuda_hip --has-feature cuda -q
           plumed modules --module gpu_voronoi --has-feature cuda -q
+          # No GPU calls: exercise runtime retention during mere autoload, then explicit LOAD.
+          $CXX -std=c++17 -I"$HOME/opt/include" extensions/tests/runtime_lifetime.cpp -ldl -o "$HOME/runtime-lifetime"
+          for mode in autoload explicit ; do
+            "$HOME/runtime-lifetime" "$HOME/opt/lib/libplumedKernel.so" cudaGetDeviceCount "$mode" \
+              gpu_cuda_hip "$HOME/ext-$v/lib/libplumed-ext-gpu_cuda_hip.so" \
+              gpu_voronoi "$HOME/ext-$v/lib/libplumed-ext-gpu_voronoi.so"
+          done
           for module in gpu_cuda_hip gpu_voronoi ; do
             make -C regtest/$module clean
             make -C regtest/$module
@@ -157,6 +166,16 @@ jobs:
               .ci/check-nogpu-regtests regtest/$module
             done
           )
+          # The shared-runtime variant must leave the kernel unloadable too.
+          make clean
+          ./configure CXX="ccache $CXX" --disable-dependency-tracking --disable-doc --disable-python --disable-libsearch \
+            --enable-modules=+gpu_cuda_hip+gpu_voronoi --with-cudart=shared NVCCFLAGS=-arch=sm_80
+          make -j 4
+          readelf -d src/lib/libplumedKernel.so | grep -q 'NEEDED.*libcudart'
+          if readelf -d src/lib/libplumedKernel.so | grep -q 'NODELETE' ; then exit 1 ; fi
+          # The host executable uses only the runtime wrapper, not libplumed.
+          export LD_LIBRARY_PATH="$HOME/cuda-$v/lib:$HOME/cuda-$v/targets/x86_64-linux/lib:${LD_LIBRARY_PATH:-}"
+          "$HOME/runtime-lifetime" "$PWD/src/lib/libplumedKernel.so" cudaGetDeviceCount native
           echo "::endgroup::"
         done
         ccache -s -M "$PLUMED_CCACHE_SIZE"
@@ -238,6 +257,9 @@ jobs:
         ccache -s -M "$PLUMED_CCACHE_SIZE"
         readelf -d src/lib/libplumedKernel.so | grep -E 'NEEDED|FLAGS'
         readelf -d src/lib/libplumedKernel.so | grep -q 'NEEDED.*libamdhip64'
+        if readelf -d src/lib/libplumedKernel.so | grep -q 'NODELETE' ; then exit 1 ; fi
+        $CXX -std=c++17 -I"$HOME/opt/include" extensions/tests/runtime_lifetime.cpp -ldl -o "$HOME/runtime-lifetime"
+        "$HOME/runtime-lifetime" "$HOME/opt/lib/libplumedKernel.so" hipGetDeviceCount native
         export PATH="$HOME/opt/bin:$PATH"
         for module in gpu_cuda_hip gpu_voronoi ; do
           make -C regtest/$module

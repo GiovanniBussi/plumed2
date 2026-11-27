@@ -23,12 +23,16 @@
 
 #include "Exception.h"
 #include <cstdlib>
+#include <cstdint>
 #include <iostream>
 #include "core/ActionRegister.h"
 #include "core/CLToolRegister.h"
 
 #ifdef __PLUMED_HAS_DLOPEN
 #include <dlfcn.h>
+#if defined(__linux__)
+#include <link.h>
+#endif
 #endif
 
 namespace PLMD {
@@ -41,6 +45,52 @@ bool DLLoader::installed() {
 #endif
 }
 
+
+bool DLLoader::retainExternalLibrary(const void* symbol,const void* owner) {
+#if defined(__linux__) && defined(__PLUMED_HAS_DLOPEN) && defined(__PLUMED_HAS_DLADDR) && defined(RTLD_NODELETE)
+  Dl_info runtime {}, caller {};
+  plumed_massert(dladdr(symbol,&runtime),"Cannot locate the external runtime");
+  plumed_massert(dladdr(owner,&caller),"Cannot locate the runtime caller");
+  // An embedded runtime cannot be retained separately from its owning module.
+  if(runtime.dli_fbase==caller.dli_fbase) {
+    return false;
+  }
+  // A host can export a statically linked runtime. The executable already
+  // lasts until process exit and cannot be reopened as a normal DSO.
+  struct Location {
+    std::uintptr_t address;
+    bool executable=false;
+  } location {reinterpret_cast<std::uintptr_t>(symbol)};
+  dl_iterate_phdr([](dl_phdr_info* image,std::size_t,void* data) {
+    if(image->dlpi_name && image->dlpi_name[0]!='\0') {
+      return 0;
+    }
+    auto& found=*static_cast<Location*>(data);
+    for(unsigned index=0; index<image->dlpi_phnum; ++index) {
+      const auto& segment=image->dlpi_phdr[index];
+      const auto begin=static_cast<std::uintptr_t>(image->dlpi_addr+segment.p_vaddr);
+      if(segment.p_type==PT_LOAD && found.address>=begin && found.address-begin<segment.p_memsz) {
+        found.executable=true;
+        break;
+      }
+    }
+    return 1;
+  },&location);
+  if(location.executable) {
+    return true;
+  }
+  void* handle=dlopen(runtime.dli_fname,RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
+  plumed_massert(handle,"Cannot retain the external runtime");
+  // The flag persists after releasing this reference, as in OpenMP::retainRuntime.
+  const int status=dlclose(handle);
+  plumed_massert(status==0,"Cannot release the external runtime reference");
+  return true;
+#else
+  (void)symbol;
+  (void)owner;
+  return false;
+#endif
+}
 
 void* DLLoader::load(const std::string&s) {
 #ifdef __PLUMED_HAS_DLOPEN

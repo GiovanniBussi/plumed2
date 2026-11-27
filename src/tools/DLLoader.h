@@ -60,6 +60,10 @@ public:
   }
   /// Returns true if the dynamic loader is available (on some systems it may not).
   static bool installed();
+  /// Keep the external DSO defining symbol mapped after balanced dlclose calls.
+  /// On Linux, use RTLD_NODELETE without retaining an owned handle. Return false
+  /// if symbol belongs to the same image as owner, or the platform lacks support.
+  static bool retainExternalLibrary(const void* symbol,const void* owner);
   /// RAII helper for promoting RTLD_LOCAL loaded objects to RTLD_GLOBAL
   class EnsureGlobalDLOpen {
     void* handle_=nullptr;

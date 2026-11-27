@@ -10517,12 +10517,14 @@ $as_echo "$cuda_ok" >&6; }
   fi
   rm -f conftest*
   LIBS="$LIBS $cuda_libs"
-  # When the kernel is loaded at runtime, the wrapper unloads it with dlclose when PLUMED is
-  # destroyed (PLUMED_LOAD_DLCLOSE). MD codes destroy PLUMED before freeing their own GPU memory,
-  # and unloading the kernel would finalize the GPU runtime it contains. With nodelete
-  # the kernel is never unloaded: the runtime is finalized at process exit.
+  # GPU modules retain shared CUDA/HIP runtimes independently with dlopen.
+  # A static CUDA runtime is embedded in the kernel: unloading it would finalize
+  # that runtime while an MD code can still own GPU allocations.
   if test "$(uname)" = Linux ; then
-    KERNEL_LDFLAGS="-Wl,-z,nodelete"
+    if test "$hip" != true && test "$with_cudart" = static ||
+       test "$__PLUMED_HAS_DLOPEN" != yes || test "$__PLUMED_HAS_DLADDR" != yes ; then
+      KERNEL_LDFLAGS="-Wl,-z,nodelete"
+    fi
   fi
 fi
 

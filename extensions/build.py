@@ -285,9 +285,18 @@ def cuda_settings():
             raise SystemExit(f"cannot read the CUDA version from {cuda_compiler[0]}")
         variant = "cuda" + release[1]
         macro = "-D__PLUMED_HAS_CUDA=1"
-    # The GPU runtime belongs to this library: never unload it while an MD code
-    # may still hold GPU memory (PLUMED unloads libraries when it is destroyed).
-    nodelete = [] if soext == "dylib" else ["-Wl,-z,nodelete"]
+    # Shared runtimes are retained independently with dlopen(RTLD_NODELETE).
+    # A static CUDA runtime is embedded here and still requires retaining this DSO.
+    can_retain_runtime = all(
+        "-D" + macro + "=1" in cppflags
+        for macro in ("__PLUMED_HAS_DLOPEN", "__PLUMED_HAS_DLADDR")
+    )
+    nodelete = (
+        ["-Wl,-z,nodelete"]
+        if soext == "so"
+        and (not can_retain_runtime or (cuda_backend != "hipcc" and cudart == "static"))
+        else []
+    )
     cuda_toolchain.update(
         flags=flags_,
         extra=extra,

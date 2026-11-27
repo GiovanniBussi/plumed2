@@ -30,6 +30,7 @@
 #include "colvar/ReactiveVoronoiBackend.h"
 #include "core/GpuDevice.h"
 #include "tools/Pbc.h"
+#include "tools/DLLoader.h"
 #include "tools/Tools.h"
 #include "gpu_cuda_hip/cudaHelpers.cuh"
 #include <algorithm>
@@ -41,6 +42,10 @@
 namespace PLMD {
 namespace gpu_voronoi {
 namespace {
+
+// This module does not link gpu_cuda_hip: retain its own shared runtime too.
+const bool retainedRuntime=DLLoader::retainExternalLibrary(
+                             reinterpret_cast<const void*>(&cudaGetDeviceCount),&retainedRuntime);
 
 using CUDAHELPERS::cudaCheck;
 using CUDAHELPERS::deviceBuffer;
