@@ -312,16 +312,34 @@ ModuleLoader::Lifetime::Lifetime() {
   auto& shared=state();
   std::lock_guard<std::recursive_mutex> lock(shared.mutex);
   ++shared.clients;
+  if(std::getenv("PLUMED_LOAD_DEBUG")) {
+    std::fprintf(stderr,"[lifetime] acquire clients=%zu\n",shared.clients);
+  }
 }
 
 ModuleLoader::Lifetime::~Lifetime() {
   auto& shared=state();
   std::lock_guard<std::recursive_mutex> lock(shared.mutex);
+  if(std::getenv("PLUMED_LOAD_DEBUG")) {
+    std::fprintf(stderr,"[lifetime] release clients=%zu\n",shared.clients);
+    std::fflush(stderr);
+  }
   if(--shared.clients==0) {
+    // Diagnostic-only control: restore static-exit cleanup for comparison.
+    if(std::getenv("PLUMED_DIAGNOSTIC_KEEP_MODULES")) {
+      std::fprintf(stderr,"[lifetime] control: defer retained cleanup to static exit\n");
+      return;
+    }
+    if(std::getenv("PLUMED_LOAD_DEBUG")) {
+      std::fprintf(stderr,"[lifetime] last client: clear registry, reset retained\n");
+    }
     // Withdraw the borrowed registry images before closing their owning handles.
     // The caller still retains the kernel until after this destructor returns.
     Register::setAutomaticImages({});
     shared.retained.reset();
+    if(std::getenv("PLUMED_LOAD_DEBUG")) {
+      std::fprintf(stderr,"[lifetime] last client: reset completed\n");
+    }
   }
 }
 

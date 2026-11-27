@@ -40,6 +40,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v6
+    - name: Locate debugger
+      run: command -v gdb
     - name: Install conda
       run: |
         curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
@@ -105,3 +107,11 @@ jobs:
         source activate base
         export CONDA_LABEL=tag
         make -C conda upload
+
+    - name: Upload lifetime diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: conda-lifetime-diagnostics
+        path: ${{ runner.temp }}/plumed-lifetime-diagnostics
+        if-no-files-found: ignore

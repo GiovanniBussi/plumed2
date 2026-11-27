@@ -45,7 +45,16 @@ bool DLLoader::installed() {
 void* DLLoader::load(const std::string&s) {
 #ifdef __PLUMED_HAS_DLOPEN
   auto lockerAction=Register::registrationLock(s);
+  const bool debug=std::getenv("PLUMED_LOAD_DEBUG");
+  if(debug) {
+    std::fprintf(stderr,"[lifetime] dlopen begin %s\n",s.c_str());
+    std::fflush(stderr);
+  }
   void* p=dlopen(s.c_str(),RTLD_NOW|RTLD_LOCAL);
+  if(debug) {
+    std::fprintf(stderr,"[lifetime] dlopen end %s handle=%p\n",s.c_str(),p);
+    std::fflush(stderr);
+  }
   if(!p) {
     plumed_error()<<"Could not load library "<<s<<"\n"<<dlerror();
   }
@@ -71,7 +80,16 @@ DLLoader::~DLLoader() {
     std::fprintf(stderr,"delete dlloader\n");
   }
   while(!handles.empty()) {
-    int ret=dlclose(handles.back());
+    void* handle=handles.back();
+    if(debug) {
+      std::fprintf(stderr,"[lifetime] dlclose begin handle=%p\n",handle);
+      std::fflush(stderr);
+    }
+    int ret=dlclose(handle);
+    if(debug) {
+      std::fprintf(stderr,"[lifetime] dlclose end handle=%p result=%d\n",handle,ret);
+      std::fflush(stderr);
+    }
     if(ret) {
       std::fprintf(stderr,"+++ error reported by dlclose: %s\n",dlerror());
     }
