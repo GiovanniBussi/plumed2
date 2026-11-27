@@ -22,8 +22,10 @@
 #include "core/ActionWithArguments.h"
 #include "core/ActionPilot.h"
 #include "core/ActionRegister.h"
+#include "core/ActionSet.h"
 #include "core/PlumedMain.h"
 #include "ActionWithGrid.h"
+#include "Histogram.h"
 #include "tools/OFile.h"
 
 namespace PLMD {
@@ -94,6 +96,13 @@ information about the function plotted and that looks something like this:
 The header shown here tells us that we have grid showing the values that a function with two arguments x and y
 takes at various points in our cell.  The lines beneath the first line then tell us a little bit about these two
 input arguments.
+
+For a HISTOGRAM, the normalisation field records the accumulated statistical
+weight in the current block, including when NORMALIZATION=false. For an
+unweighted histogram this is the number of accumulated sampling steps. This
+metadata is also retained by CONVERT_TO_FES and pointwise CUSTOM or MATHEVAL
+expressions with a single grid input. The field is emitted when an unambiguous
+scalar histogram weight can be identified.
 
 The remaining lines of the file give us information on the positions of our grid points and the value the function and
 its partial derivatives with respect to x and y.  If the header is as above a list of values of the function that have
@@ -183,6 +192,8 @@ class DumpGrid :
 private:
   std::string fmt, filename;
   bool onefile, xyzfile;
+  Value* normalization;
+  Value* getHistogramWeight(Value* grid) const;
 public:
   static void registerKeywords( Keywords& keys );
   explicit DumpGrid(const ActionOptions&ao);
@@ -212,7 +223,8 @@ DumpGrid::DumpGrid(const ActionOptions&ao):
   Action(ao),
   ActionWithArguments(ao),
   ActionPilot(ao),
-  fmt("%f") {
+  fmt("%f"),
+  normalization(nullptr) {
   if( getNumberOfArguments()==0 ) {
     std::vector<Value*> grids;
     parseArgumentList("GRID",grids);
@@ -259,6 +271,46 @@ DumpGrid::DumpGrid(const ActionOptions&ao):
     log.printf("  printing all grids on a single file \n");
   } else {
     log.printf("  printing all grids on separate files \n");
+  }
+  if(getName()=="DUMPGRID" && !xyzfile) {
+    normalization=getHistogramWeight(getPntrToArgument(0));
+    if(normalization) {
+      addDependency(normalization->getPntrToAction());
+    }
+  }
+}
+
+Value* DumpGrid::getHistogramWeight(Value* grid) const {
+  while(true) {
+    auto* source=grid->getPntrToAction();
+    auto* histogram=dynamic_cast<Histogram*>(plumed.getActionSet().getShortcutActionWithLabel(source->getLabel()));
+    if(histogram) {
+      auto* weight=histogram->getWeightSum();
+      return weight->getNumberOfValues()==1 ? weight : nullptr;
+    }
+    // Carry the provenance through a pointwise grid expression, including
+    // CONVERT_TO_FES. Multiple grid inputs have no unambiguous block weight.
+    // Do not attribute an ensemble weight to raw KDE or temporal accumulations.
+    if(source->getName()!="CUSTOM_GRID" && source->getName()!="MATHEVAL_GRID") {
+      return nullptr;
+    }
+    auto* gridArguments=dynamic_cast<ActionWithArguments*>(source);
+    plumed_assert(gridArguments);
+    Value* input=nullptr;
+    for(unsigned i=0; i<gridArguments->getNumberOfArguments(); ++i) {
+      auto* argument=gridArguments->getPntrToArgument(i);
+      if(argument->getRank()==0 || !argument->hasDerivatives()) {
+        continue;
+      }
+      if(input) {
+        return nullptr;
+      }
+      input=argument;
+    }
+    if(!input) {
+      return nullptr;
+    }
+    grid=input;
   }
 }
 
@@ -357,6 +409,9 @@ void DumpGrid::update() {
     std::vector<double> xx( gval->getRank() );
     std::vector<unsigned> ind( gval->getRank() );
     std::vector<std::string> argn( ag->getGridCoordinateNames() );
+    if(normalization) {
+      ofile.addConstantField("normalisation");
+    }
     if( mygrid.getGridType()=="fibonacci" ) {
       ofile.addConstantField("nbins");
     } else {
@@ -376,6 +431,9 @@ void DumpGrid::update() {
         ofile.printf("\n");
       }
       ofile.fmtField(fmt);
+      if(normalization) {
+        ofile.printField("normalisation",normalization->get());
+      }
       if( mygrid.getGridType()=="fibonacci" ) {
         ofile.printField("nbins", static_cast<int>(gval->getNumberOfValues()) );
       } else {
