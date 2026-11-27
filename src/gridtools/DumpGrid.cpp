@@ -193,7 +193,7 @@ private:
   std::string fmt, filename;
   bool onefile, xyzfile;
   Value* normalization;
-  Value* getHistogramWeight(const Value* grid) const;
+  Value* getHistogramWeight(Value* grid) const;
 public:
   static void registerKeywords( Keywords& keys );
   explicit DumpGrid(const ActionOptions&ao);
@@ -280,7 +280,7 @@ DumpGrid::DumpGrid(const ActionOptions&ao):
   }
 }
 
-Value* DumpGrid::getHistogramWeight(const Value* grid) const {
+Value* DumpGrid::getHistogramWeight(Value* grid) const {
   while(true) {
     auto* source=grid->getPntrToAction();
     auto* histogram=dynamic_cast<Histogram*>(plumed.getActionSet().getShortcutActionWithLabel(source->getLabel()));
