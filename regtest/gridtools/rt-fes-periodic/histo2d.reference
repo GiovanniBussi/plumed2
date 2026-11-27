@@ -1,4 +1,5 @@
 #! FIELDS phi psi h2d dh2d_phi dh2d_psi
+#! SET normalisation   20.0000
 #! SET min_phi -pi
 #! SET max_phi pi
 #! SET nbins_phi  50
