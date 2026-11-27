@@ -69,7 +69,41 @@ for module, feature in [
     report = json.loads((reports / (module + ".json")).read_text())
     assert report["optional_features"][feature], report
 PYTHON
-"$prefix/bin/plumed" modules -q --has drr fourier pytorch metatomic ttsketch kenref
+# Dedicated diagnostic branch: retain traces even when the original command fails.
+diagnostics="${RUNNER_TEMP:-$task}/plumed-lifetime-diagnostics"
+mkdir -p "$diagnostics"
+export PLUMED_LOAD_DEBUG=1
+set +e
+"$prefix/bin/plumed" modules -q --has drr fourier pytorch metatomic ttsketch kenref >"$diagnostics/original.log" 2>&1
+original_status=$?
+cat "$diagnostics/original.log"
+if (( original_status != 0 )); then
+  echo "Original command status: $original_status"
+  timeout 180 gdb --batch --return-child-result \
+    -ex 'set pagination off' -ex 'set debuginfod enabled off' \
+    -ex run -ex 'thread apply all bt full' -ex 'info sharedlibrary' \
+    --args "$prefix/bin/plumed" modules -q --has drr fourier pytorch metatomic ttsketch kenref \
+    >"$diagnostics/gdb.log" 2>&1
+  echo "Debugger command status: $?"
+  cat "$diagnostics/gdb.log"
+  timeout 60 env LD_DEBUG=files "$prefix/bin/plumed" modules -q --has drr fourier pytorch metatomic ttsketch kenref \
+    >"$diagnostics/ld-debug.log" 2>&1
+  echo "Dynamic linker trace status: $?"
+  tail -n 160 "$diagnostics/ld-debug.log"
+  timeout 60 env PLUMED_DIAGNOSTIC_KEEP_MODULES=1 "$prefix/bin/plumed" modules -q --has drr fourier pytorch metatomic ttsketch kenref \
+    >"$diagnostics/static-cleanup-control.log" 2>&1
+  echo "Static cleanup control status: $?"
+  cat "$diagnostics/static-cleanup-control.log"
+  for module in drr fourier isdb-pytorch pytorch metatomic ttsketch kenref; do
+    timeout 60 env PLUMED_AUTOLOAD=0 "$prefix/bin/plumed" --load-module="$module" modules -q --has "$module" \
+      >"$diagnostics/module-$module.log" 2>&1
+    echo "Isolated module $module status: $?"
+    cat "$diagnostics/module-$module.log"
+  done
+  exit "$original_status"
+fi
+set -e
+unset PLUMED_LOAD_DEBUG
 cmp "$kernel" "$task/kernel-before"
 # Runtime features follow the selected module closure; config stays static.
 ! "$prefix/bin/plumed" config -q has libtorch

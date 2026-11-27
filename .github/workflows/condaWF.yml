@@ -45,6 +45,13 @@ jobs:
         curl -fLO https://raw.githubusercontent.com/GiovanniBussi/conda-ci/master/conda-ci
         source ./conda-ci install
         source ./conda-ci install-conda-build
+    - name: Install debugger
+      run: |
+        source activate base
+        if ! command -v gdb; then
+          conda install -y -n base --override-channels -c conda-forge gdb
+        fi
+        gdb --version
     - name: Provision NVHPC for the published OpenACC package
       if: ${{ inputs.upload_test_packages && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && matrix.os == 'ubuntu-latest' }}
       run: |
@@ -105,3 +112,11 @@ jobs:
         source activate base
         export CONDA_LABEL=tag
         make -C conda upload
+
+    - name: Upload lifetime diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: conda-lifetime-diagnostics
+        path: ${{ runner.temp }}/plumed-lifetime-diagnostics
+        if-no-files-found: ignore

@@ -71,7 +71,9 @@ int main(int argc,char**argv) {
     MPI_Init(&argc,&argv);
   }
 #endif
+  fprintf(stderr,"[lifetime] main before plumed_create\n");
   p=plumed_create();
+  fprintf(stderr,"[lifetime] main after plumed_create\n");
   plumed_error_init(&error);
 #if defined(__PLUMED_HAS_MPI) && __PLUMED_WRAPPER_MPI_HOST_ADAPTER
   {
@@ -92,14 +94,19 @@ int main(int argc,char**argv) {
     PLUMED_MAIN_CMD("CLTool setMPIComm",&comm);
   }
 #endif
+  fprintf(stderr,"[lifetime] main before CLTool run\n");
   PLUMED_MAIN_CMD("CLTool run",&ret);
+  fprintf(stderr,"[lifetime] main after CLTool run result=%d\n",ret);
+  fprintf(stderr,"[lifetime] main before plumed_finalize\n");
   plumed_finalize(p);
+  fprintf(stderr,"[lifetime] main after plumed_finalize\n");
 
 #ifdef __PLUMED_HAS_MPI
   if(!nompi) {
     MPI_Finalize();
   }
 #endif
+  fprintf(stderr,"[lifetime] main returning result=%d\n",ret);
   return ret;
 
 failure:
