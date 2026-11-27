@@ -294,11 +294,11 @@ Value* DumpGrid::getHistogramWeight(Value* grid) const {
     if(source->getName()!="CUSTOM_GRID" && source->getName()!="MATHEVAL_GRID") {
       return nullptr;
     }
-    auto* arguments=dynamic_cast<ActionWithArguments*>(source);
-    plumed_assert(arguments);
+    auto* gridArguments=dynamic_cast<ActionWithArguments*>(source);
+    plumed_assert(gridArguments);
     Value* input=nullptr;
-    for(unsigned i=0; i<arguments->getNumberOfArguments(); ++i) {
-      auto* argument=arguments->getPntrToArgument(i);
+    for(unsigned i=0; i<gridArguments->getNumberOfArguments(); ++i) {
+      auto* argument=gridArguments->getPntrToArgument(i);
       if(argument->getRank()==0 || !argument->hasDerivatives()) {
         continue;
       }
