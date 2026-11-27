@@ -19,8 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#include "Histogram.h"
 #include "core/ActionRegister.h"
-#include "core/ActionShortcut.h"
 #include "core/ActionWithValue.h"
 #include "core/ActionWithArguments.h"
 #include "core/PlumedMain.h"
@@ -222,12 +222,6 @@ DUMPGRID ARG=hB FILE=histoB STRIDE=1
 namespace PLMD {
 namespace gridtools {
 
-class Histogram : public ActionShortcut {
-public:
-  static void registerKeywords( Keywords& keys );
-  explicit Histogram( const ActionOptions& );
-};
-
 PLUMED_REGISTER_ACTION(Histogram,"HISTOGRAM")
 
 void Histogram::registerKeywords( Keywords& keys ) {
@@ -259,7 +253,8 @@ void Histogram::registerKeywords( Keywords& keys ) {
 
 Histogram::Histogram( const ActionOptions& ao ):
   Action(ao),
-  ActionShortcut(ao) {
+  ActionShortcut(ao),
+  weightSum(nullptr) {
   std::string normflag;
   parse("NORMALIZATION",normflag);
   std::string lw;
@@ -304,6 +299,8 @@ Histogram::Histogram( const ActionOptions& ao ):
   readInputLine( getShortcutLabel() + "_kdep: CUSTOM ARG=" + getShortcutLabel() + "_kde," + getShortcutLabel() + "_weight FUNC=x*y PERIODIC=NO");
   // And accumulate the average
   if( normflag=="false" ) {
+    // The legacy grid format records the weight even for an unnormalized grid.
+    readInputLine( getShortcutLabel() + "_nsum: ACCUMULATE ARG=" + getShortcutLabel() + "_weight STRIDE=" + stride + " CLEAR=" + clearstride + " " + getUpdateLimits() );
     readInputLine( getShortcutLabel() + ": ACCUMULATE ARG=" + getShortcutLabel() + "_kdep STRIDE=" + stride + " CLEAR=" + clearstride + " " + getUpdateLimits() );
   } else {
     readInputLine( getShortcutLabel() + "_u: ACCUMULATE ARG=" + getShortcutLabel() + "_kdep STRIDE=" + stride + " CLEAR=" + clearstride + " " + getUpdateLimits() );
@@ -311,6 +308,9 @@ Histogram::Histogram( const ActionOptions& ao ):
     // And divide by the total weight
     readInputLine( getShortcutLabel() + ": CUSTOM ARG=" + getShortcutLabel() + "_u," + getShortcutLabel() + "_nsum FUNC=x/y PERIODIC=NO");
   }
+  auto* counter=plumed.getActionSet().selectWithLabel<ActionWithValue*>(getShortcutLabel() + "_nsum");
+  plumed_assert(counter);
+  weightSum=counter->copyOutput(0);
 }
 
 }
