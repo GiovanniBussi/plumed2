@@ -1,0 +1,32 @@
+type=driver
+plumed_modules="gridtools function generic"
+arg="--plumed plumed.dat --noatoms"
+
+check_histogram() {
+  if ! awk -v wantWeight="$2" -v kind="$3" -v block="$4" -v dimension="$5" -f check.awk "$1"; then
+    echo "FAILURE: histogram metadata/value check for $1"
+  fi
+}
+
+plumed_regtest_after() {
+  check_histogram weighted 18 normalized 2 1
+  check_histogram analysis.1.weighted 9 normalized 1 1
+  check_histogram analysis.0.weighted 0 header 0 1
+  check_histogram raw 18 raw 2 1
+  check_histogram analysis.1.raw 9 raw 1 1
+  check_histogram ndata 3 ndata 0 1
+  check_histogram vector 3 ndata 0 1
+  check_histogram twod 18 normalized 2 2
+  check_histogram analysis.1.twod 9 normalized 1 2
+  check_histogram fes 18 fes 2 1
+  check_histogram analysis.1.fes 9 fes 1 1
+  check_histogram matheval 18 scaled 2 1
+  check_histogram analysis.1.matheval 9 scaled 1 1
+  check_histogram strided 7 strided 3 1
+  check_histogram analysis.2.strided 8 strided 2 1
+  check_histogram analysis.1.strided 3 strided 1 1
+  check_histogram limited 14 limited 0 1
+  for grid in kde mixed temporal transformed_kde; do
+    check_histogram "$grid" -1 header 0 1
+  done
+}
